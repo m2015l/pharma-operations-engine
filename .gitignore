@@ -1,0 +1,37 @@
+# Segredos e credenciais
+.env
+credentials.json
+token.json
+*.pem
+*.key
+
+# Temporários e intermediários
+.tmp/
+*.log
+*.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Dados locais (acervo bruto não versionado — vive no Supabase/Storage)
+data/raw/
+data/processed/
+*.sqlite
+*.db
+
+# IDE / SO
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml

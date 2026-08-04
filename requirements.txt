@@ -1,0 +1,34 @@
+# Solufarma Módulo 2 — dependências iniciais
+# Versões serão pinadas quando o ambiente for validado (semana 1).
+
+# Core
+python-dotenv
+pydantic
+
+# Banco de dados / Supabase
+supabase
+psycopg[binary]
+sqlalchemy
+pgvector
+
+# RAG / LLMs
+langchain
+langchain-anthropic
+langchain-openai
+langchain-community
+anthropic
+openai
+
+# Processamento de documentos / OCR
+pypdf
+pdfplumber
+pytesseract
+pdf2image
+pillow
+
+# Interface
+streamlit
+
+# Dev / qualidade
+pytest
+ruff
