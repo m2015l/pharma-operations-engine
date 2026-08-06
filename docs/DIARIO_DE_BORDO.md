@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-08-05 — Respostas do kickoff e primeiros workflows (Roger + Claude)
+
+**O que foi feito:**
+- Roger respondeu as pendências do kickoff: editais entrarão **via upload no frontend Streamlit** e ficarão no Supabase (ADR-003); conta Supabase já existe (chaves LLM virão depois); cronograma sem datas absolutas (ADR-004); nomes da equipe registrados em `EQUIPE.md` (Diva — gerente; Sparrow, Bia, Mosquitão);
+- Criados os dois primeiros workflows WAT: `workflows/ingestao_documento.md` e `workflows/geracao_embeddings.md` (com tabelas de tools a implementar);
+- Tabela de pendências do `PLANO_PROJETO.md` atualizada.
+
+**Aprendizados / observações:**
+- A ingestão via Streamlit antecipa parte da interface: uma versão mínima de upload precisa existir já na fase de dados (consequência registrada no ADR-003);
+- Falta confirmar o GitHub dos integrantes e se algum apelido corresponde ao próprio Roger.
+
+**Próximos passos:**
+- Obter credenciais do Supabase existente e preencher `.env`;
+- Habilitar pgvector e aplicar o DDL inicial (docs/ARQUITETURA.md §3);
+- Implementar `tools/ingest_document.py` e `tools/extract_text.py` (podem começar antes das chaves LLM: upload, hash, triagem e extração nativa não dependem de LLM);
+- Push do commit inicial (aguardando confirmação do Roger).
+
+---
+
 ## 2026-08-04 — Setup inicial do projeto (Roger + Claude)
 
 **O que foi feito:**

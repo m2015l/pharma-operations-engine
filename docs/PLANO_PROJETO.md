@@ -101,9 +101,10 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 
 | # | Pendência | Responsável | Status |
 |---|-----------|-------------|--------|
-| 1 | Data oficial de início (semana 1) | Equipe | ⏳ Aberto |
-| 2 | Acesso ao acervo histórico da Solufarma (onde está? formato? volume?) | Equipe ↔ Cliente | ⏳ Aberto |
-| 3 | Conta Supabase (quem cria? plano free ou pago?) | Equipe | ⏳ Aberto |
-| 4 | Chaves de API LLM (Claude e/ou OpenAI — cliente paga; quem provisiona?) | Equipe ↔ Cliente | ⏳ Aberto |
+| 1 | ~~Acesso ao acervo histórico~~ → editais chegam via upload no frontend Streamlit e ficam no Supabase (ver ADR-003) | — | ✅ Resolvido (05/08/26) |
+| 2 | ~~Conta Supabase~~ → conta já existe; obter credenciais de acesso para o `.env` da equipe | Equipe | 🔶 Parcial |
+| 3 | Chaves de API LLM (Claude / OpenAI) — serão providenciadas mais tarde | Cliente ↔ Equipe | ⏳ Aguardando |
+| 4 | ~~Datas do cronograma~~ → decisão: não gerenciar por datas absolutas, apenas por fases/semanas relativas | — | ✅ Resolvido (05/08/26) |
 | 5 | Critérios de decisão da Solufarma para padronizar saídas do agente | Cliente | ⏳ Aberto |
-| 6 | Divisão de papéis entre os 4 integrantes | Equipe | ⏳ Aberto |
+| 6 | ~~Nomes da equipe~~ → registrados em EQUIPE.md; falta confirmar GitHub de cada um e a divisão por frentes | Equipe | 🔶 Parcial |
+| 7 | Push do commit inicial para o GitHub (repo remoto ainda vazio) | Roger | ⏳ Aguardando confirmação |

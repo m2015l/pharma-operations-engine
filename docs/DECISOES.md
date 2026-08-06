@@ -27,6 +27,31 @@
 
 ---
 
+## ADR-003 — Ingestão de editais via upload no frontend Streamlit
+
+**Data**: 2026-08-05 · **Status**: Aceita (definida pelo Roger)
+
+**Contexto**: a proposta original menciona "levantamento e organização do acervo histórico" como atividade das semanas 1–4, o que sugeria uma carga inicial em massa de documentos.
+
+**Decisão**: os editais serão enviados pela própria equipe/cliente **através do frontend Streamlit** e armazenados no **Supabase** (Storage + PostgreSQL). O upload no Streamlit é o ponto de entrada oficial do pipeline de ingestão — não haverá processo separado de carga em massa por enquanto.
+
+**Justificativa**: simplifica o fluxo (um único caminho de entrada), e a conta Supabase já existe.
+
+**Consequências**:
+- O fluxo de upload + processamento precisa ficar pronto **mais cedo** do que o cronograma original sugeria (a interface deixa de ser "só semanas 10–12" — uma versão mínima de upload é necessária já na fase de dados);
+- O pipeline de ingestão deve funcionar em modo síncrono/interativo (usuário espera o processamento) e ser idempotente (mesmo edital enviado duas vezes não duplica);
+- Se um acervo histórico em massa aparecer depois, os mesmos scripts de `tools/` devem aceitar execução em lote via CLI.
+
+---
+
+## ADR-004 — Cronograma gerenciado por fases, não por datas
+
+**Data**: 2026-08-05 · **Status**: Aceita (definida pelo Roger)
+
+**Decisão**: o projeto não será gerenciado por datas absolutas — apenas pela sequência de fases/semanas relativas do plano (Infra e Dados → Agente e Vetorização → Interface e Handoff → Suporte). Os documentos não devem prender-se a datas de calendário.
+
+---
+
 ## Decisões pendentes
 
 | # | Decisão | Opções em avaliação | Prazo sugerido |
