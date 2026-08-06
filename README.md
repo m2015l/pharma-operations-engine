@@ -45,7 +45,23 @@ workflows/      # SOPs em markdown (framework WAT)
    pip install -r requirements.txt
    ```
 2. Copie `.env.example` para `.env` e preencha as chaves (Supabase, Anthropic/OpenAI).
-3. Consulte [docs/DIARIO_DE_BORDO.md](docs/DIARIO_DE_BORDO.md) para o estado atual do trabalho.
+3. Rode os testes — eles funcionam **sem** Supabase e sem chaves de API:
+   ```bash
+   .venv/Scripts/python.exe -m pytest              # 56 testes offline
+   .venv/Scripts/python.exe -m ruff check src/ tests/ tools/
+   ```
+4. Consulte [docs/DIARIO_DE_BORDO.md](docs/DIARIO_DE_BORDO.md) para o estado atual do trabalho.
+
+## Onde está o quê
+
+| Você quer... | Leia |
+|---|---|
+| Entender o estado atual do trabalho | [docs/DIARIO_DE_BORDO.md](docs/DIARIO_DE_BORDO.md) |
+| Mexer no pipeline RAG ou no agente | [docs/FRENTE_RAG.md](docs/FRENTE_RAG.md) |
+| Ver o escopo e o que falta fazer | [docs/PLANO_PROJETO.md](docs/PLANO_PROJETO.md) |
+| Entender a arquitetura técnica | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) |
+| Saber por que algo foi decidido assim | [docs/DECISOES.md](docs/DECISOES.md) |
+| Executar um procedimento (SOPs) | [workflows/](workflows/) |
 
 ## Equipe
 

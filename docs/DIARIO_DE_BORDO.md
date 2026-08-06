@@ -26,6 +26,10 @@
 - Um test double mal dimensionado inverte o resultado dos testes que deveria sustentar;
 - Vale rodar revisão de escopo junto com a de código — foi ela que pegou a questão contratual do LangChain, que nenhuma revisão técnica apontaria.
 
+**Onde ler os detalhes:**
+- Guia completo do código da frente (estrutura, como rodar, decisões de design, o que falta): [FRENTE_RAG.md](FRENTE_RAG.md);
+- Questão do LangChain, com opções e recomendação: [ADR-005 em DECISOES.md](DECISOES.md).
+
 **Pendências abertas por esta sessão** (ver PLANO_PROJETO.md, itens 8–12):
 - 🔴 **LangChain**: o código não usa a biblioteca, mas ela é item explícito dos entregáveis contratados. **Decisão da equipe/Diva antes do merge** — não é escolha técnica isolada;
 - 🔴 Duas lacunas no DDL bloqueiam o `SupabaseChunkRepository` (frente de Dados & Infra);

@@ -52,6 +52,68 @@
 
 ---
 
+## ADR-005 — Orquestração do agente sem LangChain
+
+**Data**: 2026-08-05 · **Status**: 🔴 **PROPOSTA — pendente de decisão da equipe. Bloqueia o merge de `feature/rag-agente`.**
+
+> Esta ADR substitui a pendência P4 ("LangChain puro vs LangChain + LangGraph"), que
+> não previa a possibilidade que o código acabou tomando: nenhuma das duas.
+
+### Contexto
+
+O agente da branch `feature/rag-agente` foi implementado em **Python puro**: o fluxo
+(interpretar → buscar → refinar → responder → citar) é um encadeamento de 5 funções,
+sem LangChain e sem LangGraph. Nenhum arquivo do projeto importa essas bibliotecas
+(elas constam apenas do `requirements.txt`).
+
+**O problema não é técnico, é contratual.** A proposta assinada com a Solufarma cita
+LangChain em quatro pontos, incluindo — o mais grave — a lista de **Entregáveis**:
+
+> "Pipeline completo de RAG implementado com LangChain"
+
+Ou seja: um item que o cliente contratou pelo nome não existe no código.
+
+### Argumento técnico a favor do Python puro
+
+- O grafo tem 5 nós e 1 aresta condicional. Não há checkpoint, persistência de estado,
+  human-in-the-loop nem múltiplas ferramentas — nada do que justifica LangGraph;
+- Sem a dependência, todo o agente roda offline com fakes, o que permitiu escrever 56
+  testes sem Supabase e sem chaves de API;
+- Menos superfície de manutenção para uma equipe júnior em um projeto de 12 semanas.
+
+### Argumento contra
+
+- É item de entregável contratado. Um cliente (ou auditor) que abrir o repositório e
+  não encontrar a palavra "langchain" tem motivo legítimo de reclamação;
+- A decisão foi tomada dentro de um docstring, sem passar pela gerência do projeto —
+  falha de processo, independentemente do mérito técnico.
+
+### Opções
+
+| # | Opção | Cumpre o contrato? | Custo |
+|---|---|---|---|
+| A | Manter Python puro, sem LangChain | ❌ Não | Zero, mas mantém a exposição contratual |
+| B | **Python puro no agente + LangChain como camada fina** (`langchain-openai` para embeddings, `langchain-postgres` para o vector store) | ✅ Sim — há pipeline RAG com LangChain de fato | Baixo: 1–2 dias, refatoração dos adaptadores |
+| C | Reescrever tudo com LangChain/LangGraph | ✅ Sim | Alto: descarta código testado, adiciona complexidade sem ganho funcional |
+
+A opção B é a que a própria [ARQUITETURA.md](ARQUITETURA.md) §2.4 já sugeria:
+*"LangChain para o encanamento: loaders, splitters, integração de embeddings, retrievers"*.
+
+### Decisão proposta
+
+**Opção B.** Manter o grafo do agente em Python puro (a justificativa técnica é sólida e
+está documentada em `agent/agent.py`) e adotar LangChain como camada de integração do
+pipeline de RAG, cumprindo a letra do entregável.
+
+### Ação necessária antes do merge
+
+- [ ] Roger apresenta esta ADR à **Diva** (gerente do projeto);
+- [ ] Equipe decide entre A, B e C;
+- [ ] Se a escolha for A, avaliar se cabe alinhar com o cliente uma mudança formal do entregável;
+- [ ] Atualizar o status desta ADR para "Aceita" com a opção escolhida e a data.
+
+---
+
 ## Decisões pendentes
 
 | # | Decisão | Opções em avaliação | Prazo sugerido |
@@ -59,6 +121,7 @@
 | P1 | LLM principal | Claude (Anthropic) vs OpenAI vs ambos | Semana 1 |
 | P2 | Modelo de embeddings | OpenAI text-embedding-3 vs alternativas | Semana 4 |
 | P3 | Estratégia de OCR | Tesseract local vs API de visão LLM vs Document AI | Semana 2 |
-| P4 | Orquestração do agente | LangChain puro vs LangChain + LangGraph | Semana 5 |
+| ~~P4~~ | ~~Orquestração do agente~~ | Substituída pela **ADR-005** acima | 🔴 Bloqueia merge |
+| P5 | `doc_chunks` precisa de `content_hash` e de decisão sobre `orgao`/`data` | Denormalizar em `doc_chunks` vs usar JOIN | Antes do `SupabaseChunkRepository` |
 
 Ver análise de trade-offs em [ARQUITETURA.md](ARQUITETURA.md).
