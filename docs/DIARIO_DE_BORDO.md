@@ -5,6 +5,35 @@
 
 ---
 
+## 2026-08-05 — Frente RAG & Agente: primeira fatia implementada (Roger + Claude)
+
+**O que foi feito** (branch `feature/rag-agente`, ainda não mergeada):
+- Pacote `src/solufarma_rag/` com chunking estrutural, pipeline incremental de embeddings, busca híbrida (vetorial + léxica + RRF) e agente com contrato de citação obrigatória;
+- Toda dependência externa é injetável (Protocols): `FakeEmbeddingProvider`, `InMemoryChunkRepository` e `FakeLLM` permitem rodar tudo offline, sem Supabase e sem chaves de API;
+- CLIs em `tools/chunk_document.py` e `tools/generate_embeddings.py`;
+- Rascunho da RPC `busca_hibrida` em SQL — **entrega para a frente de Dados & Infra**, não aplicar daqui;
+- 56 testes pytest offline + ruff limpo.
+
+**Revisão dupla por agentes (revisor de código + guardião de escopo). Bugs reais encontrados e corrigidos:**
+1. **Resposta sem nenhuma citação passava como sucesso** — quebrava o requisito central de rastreabilidade. `RespostaAgente` ganhou `contrato_citacao_ok` e `citacoes_invalidas`, com log de erro;
+2. **Chunks estouravam o teto de tokens** (1143 contra teto de 1000): a contabilidade somava `estimar_tokens` por peça, e o arredondamento da divisão inteira acumulava; o prefixo contextual também não entrava no orçamento. Passou a ser contabilidade em caracteres;
+3. **A busca nunca voltava vazia** — sem piso de similaridade, o agente jamais diria "não encontrei no acervo" e o loop de refinamento era código morto;
+4. **O provedor fake de embeddings mentia** — com 64 dimensões, colisões de hash davam similaridade alta a textos sem palavra em comum; subido para 1024 (igual à produção);
+5. Menores: JSON com BOM quebrava o CLI (Windows grava BOM), trecho da citação era dominado pelo prefixo, import de símbolo privado entre módulos (extraído para `text_utils.py`), divergências entre o Python e o rascunho SQL.
+
+**Aprendizados:**
+- Testes com tolerância folgada não pegam bugs: o teste do teto de tokens aceitava 2× o limite e por isso não viu o estouro de 14%;
+- Um test double mal dimensionado inverte o resultado dos testes que deveria sustentar;
+- Vale rodar revisão de escopo junto com a de código — foi ela que pegou a questão contratual do LangChain, que nenhuma revisão técnica apontaria.
+
+**Pendências abertas por esta sessão** (ver PLANO_PROJETO.md, itens 8–12):
+- 🔴 **LangChain**: o código não usa a biblioteca, mas ela é item explícito dos entregáveis contratados. **Decisão da equipe/Diva antes do merge** — não é escolha técnica isolada;
+- 🔴 Duas lacunas no DDL bloqueiam o `SupabaseChunkRepository` (frente de Dados & Infra);
+- Piso de similaridade precisa de recalibração com embeddings reais;
+- Golden set de avaliação ainda não existe (depende de casos reais da Solufarma).
+
+---
+
 ## 2026-08-05 — Respostas do kickoff e primeiros workflows (Roger + Claude)
 
 **O que foi feito:**

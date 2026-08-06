@@ -107,4 +107,9 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 | 4 | ~~Datas do cronograma~~ → decisão: não gerenciar por datas absolutas, apenas por fases/semanas relativas | — | ✅ Resolvido (05/08/26) |
 | 5 | Critérios de decisão da Solufarma para padronizar saídas do agente | Cliente | ⏳ Aberto |
 | 6 | ~~Nomes da equipe~~ → registrados em EQUIPE.md; falta confirmar GitHub de cada um e a divisão por frentes | Equipe | 🔶 Parcial |
-| 7 | Push do commit inicial para o GitHub (repo remoto ainda vazio) | Roger | ⏳ Aguardando confirmação |
+| 7 | ~~Push do commit inicial~~ | Roger | ✅ Resolvido |
+| 8 | **LangChain ausente do código** — é item explícito dos entregáveis contratados, mas o agente foi feito em Python puro. Precisa de decisão da equipe/Diva antes do merge | Roger ↔ Diva | 🔴 **Bloqueante** |
+| 9 | `doc_chunks` sem coluna `content_hash` no DDL — a indexação incremental depende dela | Frente Dados & Infra | 🔴 Bloqueante p/ SupabaseChunkRepository |
+| 10 | `orgao`/`data` existem no `Chunk` do Python mas só em `licitacoes` no DDL — decidir denormalizar ou usar JOIN | Frente Dados & Infra | 🔴 Bloqueante p/ SupabaseChunkRepository |
+| 11 | Piso de similaridade da busca (`SIMILARIDADE_MINIMA_PADRAO=0.15`) calibrado contra provedor fake — recalibrar com embeddings reais | Frente RAG | ⏳ Semana de vetorização |
+| 12 | Golden set de avaliação do RAG não existe (a skill pede "desde o início") — depende de casos reais da Solufarma | Frente RAG ↔ Cliente | ⏳ Aberto |

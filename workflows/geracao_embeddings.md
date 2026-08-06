@@ -13,8 +13,14 @@ Gerar embeddings dos chunks de documentos com status `pronto_para_embedding` e i
 
 | Etapa | Tool | Status |
 |-------|------|--------|
-| Geração + gravação dos embeddings | `tools/generate_embeddings.py` | 🔲 a implementar |
-| Verificação da indexação / smoke test de busca | `tools/verify_index.py` | 🔲 a implementar |
+| Geração + gravação dos embeddings | `tools/generate_embeddings.py` (lógica em `src/solufarma_rag/ingestion/embeddings.py`) | ✅ implementado — só `--dry-run` até o Supabase existir |
+| Busca híbrida (vetorial + léxica + RRF) | `src/solufarma_rag/retrieval/hybrid_search.py` | ✅ implementado (offline) |
+| Verificação da indexação / smoke test de busca | `tools/verify_index.py` | 🔲 a implementar (depende do Supabase provisionado) |
+
+> Cobertura de testes offline: `tests/test_embeddings.py` e `tests/test_hybrid_search.py`.
+> A função RPC `busca_hibrida` está rascunhada em
+> `src/solufarma_rag/db/migrations/rascunho_busca_hibrida.sql` — **aplicação é da
+> frente de Dados & Infraestrutura**.
 
 > Regras detalhadas: skill `rag-licitacoes` (Skills/rag-licitacoes/SKILL.md). Modelo recomendado: `text-embedding-3-large` com `dimensions=1024` (ver docs/ARQUITETURA.md §2.2).
 
