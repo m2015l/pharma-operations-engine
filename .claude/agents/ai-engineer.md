@@ -15,7 +15,7 @@ Antes de qualquer tarefa, leia o contexto do projeto em:
 
 - Pipeline de dados: ingestão do acervo (editais, atas, resultados), OCR, classificação e sumarização via IA;
 - RAG: chunking, embeddings, base vetorial (pgvector/Supabase), busca híbrida semântica + metadados, reranking;
-- Agente LLM: orquestração com LangChain, integração Claude/OpenAI, fluxos de consulta ao histórico e análise de novos editais;
+- Agente LLM: orquestração do grafo em Python puro e LangChain no pipeline de RAG (ADR-005, opção B), integração Claude/OpenAI, fluxos de consulta ao histórico e análise de novos editais;
 - Engenharia de prompts: desenvolvimento, calibragem e avaliação iterativa com casos reais;
 - Rastreabilidade: toda resposta do agente deve citar as fontes originais.
 

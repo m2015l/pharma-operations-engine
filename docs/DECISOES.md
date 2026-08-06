@@ -54,7 +54,7 @@
 
 ## ADR-005 — Orquestração do agente sem LangChain
 
-**Data**: 2026-08-05 · **Status**: 🔴 **PROPOSTA — pendente de decisão da equipe. Bloqueia o merge de `feature/rag-agente`.**
+**Data**: 2026-08-05 · **Decidida em**: 2026-08-06 · **Status**: ✅ **Aceita — Opção B** (decisão do Roger)
 
 > Esta ADR substitui a pendência P4 ("LangChain puro vs LangChain + LangGraph"), que
 > não previa a possibilidade que o código acabou tomando: nenhuma das duas.
@@ -99,18 +99,52 @@ Ou seja: um item que o cliente contratou pelo nome não existe no código.
 A opção B é a que a própria [ARQUITETURA.md](ARQUITETURA.md) §2.4 já sugeria:
 *"LangChain para o encanamento: loaders, splitters, integração de embeddings, retrievers"*.
 
-### Decisão proposta
+### Decisão
 
-**Opção B.** Manter o grafo do agente em Python puro (a justificativa técnica é sólida e
-está documentada em `agent/agent.py`) e adotar LangChain como camada de integração do
-pipeline de RAG, cumprindo a letra do entregável.
+**Opção B**, decidida pelo Roger em 2026-08-06.
 
-### Ação necessária antes do merge
+Vale a divisão explícita, porque é ela que sustenta as duas metades da decisão:
 
-- [ ] Roger apresenta esta ADR à **Diva** (gerente do projeto);
-- [ ] Equipe decide entre A, B e C;
-- [ ] Se a escolha for A, avaliar se cabe alinhar com o cliente uma mudança formal do entregável;
-- [ ] Atualizar o status desta ADR para "Aceita" com a opção escolhida e a data.
+| Camada | Implementação | Por quê |
+|---|---|---|
+| **Pipeline de RAG** — embeddings, splitters, vector store | **LangChain** | É o "encanamento" genérico; a abstração paga por si (trocar de fornecedor sem tocar no pipeline) e é o que o entregável nomeia |
+| **Núcleo do agente** — grafo `interpretar → buscar → refinar → responder → citar` | **Python puro** | 5 nós, 1 aresta condicional, sem estado persistido; a abstração só adicionaria custo |
+| **Cliente do LLM do agente** | **SDK `anthropic` direto** | O cliente atual faz prompt caching do system prompt e trata `stop_reason == "refusal"` explicitamente; passar por wrapper perderia controle sem ganho |
+
+### Consequências
+
+**Já implementado** (2026-08-06):
+- `OpenAIEmbeddingProvider` deu lugar a `LangChainEmbeddingProvider` + `criar_provedor_openai()`
+  em [embeddings.py](../src/solufarma_rag/ingestion/embeddings.py): o adaptador aceita **qualquer**
+  `Embeddings` do LangChain, e a fábrica monta o padrão da arquitetura lendo o `.env`;
+- `requirements.txt` passou a listar só o que o código importa (`langchain-core`,
+  `langchain-openai`, `langchain-postgres`, `langchain-text-splitters`). Saíram `langchain`,
+  `langchain-anthropic` e `langchain-community` — declarar dependência não usada foi
+  justamente o que originou esta ADR;
+- O `EmbeddingProvider` continua sendo Protocol e o `FakeEmbeddingProvider` não mudou:
+  os testes seguem offline, sem LangChain instalado e sem chave de API.
+
+**Vector store — resolvido em 06/08/26, sem `langchain-postgres`**:
+
+A ressalva se confirmou: o `langchain-postgres` impõe schema próprio (tabelas `langchain_pg_*`
+com metadados em JSONB) e não faz busca híbrida com filtros SQL sobre `licitacoes`. Adotá-lo
+custaria ou duplicar o armazenamento vetorial, ou abrir mão da rastreabilidade
+chunk → documento → página, que é requisito central do projeto.
+
+Caminho adotado: o pgvector é acessado pelo `SupabaseChunkRepository` (psycopg direto) e a busca
+é exposta ao LangChain como `SolufarmaRetriever`
+([langchain_retriever.py](../src/solufarma_rag/retrieval/langchain_retriever.py)). O pipeline
+continua LangChain de ponta a ponta — `Embeddings` → `Retriever` → resposta — sem que o schema
+tenha de se dobrar à biblioteca. 8 testes cobrem essa fronteira, incluindo a preservação dos
+metadados de citação.
+
+### Ação restante
+
+- [x] Equipe decide entre A, B e C → **B**;
+- [x] Implementar a camada de embeddings via LangChain;
+- [ ] Roger comunica a decisão à **Diva** (gerente) — a escolha já não bloqueia o merge,
+      mas a gerência precisa saber que o entregável 3 mudou de forma;
+- [ ] Resolver a integração do vector store quando o Supabase for provisionado (ver ressalva acima).
 
 ---
 
@@ -121,7 +155,7 @@ pipeline de RAG, cumprindo a letra do entregável.
 | P1 | LLM principal | Claude (Anthropic) vs OpenAI vs ambos | Semana 1 |
 | P2 | Modelo de embeddings | OpenAI text-embedding-3 vs alternativas | Semana 4 |
 | P3 | Estratégia de OCR | Tesseract local vs API de visão LLM vs Document AI | Semana 2 |
-| ~~P4~~ | ~~Orquestração do agente~~ | Substituída pela **ADR-005** acima | 🔴 Bloqueia merge |
+| ~~P4~~ | ~~Orquestração do agente~~ | Resolvida pela **ADR-005** (opção B) | ✅ Resolvida (06/08/26) |
 | P5 | `doc_chunks` precisa de `content_hash` e de decisão sobre `orgao`/`data` | Denormalizar em `doc_chunks` vs usar JOIN | Antes do `SupabaseChunkRepository` |
 
 Ver análise de trade-offs em [ARQUITETURA.md](ARQUITETURA.md).

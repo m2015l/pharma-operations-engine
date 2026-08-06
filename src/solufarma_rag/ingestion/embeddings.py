@@ -8,9 +8,15 @@ Cumpre o SOP workflows/geracao_embeddings.md:
 5. Registra contagens e tokens consumidos (custo) no relatório.
 
 O provedor de embeddings é um Protocol: `FakeEmbeddingProvider` (determinístico,
-offline) para testes, `OpenAIEmbeddingProvider` para produção quando a
+offline) para testes, `LangChainEmbeddingProvider` para produção quando a
 OPENAI_API_KEY estiver provisionada (docs/ARQUITETURA.md §2.2:
 text-embedding-3-large com dimensions=1024).
+
+O provedor de produção é a camada LangChain do pipeline (ADR-005, opção B):
+qualquer objeto `Embeddings` do LangChain serve, o que permite trocar de
+fornecedor sem tocar neste pipeline. `criar_provedor_openai()` monta o padrão da
+arquitetura; a importação de `langchain_openai` é tardia para que os testes
+continuem rodando offline sem a biblioteca instalada.
 """
 
 from __future__ import annotations
@@ -90,38 +96,65 @@ class FakeEmbeddingProvider:
         return vetor
 
 
-class OpenAIEmbeddingProvider:
-    """Provedor real via API OpenAI (text-embedding-3-large @ dimensions=1024).
+@dataclass
+class LangChainEmbeddingProvider:
+    """Adapta qualquer `Embeddings` do LangChain ao Protocol `EmbeddingProvider`.
 
-    Import de `openai` é tardio: o pacote só é exigido quando este provedor é
-    de fato usado (produção). Requer OPENAI_API_KEY no ambiente.
+    Esta é a camada LangChain do pipeline de RAG (ADR-005, opção B): o pipeline
+    acima não conhece fornecedor nenhum, só este adaptador. Trocar OpenAI por
+    outro modelo é trocar o objeto passado em `embeddings` — nada mais muda.
+
+    `model_id` é gravado em `doc_chunks.embedding_model` e precisa identificar
+    modelo **e** dimensão: misturar dimensões diferentes no mesmo índice
+    corrompe a busca vetorial silenciosamente.
     """
 
-    def __init__(self, model: str = "text-embedding-3-large", dimensions: int = 1024) -> None:
-        try:
-            from openai import OpenAI
-        except ImportError as exc:  # pragma: no cover - caminho de produção
-            raise ImportError(
-                "O pacote 'openai' não está instalado. Instale-o (requirements.txt) "
-                "para gerar embeddings reais, ou use FakeEmbeddingProvider nos testes."
-            ) from exc
-        self._client = OpenAI()
-        self._model = model
-        self._dimensions = dimensions
+    embeddings: object  # langchain_core.embeddings.Embeddings
+    model: str
+    dims: int
 
     @property
     def model_id(self) -> str:
-        return f"{self._model}-{self._dimensions}"
+        return f"{self.model}-{self.dims}"
 
     @property
     def dimensions(self) -> int:
-        return self._dimensions
+        return self.dims
 
     def embed_batch(self, textos: list[str]) -> list[list[float]]:  # pragma: no cover
-        resposta = self._client.embeddings.create(
-            model=self._model, input=textos, dimensions=self._dimensions
-        )
-        return [item.embedding for item in resposta.data]
+        return self.embeddings.embed_documents(textos)
+
+
+def criar_provedor_openai(
+    model: str | None = None, dimensions: int | None = None
+) -> LangChainEmbeddingProvider:
+    """Monta o provedor de produção: `langchain_openai.OpenAIEmbeddings`.
+
+    Padrões vêm do `.env` via `get_settings()` (text-embedding-3-large @ 1024,
+    docs/ARQUITETURA.md §2.2). Requer OPENAI_API_KEY no ambiente — a chave é
+    resolvida pelo próprio cliente da OpenAI.
+
+    Import tardio: `langchain-openai` só é exigido quando o provedor real é de
+    fato usado, para os testes seguirem rodando offline com o fake.
+    """
+    try:
+        from langchain_openai import OpenAIEmbeddings
+    except ImportError as exc:  # pragma: no cover - caminho de produção
+        raise ImportError(
+            "O pacote 'langchain-openai' não está instalado. Instale-o "
+            "(requirements.txt) para gerar embeddings reais, ou use "
+            "FakeEmbeddingProvider nos testes."
+        ) from exc
+    from ..config import get_settings
+
+    settings = get_settings()
+    modelo = model or settings.embedding_model
+    dims = dimensions or settings.embedding_dimensions
+    return LangChainEmbeddingProvider(
+        embeddings=OpenAIEmbeddings(model=modelo, dimensions=dims),
+        model=modelo,
+        dims=dims,
+    )
 
 
 class RelatorioEmbeddings(BaseModel):

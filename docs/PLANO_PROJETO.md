@@ -31,7 +31,7 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 
 ### 3. Agente de IA
 - [ ] Integração com APIs Claude (Anthropic) e/ou OpenAI
-- [ ] Orquestração com LangChain
+- [ ] Orquestração do agente — grafo em Python puro por decisão da ADR-005 (opção B); LangChain fica no pipeline de RAG, não na orquestração
 - [ ] Lógica de interpretação de solicitações sobre licitações
 - [ ] Busca automatizada de projetos/equipamentos semelhantes no histórico
 - [ ] Análise de novos editais contra o acervo validado
@@ -64,7 +64,7 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 ### Semanas 5–9 — Agente de IA e Vetorização
 - [ ] Criação da base vetorial e geração dos embeddings
 - [ ] Indexação de editais, atas e resultados históricos
-- [ ] Pipeline de RAG com LangChain
+- [ ] Pipeline de RAG com LangChain (embeddings feitos; falta o vector store — ADR-005)
 - [ ] Integração com APIs Claude / OpenAI
 - [ ] Lógica do agente e fluxos de entrada/saída
 - [ ] Busca semântica e respostas com fontes citadas
@@ -102,14 +102,15 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 | # | Pendência | Responsável | Status |
 |---|-----------|-------------|--------|
 | 1 | ~~Acesso ao acervo histórico~~ → editais chegam via upload no frontend Streamlit e ficam no Supabase (ver ADR-003) | — | ✅ Resolvido (05/08/26) |
-| 2 | ~~Conta Supabase~~ → conta já existe; obter credenciais de acesso para o `.env` da equipe | Equipe | 🔶 Parcial |
+| 2 | ~~Conta Supabase~~ → conta existe e Roger tem acesso ao painel; falta só a senha do banco (item 13) | Equipe | 🔶 Parcial |
 | 3 | Chaves de API LLM (Claude / OpenAI) — serão providenciadas mais tarde | Cliente ↔ Equipe | ⏳ Aguardando |
 | 4 | ~~Datas do cronograma~~ → decisão: não gerenciar por datas absolutas, apenas por fases/semanas relativas | — | ✅ Resolvido (05/08/26) |
 | 5 | Critérios de decisão da Solufarma para padronizar saídas do agente | Cliente | ⏳ Aberto |
 | 6 | ~~Nomes da equipe~~ → registrados em EQUIPE.md; falta confirmar GitHub de cada um e a divisão por frentes | Equipe | 🔶 Parcial |
 | 7 | ~~Push do commit inicial~~ | Roger | ✅ Resolvido |
-| 8 | **LangChain ausente do código** — é item explícito dos entregáveis contratados, mas o agente foi feito em Python puro. Precisa de decisão da equipe/Diva antes do merge | Roger ↔ Diva | 🔴 **Bloqueante** |
-| 9 | `doc_chunks` sem coluna `content_hash` no DDL — a indexação incremental depende dela | Frente Dados & Infra | 🔴 Bloqueante p/ SupabaseChunkRepository |
-| 10 | `orgao`/`data` existem no `Chunk` do Python mas só em `licitacoes` no DDL — decidir denormalizar ou usar JOIN | Frente Dados & Infra | 🔴 Bloqueante p/ SupabaseChunkRepository |
+| 8 | ~~**LangChain ausente do código**~~ → decisão pela **opção B** da ADR-005: LangChain no pipeline de RAG (embeddings já implementados), Python puro no grafo do agente. Falta comunicar à Diva e fechar o vector store quando o Supabase existir | Roger ↔ Diva | ✅ Resolvido (06/08/26) |
+| 9 | ~~`doc_chunks` sem `content_hash`~~ → resolvido em `001_schema_inicial.sql`: entraram `content_hash` **e** `embedding_content_hash` | Frente RAG | ✅ Resolvido (06/08/26) |
+| 10 | ~~`orgao`/`data` no `Chunk` mas só em `licitacoes` no DDL~~ → decisão: mantidos em `licitacoes`, acessados por JOIN, sem duplicar escrita | Frente RAG | ✅ Resolvido (06/08/26) |
+| 13 | **Senha do banco Supabase** para montar a `DATABASE_URL` — sem ela nada roda contra o banco real | Diva → Roger | 🔴 Bloqueante |
 | 11 | Piso de similaridade da busca (`SIMILARIDADE_MINIMA_PADRAO=0.15`) calibrado contra provedor fake — recalibrar com embeddings reais | Frente RAG | ⏳ Semana de vetorização |
 | 12 | Golden set de avaliação do RAG não existe (a skill pede "desde o início") — depende de casos reais da Solufarma | Frente RAG ↔ Cliente | ⏳ Aberto |

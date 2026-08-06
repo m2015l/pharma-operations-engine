@@ -5,6 +5,81 @@
 
 ---
 
+## 2026-08-06 — Supabase: schema, repositório real e Retriever LangChain (Roger + Claude)
+
+**O que foi feito:**
+- `migrations/001_schema_inicial.sql` — schema completo e idempotente, com as duas lacunas de DDL
+  resolvidas: `doc_chunks` ganhou `content_hash` + `embedding_content_hash` (indexação incremental);
+  `orgao`/`data` continuam só em `licitacoes`, acessados por JOIN, sem duplicar escrita;
+- `SupabaseChunkRepository` implementado com psycopg + pgvector (era esqueleto que levantava
+  `NotImplementedError`), mais `criar_conexao()`;
+- `SolufarmaRetriever` — a busca híbrida exposta como `BaseRetriever` do LangChain, com 8 testes;
+- `tools/setup_supabase.py --apply --check` aplica a migração e diagnostica o banco;
+- `.env.example` e `config.py` atualizados para as chaves novas do Supabase
+  (`sb_publishable_` / `sb_secret_`), com fallback para os nomes antigos;
+- 64 testes passando, ruff limpo. **Nada rodou contra o banco real ainda** — falta a senha.
+
+**Duas decisões que mudaram o rumo:**
+1. **`langchain-postgres` ficou de fora.** A ressalva da ADR-005 se confirmou: schema próprio,
+   sem busca híbrida com filtros sobre `licitacoes`. Usá-lo custaria a rastreabilidade
+   chunk → documento → página. O Retriever resolve sem essa troca;
+2. **A RPC `busca_hibrida` não entrou no schema.** O RRF já existe em Python e é o que os testes
+   cobrem; manter a fusão em duas linguagens deixaria a versão testada fora de produção. O backend
+   faz duas consultas e funde em Python. Se a latência incomodar com acervo grande, a RPC volta —
+   e aí os testes passam a rodar contra ela.
+
+**Achado de segurança:** o schema estava sem RLS. Tudo em `public` é publicado pela API REST do
+Supabase, então sem RLS qualquer um com a publishable key — que por definição vai embutida no
+frontend — leria e escreveria o acervo inteiro. A migração agora liga RLS nas 5 tabelas sem
+nenhuma policy (nega tudo via API); o backend segue funcionando por conexão direta. O `--check`
+verifica isso.
+
+**Bloqueio:** `DATABASE_URL` depende da senha do banco, que a Diva vai passar. Enquanto isso o
+schema pode ser aplicado pelo SQL Editor do painel, que não exige a senha.
+
+---
+
+## 2026-08-06 — ADR-005 decidida: LangChain no pipeline, Python puro no agente (Roger + Claude)
+
+**A decisão** (branch `feature/rag-agente`): Roger escolheu a **opção B** da [ADR-005](DECISOES.md),
+que destravou o merge. A regra que sai disso, em uma linha: **LangChain é o encanamento do
+pipeline de RAG; o grafo do agente e o cliente Anthropic ficam em Python puro.**
+
+O cliente do LLM ficou de fora da camada LangChain de propósito — o `AnthropicLLM` atual faz
+prompt caching do system prompt e trata `stop_reason == "refusal"` explicitamente, e passar por
+wrapper custaria esse controle sem ganho contratual (o entregável nomeia o *pipeline de RAG*).
+
+**O que foi implementado:**
+- `OpenAIEmbeddingProvider` deu lugar a `LangChainEmbeddingProvider` + `criar_provedor_openai()`
+  em [embeddings.py](../src/solufarma_rag/ingestion/embeddings.py). O adaptador aceita **qualquer**
+  `Embeddings` do LangChain — trocar de fornecedor não toca no pipeline. A fábrica lê modelo e
+  dimensão do `.env` via `get_settings()` (o provedor antigo hardcodava os valores, divergindo do
+  `AnthropicLLM`, que já lia as settings);
+- `requirements.txt` passou a listar só o que o código importa: entraram `langchain-core`,
+  `langchain-postgres` e `langchain-text-splitters`; saíram `langchain`, `langchain-anthropic` e
+  `langchain-community`. Declarar dependência que ninguém importa foi exatamente o que originou
+  esta ADR — repetir isso do outro lado não resolveria nada;
+- `PLANO_PROJETO.md`: o item "Orquestração com LangChain" foi reescrito, porque a decisão mudou o
+  que ele significa — a orquestração **não** será LangChain.
+- 56 testes pytest passando e ruff limpo, ainda 100% offline: o import de `langchain_openai` é
+  tardio, então a suíte roda sem a biblioteca instalada e sem chave de API.
+
+**Aprendizados / observações:**
+- A metade "vector store" da opção B não pôde ser feita: depende do Supabase provisionado e das
+  duas lacunas de DDL (pendências 9 e 10), que continuam abertas;
+- ⚠️ **Ressalva registrada na ADR**: o `langchain-postgres` traz convenções próprias de schema e
+  não executa a busca híbrida com RRF da RPC `busca_hibrida`. Se ele não acomodar o DDL da
+  arquitetura, o caminho que preserva o projeto é expor o `HybridSearcher` como um `Retriever` do
+  LangChain sobre o pgvector — segue sendo pipeline LangChain de ponta a ponta, sem descartar o
+  schema. **Verificar antes de escrever o `SupabaseChunkRepository`, não depois.**
+
+**Próximos passos:**
+- Roger comunica a decisão à Diva — não bloqueia mais o merge, mas a gerência precisa saber que a
+  forma do entregável 3 mudou;
+- Fechar a integração do vector store quando o Supabase estiver de pé (ver ressalva acima).
+
+---
+
 ## 2026-08-05 — Frente RAG & Agente: primeira fatia implementada (Roger + Claude)
 
 **O que foi feito** (branch `feature/rag-agente`, ainda não mergeada):

@@ -35,3 +35,8 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Agent skills (locais, nao versionados)
+.agents/
+.claude/skills/
+skills-lock.json

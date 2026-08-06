@@ -33,8 +33,16 @@ class Settings:
     """
 
     supabase_url: str = field(default_factory=lambda: os.getenv("SUPABASE_URL", ""))
-    supabase_service_role_key: str = field(
-        default_factory=lambda: os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    # Chaves no formato novo do Supabase (sb_publishable_... / sb_secret_...).
+    # Os nomes antigos (ANON / SERVICE_ROLE) continuam sendo lidos como fallback
+    # para não quebrar quem ainda tiver o `.env` no formato anterior.
+    supabase_publishable_key: str = field(
+        default_factory=lambda: os.getenv("SUPABASE_PUBLISHABLE_KEY")
+        or os.getenv("SUPABASE_ANON_KEY", "")
+    )
+    supabase_secret_key: str = field(
+        default_factory=lambda: os.getenv("SUPABASE_SECRET_KEY")
+        or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     )
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
 

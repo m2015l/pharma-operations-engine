@@ -19,11 +19,13 @@ Se nada for encontrado no acervo, o agente responde explicitamente que não
 encontrou (`encontrou_no_acervo=False`) em vez de responder por conhecimento
 geral — regra central do projeto.
 
-Nota de decisão: o núcleo não importa LangGraph. O grafo tem 5 nós, 1 aresta
-condicional e nenhum requisito de persistência/checkpoint, então o custo de
-manutenção da dependência não se paga nesta fatia; toda a lógica fica testável
-offline com fakes. Se o agente ganhar múltiplas ferramentas, human-in-the-loop
-ou retomada de estado, migrar para LangGraph (candidato a ADR).
+Nota de decisão (formalizada na ADR-005, opção B — docs/DECISOES.md): o núcleo
+não importa LangGraph. O grafo tem 5 nós, 1 aresta condicional e nenhum
+requisito de persistência/checkpoint, então o custo de manutenção da dependência
+não se paga nesta fatia; toda a lógica fica testável offline com fakes. LangChain
+fica na camada de RAG (embeddings, splitters, vector store), não aqui. Se o
+agente ganhar múltiplas ferramentas, human-in-the-loop ou retomada de estado,
+migrar para LangGraph — e abrir nova ADR.
 """
 
 from __future__ import annotations

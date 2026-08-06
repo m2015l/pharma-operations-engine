@@ -6,18 +6,22 @@ python-dotenv
 pydantic
 
 # Banco de dados / Supabase
-supabase
-psycopg[binary]
-sqlalchemy
-pgvector
+psycopg[binary]   # driver do Postgres — db/repository.py
+pgvector          # registra o tipo vector no psycopg (sem ele o vetor vira string)
+supabase          # cliente do Storage: upload dos PDFs pelo Streamlit (ADR-003)
 
 # RAG / LLMs
-langchain
-langchain-anthropic
-langchain-openai
-langchain-community
-anthropic
-openai
+# LangChain é a camada de integração do pipeline de RAG (ADR-005, opção B):
+# embeddings, splitters e vector store. O núcleo do agente (interpretar → buscar
+# → responder → citar) segue em Python puro e fala com a Anthropic pelo SDK
+# direto — ver docs/DECISOES.md. Só listamos aqui o que o código de fato importa.
+langchain-core    # Document + BaseRetriever (retrieval/langchain_retriever.py)
+langchain-openai  # embeddings de produção (ingestion/embeddings.py)
+anthropic         # cliente do agente: prompt caching + tratamento de refusal
+openai            # cliente HTTP usado por langchain-openai
+# langchain-postgres ficou de fora: impõe schema próprio e não faz a busca
+# híbrida com filtros sobre `licitacoes`. O pgvector é acessado pelo
+# SupabaseChunkRepository e exposto ao LangChain como Retriever — ver ADR-005.
 
 # Processamento de documentos / OCR
 pypdf

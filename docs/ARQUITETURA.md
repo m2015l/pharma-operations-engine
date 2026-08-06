@@ -28,7 +28,7 @@ flowchart TB
     end
 
     subgraph CONSULTA["Pipeline de Consulta (online)"]
-        L[Usuário<br/>Streamlit: chat + upload de edital] --> M[Agente LLM<br/>Claude via LangChain/LangGraph]
+        L[Usuário<br/>Streamlit: chat + upload de edital] --> M[Agente LLM<br/>Claude · grafo em Python puro]
         M --> N[Retrieval híbrido<br/>vetorial + full-text + filtros SQL]
         N --> K
         K --> N
@@ -90,9 +90,14 @@ Atenção: usar `vector(1024)` + índice `hnsw (embedding vector_cosine_ops)`; f
 
 ### 2.4 Orquestração
 
-- **LangChain (escopo)** para o "encanamento": loaders, splitters, integração de embeddings, retrievers e o wrapper do pgvector (`langchain-postgres`).
-- **LangGraph para o agente** — recomendação forte. O fluxo do agente não é uma chain linear: ele decide entre *consultar histórico*, *analisar novo edital*, *pedir esclarecimento*, e pode iterar (buscar → avaliar → refinar busca). LangGraph modela isso como grafo de estados com checkpoints, é mantido pela mesma equipe do LangChain e é hoje o caminho recomendado para agentes (chains "Agent" clássicas do LangChain estão em manutenção). Custo de adoção baixo porque reusa todos os componentes LangChain.
-- Alternativa minimalista: loop de tool-use direto com o SDK da Anthropic (menos abstração, mais controle). Vale como plano B se LangGraph gerar atrito, mas para uma equipe de 4 em 12 semanas o ecossistema LangChain acelera mais do que atrapalha.
+> **Atualizado pela [ADR-005](DECISOES.md) (opção B, 06/08/26).** A recomendação original desta
+> seção era LangChain + LangGraph em tudo. Ao implementar, o grafo se mostrou pequeno demais para
+> justificar LangGraph, e a decisão foi dividir as camadas.
+
+- **LangChain para o "encanamento" do RAG**: loaders, splitters, integração de embeddings, retrievers e o acesso ao pgvector. É aqui que a abstração paga por si — trocar de fornecedor de embeddings não toca no pipeline.
+- **Grafo do agente em Python puro**: `interpretar → buscar → (refinar → buscar)? → responder → citar`. São 5 nós e 1 aresta condicional, sem checkpoint, sem estado persistido, sem human-in-the-loop e sem múltiplas ferramentas — nada do que LangGraph resolve. Em compensação, todo o agente roda offline com fakes, o que sustenta a suíte de testes sem Supabase e sem chave de API.
+- **Cliente do LLM pelo SDK `anthropic` direto**: o `AnthropicLLM` faz prompt caching do system prompt e trata `stop_reason == "refusal"` explicitamente; passar por wrapper custaria esse controle.
+- **Gatilho para reavaliar**: se o agente ganhar múltiplas ferramentas, human-in-the-loop ou retomada de estado, migrar o grafo para LangGraph passa a valer — e vira nova ADR.
 
 ### 2.5 LLM
 

@@ -201,18 +201,262 @@ class InMemoryChunkRepository:
         return len(self._registros)
 
 
-class SupabaseChunkRepository:
-    """Esqueleto do repositório real (pgvector no Supabase).
+# ---------------------------------------------------------------------------
+# Implementação real: Postgres/pgvector do Supabase
+# ---------------------------------------------------------------------------
 
-    NÃO implementado nesta fatia: as credenciais do Supabase ainda não foram
-    provisionadas e o DDL (docs/ARQUITETURA.md §3) será aplicado pela frente de
-    Dados & Infraestrutura. A busca híbrida no banco usará a função RPC
-    `busca_hibrida` — rascunho em db/migrations/rascunho_busca_hibrida.sql.
+# `orgao` e `data_abertura` vivem em `licitacoes`, não em `doc_chunks` (decisão
+# de DDL: não duplicar escrita). Todo SELECT que monta um Chunk completo passa
+# por estes JOINs — daí a constante, para as três consultas não divergirem.
+_SELECT_CHUNK = """
+    select c.documento_id, c.chunk_index, d.tipo, coalesce(l.orgao, '—') as orgao,
+           l.data_abertura, coalesce(c.secao, '') as secao,
+           c.pagina_inicio, c.pagina_fim, c.conteudo, c.token_count, c.content_hash,
+           {score} as score
+    from doc_chunks c
+    join documentos d on d.id = c.documento_id
+    left join licitacoes l on l.id = d.licitacao_id
+"""
+
+# Filtros por metadados aplicados ANTES do ranking (ARQUITETURA.md §5.1).
+# Cada filtro é neutro quando o parâmetro é NULL, então a mesma SQL serve para
+# qualquer combinação — sem montar string dinâmica (e sem risco de injeção).
+_WHERE_FILTROS = """
+    and (%(tipo)s::text is null or d.tipo = %(tipo)s)
+    and (%(orgao)s::text is null or l.orgao ilike '%%' || %(orgao)s || '%%')
+    and (%(data_inicio)s::date is null or l.data_abertura >= %(data_inicio)s)
+    and (%(data_fim)s::date is null or l.data_abertura <= %(data_fim)s)
+"""
+
+
+def _params_filtros(filtros: FiltrosBusca) -> dict:
+    return {
+        "tipo": filtros.tipo_documento,
+        "orgao": filtros.orgao,
+        "data_inicio": filtros.data_inicio,
+        "data_fim": filtros.data_fim,
+    }
+
+
+def _linha_para_chunk(linha: tuple) -> Chunk:
+    """Converte uma linha de `_SELECT_CHUNK` em Chunk (ordem das colunas importa)."""
+    return Chunk(
+        documento_id=str(linha[0]),
+        chunk_index=linha[1],
+        tipo_documento=linha[2],
+        orgao=linha[3],
+        data=linha[4],
+        secao=linha[5],
+        pagina_inicio=linha[6],
+        pagina_fim=linha[7],
+        conteudo=linha[8],
+        token_count=linha[9],
+        content_hash=linha[10],
+    )
+
+
+@dataclass
+class SupabaseChunkRepository:
+    """Repositório real sobre o Postgres/pgvector do Supabase.
+
+    Recebe uma conexão psycopg já aberta (`criar_conexao()` monta a padrão a
+    partir do DATABASE_URL). A conexão é injetada em vez de criada aqui para o
+    chamador controlar transação e ciclo de vida — um CLI de ingestão quer uma
+    conexão por execução, o Streamlit quer uma por sessão.
+
+    A busca é feita em duas consultas (vetorial e léxica) fundidas por RRF em
+    Python, no `HybridSearcher` — mesma implementação que os testes cobrem. Ver
+    a nota em migrations/001_schema_inicial.sql sobre por que a RPC ficou de fora.
     """
 
-    def __init__(self) -> None:
-        raise NotImplementedError(
-            "SupabaseChunkRepository depende do provisionamento do Supabase "
-            "(frente de Dados & Infraestrutura). Use InMemoryChunkRepository "
-            "para testes/desenvolvimento offline."
+    conn: object  # psycopg.Connection
+
+    def upsert_chunks(self, chunks: list[Chunk]) -> None:
+        """Insere/atualiza chunks pela chave natural (documento_id, chunk_index).
+
+        NÃO limpa o embedding no update: quem decide o que reprocessar é a
+        comparação `content_hash != embedding_content_hash` em listar_pendentes.
+        Assim um reprocessamento de chunking que não mudou o texto (mesma seção,
+        mesmo conteúdo) não força re-embedar o documento inteiro.
+        """
+        if not chunks:
+            return
+        with self.conn.cursor() as cur:
+            cur.executemany(
+                """
+                insert into doc_chunks (
+                    documento_id, chunk_index, secao, pagina_inicio, pagina_fim,
+                    conteudo, token_count, content_hash
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (documento_id, chunk_index) do update set
+                    secao = excluded.secao,
+                    pagina_inicio = excluded.pagina_inicio,
+                    pagina_fim = excluded.pagina_fim,
+                    conteudo = excluded.conteudo,
+                    token_count = excluded.token_count,
+                    content_hash = excluded.content_hash
+                """,
+                [
+                    (
+                        c.documento_id,
+                        c.chunk_index,
+                        c.secao,
+                        c.pagina_inicio,
+                        c.pagina_fim,
+                        c.conteudo,
+                        c.token_count,
+                        c.content_hash,
+                    )
+                    for c in chunks
+                ],
+            )
+        self.conn.commit()
+
+    def listar_pendentes(self) -> list[Chunk]:
+        """Sem embedding OU com content_hash diferente do que foi embeddado.
+
+        `is distinct from` (e não `!=`) porque embedding_content_hash é NULL em
+        chunk nunca indexado — e `NULL != texto` resulta em NULL, não em true.
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(
+                _SELECT_CHUNK.format(score="0.0")
+                + """
+                where c.embedding is null
+                   or c.embedding_content_hash is distinct from c.content_hash
+                order by c.documento_id, c.chunk_index
+                """
+            )
+            return [_linha_para_chunk(linha) for linha in cur.fetchall()]
+
+    def salvar_embedding(
+        self, chunk_chave: str, embedding: list[float], embedding_model: str
+    ) -> None:
+        """Grava o embedding e marca QUAL hash foi embeddado (base do incremental)."""
+        documento_id, chunk_index = chunk_chave.rsplit(":", 1)
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                update doc_chunks
+                   set embedding = %s,
+                       embedding_model = %s,
+                       embedding_content_hash = content_hash
+                 where documento_id = %s and chunk_index = %s
+                """,
+                (embedding, embedding_model, documento_id, int(chunk_index)),
+            )
+        self.conn.commit()
+
+    def marcar_documento_indexado(self, documento_id: str) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "update documentos set status_processamento = 'indexado' where id = %s",
+                (documento_id,),
+            )
+        self.conn.commit()
+
+    def documentos_com_pendencias(self) -> set[str]:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                select distinct documento_id from doc_chunks
+                 where embedding is null
+                    or embedding_content_hash is distinct from content_hash
+                """
+            )
+            return {str(linha[0]) for linha in cur.fetchall()}
+
+    def buscar_vetorial(
+        self,
+        embedding_consulta: list[float],
+        filtros: FiltrosBusca,
+        limite: int,
+        similaridade_minima: float = 0.0,
+    ) -> list[tuple[Chunk, float]]:
+        """Similaridade de cosseno via índice HNSW do pgvector.
+
+        `<=>` é a distância de cosseno; `1 - distância` é a similaridade. A
+        ordenação usa o operador direto (e não a expressão de similaridade) para
+        o planner conseguir usar o índice HNSW.
+        """
+        params = _params_filtros(filtros)
+        params |= {
+            "consulta": embedding_consulta,
+            "minimo": similaridade_minima,
+            "limite": limite,
+        }
+        with self.conn.cursor() as cur:
+            cur.execute(
+                _SELECT_CHUNK.format(score="1 - (c.embedding <=> %(consulta)s::vector)")
+                + """
+                where c.embedding is not null
+                  and 1 - (c.embedding <=> %(consulta)s::vector) >= %(minimo)s
+                """
+                + _WHERE_FILTROS
+                + """
+                order by c.embedding <=> %(consulta)s::vector
+                limit %(limite)s
+                """,
+                params,
+            )
+            return [(_linha_para_chunk(linha), float(linha[11])) for linha in cur.fetchall()]
+
+    def buscar_textual(
+        self, consulta: str, filtros: FiltrosBusca, limite: int
+    ) -> list[tuple[Chunk, float]]:
+        """Full-text 'portuguese' + unaccent, ranqueada por ts_rank.
+
+        `websearch_to_tsquery` aceita a sintaxe que o usuário já conhece (aspas
+        para frase exata, `-` para excluir) e, ao contrário de `to_tsquery`, não
+        levanta erro com pontuação solta — o que importa num domínio cheio de
+        códigos como "PE 045/2023".
+        """
+        params = _params_filtros(filtros)
+        params |= {"consulta": consulta, "limite": limite}
+        with self.conn.cursor() as cur:
+            cur.execute(
+                _SELECT_CHUNK.format(
+                    score="ts_rank(c.fts, websearch_to_tsquery('portuguese', unaccent(%(consulta)s)))"
+                )
+                + """
+                where c.fts @@ websearch_to_tsquery('portuguese', unaccent(%(consulta)s))
+                """
+                + _WHERE_FILTROS
+                + """
+                order by score desc
+                limit %(limite)s
+                """,
+                params,
+            )
+            return [(_linha_para_chunk(linha), float(linha[11])) for linha in cur.fetchall()]
+
+
+def criar_conexao(database_url: str | None = None):
+    """Abre conexão psycopg com o Postgres do Supabase, com pgvector registrado.
+
+    O registro do tipo `vector` é o que permite passar `list[float]` direto como
+    parâmetro e receber listas de volta — sem ele o driver manda o vetor como
+    string e o Postgres recusa.
+
+    Import tardio: psycopg e pgvector só são exigidos quando há banco de verdade,
+    para os testes seguirem rodando offline com o InMemoryChunkRepository.
+    """
+    try:
+        import psycopg
+        from pgvector.psycopg import register_vector
+    except ImportError as exc:  # pragma: no cover - caminho de produção
+        raise ImportError(
+            "Os pacotes 'psycopg[binary]' e 'pgvector' não estão instalados. "
+            "Instale-os (requirements.txt) para falar com o Supabase."
+        ) from exc
+    from ..config import get_settings
+
+    url = database_url or get_settings().database_url
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL não configurada. Copie .env.example para .env e preencha "
+            "com a connection string do Supabase (Project Settings → Database)."
         )
+    conn = psycopg.connect(url)
+    register_vector(conn)
+    return conn

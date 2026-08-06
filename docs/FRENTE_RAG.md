@@ -1,8 +1,10 @@
 # Frente RAG & Agente — guia do código
 
 > **Comece por aqui** se você vai mexer no pipeline RAG ou no agente.
-> Branch: `feature/rag-agente` · Estado: implementado e testado offline, **não mergeado**
-> (há uma decisão pendente — ver [ADR-005 em DECISOES.md](DECISOES.md)).
+> Branch: `feature/rag-agente` · Estado: implementado e testado offline.
+> A decisão do LangChain foi tomada — **opção B**, ver [ADR-005 em DECISOES.md](DECISOES.md):
+> LangChain no pipeline de RAG (embeddings, splitters, vector store), Python puro no
+> grafo do agente.
 
 ---
 
@@ -42,22 +44,28 @@ src/solufarma_rag/
 ├── db/
 │   ├── models.py          Contratos Pydantic: Chunk, Citacao, RespostaAgente...
 │   ├── repository.py      Protocol ChunkRepository + InMemoryChunkRepository (testes)
-│   │                      + SupabaseChunkRepository (esqueleto — levanta NotImplementedError)
-│   └── migrations/rascunho_busca_hibrida.sql
-│                          ENTREGA para a frente de Dados & Infra. NÃO aplicar daqui.
+│   │                      + SupabaseChunkRepository (psycopg+pgvector) + criar_conexao()
+│   └── migrations/
+│       ├── 001_schema_inicial.sql        Schema completo, idempotente, com RLS.
+│       │                                 Aplicar: tools/setup_supabase.py --apply
+│       └── rascunho_busca_hibrida.sql    Supersedido — RPC que não entrou (ver cabeçalho)
 ├── ingestion/
 │   ├── chunking.py        Quebra estrutural por seções de edital → Chunk com metadados
-│   └── embeddings.py      Pipeline incremental + FakeEmbeddingProvider / OpenAIEmbeddingProvider
+│   └── embeddings.py      Pipeline incremental + FakeEmbeddingProvider /
+│                          LangChainEmbeddingProvider (camada LangChain — ADR-005)
 ├── retrieval/
-│   └── hybrid_search.py   Vetorial + léxica fundidas por RRF, com piso de relevância
+│   ├── hybrid_search.py   Vetorial + léxica fundidas por RRF, com piso de relevância
+│   └── langchain_retriever.py
+│                          HybridSearcher exposto como BaseRetriever do LangChain
 └── agent/
     ├── agent.py           Orquestração: interpretar → buscar → refinar → responder → citar
     ├── prompts.py         Prompts + regras de citação obrigatória
     ├── citations.py       Monta contexto numerado e resolve [n] → chunk → documento → página
     └── llm.py             Protocol LLMClient + FakeLLM (testes) / AnthropicLLM (produção)
 
-tests/                     56 testes offline. conftest.py tem as fixtures compartilhadas.
-tools/                     CLIs finos sobre o pacote (chunk_document, generate_embeddings)
+tests/                     64 testes offline. conftest.py tem as fixtures compartilhadas.
+tools/                     CLIs finos sobre o pacote (chunk_document, generate_embeddings,
+                           setup_supabase)
 ```
 
 ## 4. O padrão que sustenta tudo: dependências injetáveis
@@ -66,12 +74,12 @@ Como Supabase e chaves de LLM ainda não existem, cada fronteira externa é um `
 
 | Fronteira | Protocol | Fake (testes) | Real (produção) |
 |---|---|---|---|
-| Banco de dados | `ChunkRepository` | `InMemoryChunkRepository` | `SupabaseChunkRepository` (a implementar) |
-| Embeddings | `EmbeddingProvider` | `FakeEmbeddingProvider` | `OpenAIEmbeddingProvider` (escrito, sem chave) |
+| Banco de dados | `ChunkRepository` | `InMemoryChunkRepository` | `SupabaseChunkRepository` (escrito, **nunca rodou contra banco real**) |
+| Embeddings | `EmbeddingProvider` | `FakeEmbeddingProvider` | `criar_provedor_openai()` → `LangChainEmbeddingProvider` (escrito, sem chave) |
 | LLM | `LLMClient` | `FakeLLM` | `AnthropicLLM` (escrito, sem chave) |
 | Busca | `Searcher` | `SearcherStub` (em `tests/test_agent.py`) | `HybridSearcher` |
 
-Consequência prática: **quando as credenciais chegarem, só o repositório precisa ser escrito** — o resto do código não muda.
+Consequência prática: **quando as credenciais chegarem, nenhum código de domínio muda** — troca-se o `InMemoryChunkRepository` pelo `SupabaseChunkRepository` e o fake de embeddings pelo real.
 
 ## 5. Decisões de design que não são óbvias no código
 
@@ -84,6 +92,8 @@ Consequência prática: **quando as credenciais chegarem, só o repositório pre
 **O provedor fake usa 1024 dimensões, igual à produção.** Não é simetria estética: com 64 dimensões, colisões de hash davam similaridade alta a textos sem nenhuma palavra em comum (`"inexistente zzz"` pontuava acima de `"autoclave"` contra um edital de autoclaves), o que invertia o resultado dos testes de relevância.
 
 **A busca busca 2× candidatos antes de fundir** — mesma proporção do `match_count * 2` da RPC SQL, para que o comportamento testado offline seja representativo do de produção.
+
+**LangChain entra no pipeline, não no agente** (ADR-005, opção B). `LangChainEmbeddingProvider` adapta qualquer `Embeddings` do LangChain ao Protocol `EmbeddingProvider` — trocar OpenAI por outro fornecedor é trocar o objeto passado ao adaptador, sem tocar no pipeline. O grafo do agente segue em Python puro, e o cliente Anthropic segue no SDK direto (o wrapper perderia o prompt caching e o tratamento de `refusal`). O import de `langchain_openai` é tardio, então os testes rodam sem a biblioteca instalada.
 
 **Indexação é incremental por hash.** Cada chunk tem `content_hash` (SHA-256, não `hash()` do Python, que é salteado por processo). Só é re-embeddado o que mudou.
 
@@ -106,23 +116,23 @@ Toda afirmação do agente deve referenciar `[n]`, que resolve para chunk → do
 
 | Item | Por que não foi feito | Dono |
 |---|---|---|
-| `SupabaseChunkRepository` | Faltam credenciais **e** duas decisões de DDL (ver §8) | Frente RAG, após Dados & Infra |
-| `tools/verify_index.py` | Depende do Supabase provisionado | Frente RAG |
+| **Validar tudo contra o Supabase real** | Falta a senha do banco (a Diva vai passar). O `SupabaseChunkRepository` e a migração 001 estão escritos mas **nunca executados** — esperar ajustes na primeira rodada | Frente RAG |
+| `tools/verify_index.py` | `setup_supabase.py --check` já cobre o diagnóstico do schema; falta o de qualidade do índice | Frente RAG |
 | Reranker concreto (Haiku) | O hook injetável existe; falta chave de API | Frente RAG |
 | **Golden set de avaliação** | Depende de casos reais da Solufarma. **É a lacuna mais séria** — a skill `rag-licitacoes` pede avaliação desde o início, e sem ela toda mudança de prompt/chunking é feita no escuro | Frente RAG ↔ Cliente |
-| Integração LangChain | Decisão pendente da equipe — [ADR-005](DECISOES.md) | Equipe/Diva |
 
-## 8. Pendências que bloqueiam a frente de Dados & Infra
+## 8. Decisões de banco já fechadas (06/08/26)
 
-Levantadas na revisão de código; estão detalhadas no rodapé de [rascunho_busca_hibrida.sql](../src/solufarma_rag/db/migrations/rascunho_busca_hibrida.sql):
+As duas lacunas de DDL que bloqueavam o repositório foram resolvidas em [001_schema_inicial.sql](../src/solufarma_rag/db/migrations/001_schema_inicial.sql):
 
-1. **`doc_chunks` não tem coluna `content_hash`** no DDL da arquitetura. Toda a indexação incremental depende dela. `documentos.hash_sha256` não serve — é dedup do arquivo inteiro, não do chunk.
-2. **`orgao` e `data` vivem no `Chunk` do Python, mas só em `licitacoes` no DDL.** Decidir: denormalizar as colunas em `doc_chunks`, ou fazer `FiltrosBusca` operar sobre o JOIN.
+1. **`content_hash` + `embedding_content_hash` em `doc_chunks`.** São dois campos, não um: o primeiro é o hash do conteúdo atual, o segundo é o hash do que foi de fato embeddado. Pendente = `embedding is null OR os dois diferem`. Com um campo só não dá para saber se o embedding está velho.
+2. **`orgao` e `data` continuam só em `licitacoes`**, acessados por JOIN — sem duplicar escrita. `FiltrosBusca` não mudou: no Supabase os filtros viram cláusulas SQL sobre o JOIN, e o `aceita()` em Python segue servindo só ao repositório em memória.
+
+**RLS ligado, sem policies.** Tudo em `public` é publicado pela API REST do Supabase; sem RLS a publishable key (que vai no frontend) lê e escreve o acervo. O backend passa por conexão direta, que não é afetada. Policies para `authenticated` entram quando houver login.
 
 ## 9. Por onde continuar
 
-1. Resolver a decisão do LangChain ([ADR-005](DECISOES.md)) — bloqueia o merge;
-2. Alinhar as duas pendências de DDL com a frente de Dados & Infra;
-3. Com o Supabase de pé: implementar `SupabaseChunkRepository` (o Protocol já define exatamente o que ele precisa fazer);
+1. **Aplicar o schema**: `python tools/setup_supabase.py --apply --check` (ou colar o SQL no painel — o SQL Editor não exige a senha do banco, o `--apply` exige);
+2. Com a `DATABASE_URL` preenchida: rodar `--check` e depois exercitar o `SupabaseChunkRepository` de verdade — ingestão de um edital ponta a ponta;
 4. Com as chaves de LLM: trocar os fakes pelos reais e **recalibrar o piso de similaridade**;
 5. Montar o golden set com casos reais e passar a rodá-lo a cada mudança de prompt ou chunking.

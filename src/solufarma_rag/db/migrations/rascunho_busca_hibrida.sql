@@ -1,4 +1,17 @@
 -- ============================================================================
+-- SUPERSEDIDO por 001_schema_inicial.sql (06/08/26). Mantido como referência.
+--
+-- O schema foi para 001_schema_inicial.sql com as duas lacunas de DDL resolvidas.
+-- Esta RPC NÃO entrou lá: o RRF já existe em Python (retrieval/hybrid_search.py),
+-- coberto por testes, e manter a fusão nas duas linguagens obrigaria a sincronizar
+-- a fórmula na mão — com a versão testada sendo justamente a que não roda em
+-- produção. O backend faz duas consultas e funde em Python.
+--
+-- Vale ressuscitar esta função se a latência de dois round-trips incomodar com
+-- acervo grande. Nesse caso os testes precisam passar a rodar contra ela.
+-- ============================================================================
+
+-- ============================================================================
 -- RASCUNHO — NÃO APLICAR AUTOMATICAMENTE
 -- Aplicação: frente de Dados & Infraestrutura, após o DDL base
 -- (docs/ARQUITETURA.md §3: extensões vector/pg_trgm/unaccent e tabelas
