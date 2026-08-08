@@ -21,9 +21,14 @@ env/
 .mypy_cache/
 .ruff_cache/
 
-# Dados locais (acervo bruto não versionado — vive no Supabase/Storage)
-data/raw/
-data/processed/
+# Dados locais — DOCUMENTOS DE CLIENTE. Nunca versionar.
+# O acervo bruto vive no Drive da Solufarma / Supabase Storage, não no git.
+data/
+!data/.gitkeep
+
+# Cache de OCR (respostas pagas do OpenRouter, por hash de conteúdo)
+.cache_ocr/
+
 *.sqlite
 *.db
 

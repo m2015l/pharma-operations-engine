@@ -53,13 +53,22 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 ## Cronograma detalhado
 
 ### Semanas 1–4 — Infraestrutura e Dados
-- [ ] Configuração do ambiente de dados, repositórios e banco Supabase
+- [x] Ambiente Python montado e validado (`pyproject.toml` + `uv`, 33 testes passando) — 07/08/26
+- [ ] Configuração do banco Supabase *(pendente: credenciais)*
 - [ ] Levantamento e organização do acervo histórico da Solufarma
 - [ ] Rotinas de OCR para PDFs e documentos escaneados
+  - [x] Detecção de formato por magic number, roteamento nativo/VLM, carry-over entre páginas, cache por hash, lote tolerante a falha, relatório de custo — 07/08/26
+  - [ ] **Validação contra o documento real** *(bloqueado: o PDF do SENAI não está no repositório e falta a chave do OpenRouter)*
+- [x] Chunking por regime de conteúdo (prosa / tabela / metadados) — 07/08/26
 - [ ] Classificação, sumarização e tratamento dos documentos via IA
 - [ ] Estruturação inicial da base e preparação para embeddings
 
 **Resultado esperado**: documentos estáticos viram base estruturada, pesquisável e pronta para alimentar a IA.
+
+> **Portão de qualidade (M2 — calibração):** os limiares de roteamento e chunking
+> foram derivados de **um** documento e são hipótese. Antes de indexar qualquer
+> coisa, rodar o relatório de calibração sobre 20 documentos variados. Indexar
+> com limiar errado significa indexar lixo com confiança. Ver `BRIEFING.md`.
 
 ### Semanas 5–9 — Agente de IA e Vetorização
 - [ ] Criação da base vetorial e geração dos embeddings
@@ -103,8 +112,12 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 |---|-----------|-------------|--------|
 | 1 | ~~Acesso ao acervo histórico~~ → editais chegam via upload no frontend Streamlit e ficam no Supabase (ver ADR-003) | — | ✅ Resolvido (05/08/26) |
 | 2 | ~~Conta Supabase~~ → conta já existe; obter credenciais de acesso para o `.env` da equipe | Equipe | 🔶 Parcial |
-| 3 | Chaves de API LLM (Claude / OpenAI) — serão providenciadas mais tarde | Cliente ↔ Equipe | ⏳ Aguardando |
+| 3 | Chaves de API LLM → decidido usar **OpenRouter** (ADR-005); falta criar conta, carregar crédito (~US$ 25–30 cobre M1+M2) e preencher `OPENROUTER_API_KEY` no `.env` | Roger | ⏳ Aguardando |
 | 4 | ~~Datas do cronograma~~ → decisão: não gerenciar por datas absolutas, apenas por fases/semanas relativas | — | ✅ Resolvido (05/08/26) |
 | 5 | Critérios de decisão da Solufarma para padronizar saídas do agente | Cliente | ⏳ Aberto |
 | 6 | ~~Nomes da equipe~~ → registrados em EQUIPE.md; falta confirmar GitHub de cada um e a divisão por frentes | Equipe | 🔶 Parcial |
 | 7 | Push do commit inicial para o GitHub (repo remoto ainda vazio) | Roger | ⏳ Aguardando confirmação |
+| 8 | **`SENAI_CETIQT_CAT_576640.pdf` em `data/brutos/`** — bloqueia todos os critérios de aceite do M1 e a troca das fixtures sintéticas por reais | Roger | 🔴 Bloqueante |
+| 9 | Confirmar o slug do modelo em openrouter.ai/models e ajustar `OPENROUTER_MODELO` + preços no `.env` se divergir | Roger | ⏳ Aguardando |
+| 10 | 20 documentos variados do Drive (edital, ata, certidão, memorial, planilha + um problemático) para o M2 | Roger / Solufarma | ⏳ Aberto |
+| 11 | Conflito de embeddings entre `ARQUITETURA.md` (OpenAI) e `CLAUDE.md` (Voyage) — resolver antes do M3 | Equipe | ⏳ Aberto |
