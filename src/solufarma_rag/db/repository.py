@@ -36,9 +36,7 @@ class FiltrosBusca(BaseModel):
             return False
         if self.data_inicio and (chunk.data is None or chunk.data < self.data_inicio):
             return False
-        if self.data_fim and (chunk.data is None or chunk.data > self.data_fim):
-            return False
-        return True
+        return not (self.data_fim and (chunk.data is None or chunk.data > self.data_fim))
 
 
 class ChunkRepository(Protocol):

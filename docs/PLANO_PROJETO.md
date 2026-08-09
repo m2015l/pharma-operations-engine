@@ -31,7 +31,7 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 
 ### 3. Agente de IA
 - [ ] Integração com APIs Claude (Anthropic) e/ou OpenAI
-- [ ] Orquestração do agente — grafo em Python puro por decisão da ADR-005 (opção B); LangChain fica no pipeline de RAG, não na orquestração
+- [ ] Orquestração com LangChain
 - [ ] Lógica de interpretação de solicitações sobre licitações
 - [ ] Busca automatizada de projetos/equipamentos semelhantes no histórico
 - [ ] Análise de novos editais contra o acervo validado
@@ -53,18 +53,27 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 ## Cronograma detalhado
 
 ### Semanas 1–4 — Infraestrutura e Dados
-- [ ] Configuração do ambiente de dados, repositórios e banco Supabase
+- [x] Ambiente Python montado e validado (`pyproject.toml` + `uv`, 33 testes passando) — 07/08/26
+- [ ] Configuração do banco Supabase *(pendente: credenciais)*
 - [ ] Levantamento e organização do acervo histórico da Solufarma
 - [ ] Rotinas de OCR para PDFs e documentos escaneados
+  - [x] Detecção de formato por magic number, roteamento nativo/VLM, carry-over entre páginas, cache por hash, lote tolerante a falha, relatório de custo — 07/08/26
+  - [ ] **Validação contra o documento real** *(bloqueado: o PDF do SENAI não está no repositório e falta a chave do OpenRouter)*
+- [x] Chunking por regime de conteúdo (prosa / tabela / metadados) — 07/08/26
 - [ ] Classificação, sumarização e tratamento dos documentos via IA
 - [ ] Estruturação inicial da base e preparação para embeddings
 
 **Resultado esperado**: documentos estáticos viram base estruturada, pesquisável e pronta para alimentar a IA.
 
+> **Portão de qualidade (M2 — calibração):** os limiares de roteamento e chunking
+> foram derivados de **um** documento e são hipótese. Antes de indexar qualquer
+> coisa, rodar o relatório de calibração sobre 20 documentos variados. Indexar
+> com limiar errado significa indexar lixo com confiança. Ver `BRIEFING.md`.
+
 ### Semanas 5–9 — Agente de IA e Vetorização
 - [ ] Criação da base vetorial e geração dos embeddings
 - [ ] Indexação de editais, atas e resultados históricos
-- [ ] Pipeline de RAG com LangChain (embeddings feitos; falta o vector store — ADR-005)
+- [ ] Pipeline de RAG com LangChain
 - [ ] Integração com APIs Claude / OpenAI
 - [ ] Lógica do agente e fluxos de entrada/saída
 - [ ] Busca semântica e respostas com fontes citadas
@@ -102,15 +111,17 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 | # | Pendência | Responsável | Status |
 |---|-----------|-------------|--------|
 | 1 | ~~Acesso ao acervo histórico~~ → editais chegam via upload no frontend Streamlit e ficam no Supabase (ver ADR-003) | — | ✅ Resolvido (05/08/26) |
-| 2 | ~~Conta Supabase~~ → conta existe e Roger tem acesso ao painel; falta só a senha do banco (item 13) | Equipe | 🔶 Parcial |
-| 3 | Chaves de API LLM (Claude / OpenAI) — serão providenciadas mais tarde | Cliente ↔ Equipe | ⏳ Aguardando |
+| 2 | ~~Conta Supabase e credenciais~~ → `.env` preenchido e conexão validada contra o banco real (PostgreSQL 17.6, session pooler `sa-east-1`) | Equipe | ✅ Resolvido (09/08/26) |
+| 3 | Chaves de API LLM → decidido usar **OpenRouter** (ADR-005); falta criar conta, carregar crédito (~US$ 25–30 cobre M1+M2) e preencher `OPENROUTER_API_KEY` no `.env` | Roger | ⏳ Aguardando |
 | 4 | ~~Datas do cronograma~~ → decisão: não gerenciar por datas absolutas, apenas por fases/semanas relativas | — | ✅ Resolvido (05/08/26) |
 | 5 | Critérios de decisão da Solufarma para padronizar saídas do agente | Cliente | ⏳ Aberto |
 | 6 | ~~Nomes da equipe~~ → registrados em EQUIPE.md; falta confirmar GitHub de cada um e a divisão por frentes | Equipe | 🔶 Parcial |
-| 7 | ~~Push do commit inicial~~ | Roger | ✅ Resolvido |
-| 8 | ~~**LangChain ausente do código**~~ → decisão pela **opção B** da ADR-005: LangChain no pipeline de RAG (embeddings já implementados), Python puro no grafo do agente. Falta comunicar à Diva e fechar o vector store quando o Supabase existir | Roger ↔ Diva | ✅ Resolvido (06/08/26) |
-| 9 | ~~`doc_chunks` sem `content_hash`~~ → resolvido em `001_schema_inicial.sql`: entraram `content_hash` **e** `embedding_content_hash` | Frente RAG | ✅ Resolvido (06/08/26) |
-| 10 | ~~`orgao`/`data` no `Chunk` mas só em `licitacoes` no DDL~~ → decisão: mantidos em `licitacoes`, acessados por JOIN, sem duplicar escrita | Frente RAG | ✅ Resolvido (06/08/26) |
-| 13 | **Senha do banco Supabase** para montar a `DATABASE_URL` — sem ela nada roda contra o banco real | Diva → Roger | 🔴 Bloqueante |
-| 11 | Piso de similaridade da busca (`SIMILARIDADE_MINIMA_PADRAO=0.15`) calibrado contra provedor fake — recalibrar com embeddings reais | Frente RAG | ⏳ Semana de vetorização |
-| 12 | Golden set de avaliação do RAG não existe (a skill pede "desde o início") — depende de casos reais da Solufarma | Frente RAG ↔ Cliente | ⏳ Aberto |
+| 7 | Push do commit inicial para o GitHub (repo remoto ainda vazio) | Roger | ⏳ Aguardando confirmação |
+| 8 | **`SENAI_CETIQT_CAT_576640.pdf` em `data/brutos/`** — bloqueia todos os critérios de aceite do M1 e a troca das fixtures sintéticas por reais | Roger | 🔴 Bloqueante |
+| 9 | Confirmar o slug do modelo em openrouter.ai/models e ajustar `OPENROUTER_MODELO` + preços no `.env` se divergir | Roger | ⏳ Aguardando |
+| 10 | 20 documentos variados do Drive (edital, ata, certidão, memorial, planilha + um problemático) para o M2 | Roger / Solufarma | ⏳ Aberto |
+| 11 | Conflito de embeddings entre `ARQUITETURA.md` (OpenAI) e `CLAUDE.md` (Voyage) — resolver antes do M3 | Equipe | ⏳ Aberto |
+| 12 | Piso de similaridade da busca (`SIMILARIDADE_MINIMA_PADRAO=0.15`) foi calibrado contra o provedor fake — recalibrar com embeddings reais | Frente RAG | ⏳ Depende do item 11 |
+| 13 | **Golden set de avaliação do RAG não existe** — sem ele toda mudança de prompt/chunking é feita no escuro | Frente RAG ↔ Cliente | ⏳ Aberto |
+| 14 | **Port de `src/solufarma_rag/` para dentro de `src/solufarma/`** (ADR-007): achatar subpacotes, Pydantic→dataclass, `Settings`→constantes, nomes em português | Frente RAG | 🔴 Em andamento |
+| 15 | Reconciliar acesso ao Supabase: `config.py` declara `SUPABASE_SERVICE_KEY` (REST), mas indexação e busca usam `DATABASE_URL` (psycopg/pgvector) — as duas precisam coexistir no `exigir("indexacao")` | Frente RAG ↔ Diva | 🔴 Aberto |

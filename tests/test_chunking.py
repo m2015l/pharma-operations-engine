@@ -1,179 +1,122 @@
-"""Testes do chunking estrutural de editais."""
+"""
+INVARIANTE 4 — a saída do OCR é Markdown estruturado.
+
+Se a hierarquia `A.1.1 vinílicos` chegasse como texto corrido, o caminho de
+seção seria irrecuperável e todo chunk perderia o contexto que faz a busca
+"acabamento de piso SENAI CETIQT" encontrar o trecho certo.
+"""
 
 from __future__ import annotations
 
-from datetime import date
-
-import pytest
-
-from solufarma_rag.db.models import Chunk, DocumentoParaChunking, PaginaDocumento
-from solufarma_rag.ingestion.chunking import estimar_tokens, gerar_chunks
+from solufarma import chunking
 
 
-def test_gera_chunks_com_metadados_obrigatorios(documento):
-    """Todo chunk carrega os metadados de rastreabilidade exigidos pela skill."""
-    chunks = gerar_chunks(documento)
+def test_caminho_de_secao_reflete_a_hierarquia(prosa_hierarquica):
+    fluxo = chunking.costurar(prosa_hierarquica)
+    blocos = chunking.parsear_blocos(fluxo)
 
-    assert chunks, "documento de exemplo deve produzir ao menos um chunk"
-    for chunk in chunks:
-        assert chunk.documento_id == "doc-001"
-        assert chunk.tipo_documento == "edital"
-        assert chunk.orgao == "SES/GO"
-        assert chunk.data == date(2023, 5, 10)
-        assert chunk.secao
-        assert 1 <= chunk.pagina_inicio <= chunk.pagina_fim <= 2
-        assert chunk.content_hash
-
-
-def test_indices_sao_sequenciais_e_chave_unica(documento):
-    chunks = gerar_chunks(documento)
-
-    assert [c.chunk_index for c in chunks] == list(range(len(chunks)))
-    assert len({c.chave for c in chunks}) == len(chunks)
+    caminhos = [b.caminho for b in blocos]
+    assert ["A. Arquitetura"] in caminhos
+    assert ["A. Arquitetura", "A.1 acabamentos de pisos"] in caminhos
+    assert [
+        "A. Arquitetura",
+        "A.1 acabamentos de pisos",
+        "A.1.1 vinílicos",
+    ] in caminhos
 
 
-def test_chunking_e_deterministico(documento):
-    """Mesmo documento → mesmos hashes. É a base da indexação incremental."""
-    hashes_1 = [c.content_hash for c in gerar_chunks(documento)]
-    hashes_2 = [c.content_hash for c in gerar_chunks(documento)]
+def test_heading_de_mesmo_nivel_substitui_o_irmao():
+    """`A.2` não pode ficar aninhado sob `A.1`."""
+    paginas = [
+        {
+            "numero": 1,
+            "markdown": (
+                "## A. Arquitetura\n"
+                "### A.1 pisos\ntexto do A.1\n"
+                "### A.2 vedos\ntexto do A.2"
+            ),
+        }
+    ]
+    blocos = chunking.parsear_blocos(chunking.costurar(paginas))
+    caminho_a2 = next(b.caminho for b in blocos if "texto do A.2" in "\n".join(b.linhas))
+    assert caminho_a2 == ["A. Arquitetura", "A.2 vedos"]
 
-    assert hashes_1 == hashes_2
+
+def test_cabecalho_contextual_carrega_documento_secao_e_pagina():
+    cab = chunking.cabecalho_contextual(
+        "SENAI CETIQT CAT 576640", ["A. Arquitetura", "A.1.1 vinílicos"], 8
+    )
+    assert "SENAI CETIQT CAT 576640" in cab
+    assert "A. Arquitetura > A.1.1 vinílicos" in cab
+    assert "p. 8" in cab
 
 
-def test_hash_muda_quando_conteudo_muda(documento):
-    original = gerar_chunks(documento)
-
-    documento.paginas[0].texto = documento.paginas[0].texto.replace("autoclave", "estufa")
-    alterado = gerar_chunks(documento)
-
-    assert original[0].content_hash != alterado[0].content_hash
-
-
-def test_respeita_tamanho_maximo_de_tokens(documento):
-    """O teto é teto: nenhum chunk pode ultrapassá-lo, nem por pouco.
-
-    A versão anterior deste teste tolerava 2× o máximo e por isso não detectou
-    chunks 14% acima do limite com os parâmetros de produção.
+def test_chunk_de_tabela_repete_o_cabecalho_em_cada_janela(tabela_dividida, monkeypatch):
     """
-    chunks = gerar_chunks(documento, tamanho_max_tokens=200, tamanho_alvo_tokens=150)
+    Cada janela precisa ser autossuficiente: sem o cabeçalho, a linha
+    `#240MM2 COR VERDE (TERRA) | M | 300,00` é um vetor sem sinal semântico.
+    """
+    monkeypatch.setattr(chunking.config, "LINHAS_POR_CHUNK_TABELA", 2)
 
-    for chunk in chunks:
-        assert chunk.token_count <= 200, f"chunk {chunk.chunk_index} acima do teto"
+    blocos = chunking.parsear_blocos(chunking.costurar(tabela_dividida))
+    tabela = next(b for b in blocos if b.tipo == "tabela")
+    chunks = chunking.chunk_tabela(tabela, "SENAI CETIQT", "abc123", [0])
 
-
-@pytest.mark.parametrize(
-    "descricao,texto",
-    [
-        (
-            "parágrafo médio seguido de bloco grande",
-            "Texto de paragrafo medio do edital. " * 60
-            + "\n\n"
-            + "Especificacao tecnica detalhada do equipamento exigido. " * 140,
-        ),
-        ("sentença gigante sem pontuação", "palavra " * 3000),
-        (
-            "tabela gigante de itens",
-            "\n".join(f"| item {i} | descricao detalhada do equipamento | 10 |" for i in range(300)),
-        ),
-    ],
-)
-def test_teto_de_tokens_nunca_e_ultrapassado(descricao, texto):
-    """Casos que estouravam o teto antes da contabilidade em caracteres."""
-    doc = DocumentoParaChunking(
-        documento_id="doc-teto",
-        tipo_documento="edital",
-        orgao="Secretaria Municipal de Saude de Sao Jose dos Campos - Estado de Sao Paulo",
-        numero_edital="PREGAO ELETRONICO 000123/2024-SMS",
-        paginas=[PaginaDocumento(numero=1, texto="1. DO OBJETO\n" + texto)],
-    )
-
-    chunks = gerar_chunks(doc, tamanho_max_tokens=1000, tamanho_alvo_tokens=800)
-
-    maior = max(c.token_count for c in chunks)
-    assert maior <= 1000, f"{descricao}: chunk de {maior} tokens acima do teto de 1000"
+    assert chunks, "a tabela deveria gerar ao menos um chunk"
+    for c in chunks:
+        assert "Descrição" in c.texto_puro, "janela sem cabeçalho de coluna"
+        assert c.tipo == "tabela"
 
 
-def test_detecta_secoes_do_edital(documento):
-    chunks = gerar_chunks(documento)
-    secoes = {c.secao for c in chunks}
+def test_janela_orfa_volta_para_o_chunk_anterior(monkeypatch):
+    """Chunk de 2 linhas de planilha não tem sinal para recuperar nada."""
+    monkeypatch.setattr(chunking.config, "LINHAS_POR_CHUNK_TABELA", 5)
 
-    assert any("OBJETO" in s for s in secoes)
-    assert any("HABILITAÇÃO" in s or "HABILITACAO" in s for s in secoes)
-    assert any("ANEXO I" in s.upper() for s in secoes)
+    linhas = ["| Descrição | Un | Qtd |", "|---|---|---|"]
+    linhas += [f"| ITEM {i} | M | {i}00,00 |" for i in range(7)]  # 5 + 2 órfãs
 
+    from solufarma.modelos import Bloco
 
-def test_nao_mistura_secoes_no_mesmo_chunk(documento):
-    """Cada chunk pertence a exatamente uma seção (filtro por seção é confiável)."""
-    chunks = gerar_chunks(documento)
+    bloco = Bloco("tabela", linhas, ["Planilha"], 44, 44)
+    chunks = chunking.chunk_tabela(bloco, "doc", "h", [0])
 
-    for chunk in chunks:
-        assert chunk.secao in chunk.conteudo.split("\n", 1)[0]
-
-
-def test_prefixo_contextual_presente(documento):
-    """O embedding precisa carregar o contexto do documento (§4.6)."""
-    chunks = gerar_chunks(documento)
-
-    primeira_linha = chunks[0].conteudo.split("\n", 1)[0]
-    assert "PE 045/2023" in primeira_linha
-    assert "SES/GO" in primeira_linha
+    assert len(chunks) == 1, "as 2 linhas órfãs deveriam ter voltado para a janela anterior"
+    assert "ITEM 6" in chunks[0].texto_puro
 
 
-def test_tabela_de_itens_nao_e_quebrada(documento):
-    """Tabelas de itens/equipamentos devem ficar íntegras em um único chunk."""
-    chunks = gerar_chunks(documento)
+def test_linhas_de_planilha_viram_dados_relacionais(tabela_dividida):
+    """
+    "Quanto de piso vinílico já fornecemos?" é um SUM, e RAG não soma.
+    As linhas precisam sair também como registros para `itens_planilha`.
+    """
+    blocos = chunking.parsear_blocos(chunking.costurar(tabela_dividida))
+    itens = chunking.extrair_linhas_tabela(blocos, "abc123")
 
-    com_tabela = [c for c in chunks if "| Item |" in c.conteudo]
-    assert len(com_tabela) == 1
-    assert "Autoclave horizontal 100L" in com_tabela[0].conteudo
-    assert "Centrífuga laboratorial refrigerada" in com_tabela[0].conteudo
-
-
-def test_overlap_entre_chunks_da_mesma_secao():
-    """Chunks consecutivos da mesma seção compartilham a cauda do anterior."""
-    paragrafos = "\n\n".join(
-        f"Parágrafo {i} do termo de referência com texto suficientemente longo "
-        f"para forçar a quebra em múltiplos chunks dentro da mesma seção do edital."
-        for i in range(40)
-    )
-    doc = DocumentoParaChunking(
-        documento_id="doc-overlap",
-        tipo_documento="edital",
-        orgao="SES/GO",
-        paginas=[PaginaDocumento(numero=1, texto="1. DO OBJETO\n" + paragrafos)],
-    )
-
-    chunks = gerar_chunks(doc, tamanho_alvo_tokens=200, tamanho_max_tokens=250)
-
-    assert len(chunks) > 1, "texto longo deve gerar múltiplos chunks"
-    corpo_anterior = chunks[0].conteudo.rsplit("\n\n", 1)[-1]
-    assert corpo_anterior[-40:] in chunks[1].conteudo, "faltou overlap entre chunks"
+    assert len(itens) == 4, "4 linhas de dados, sem contar cabeçalho e separador"
+    assert all(len(i["celulas"]) == 3 for i in itens)
+    assert itens[0]["pagina"] == 44
+    # O valor bruto precisa chegar intacto — o parse pt-BR acontece na indexação.
+    assert any("19.541,00" in c for i in itens for c in i["celulas"])
 
 
-def test_documento_exige_ao_menos_uma_pagina():
-    with pytest.raises(ValueError):
-        DocumentoParaChunking(
-            documento_id="x", tipo_documento="edital", orgao="SES/GO", paginas=[]
-        )
+def test_separador_de_tabela_nao_vira_item(tabela_dividida):
+    blocos = chunking.parsear_blocos(chunking.costurar(tabela_dividida))
+    itens = chunking.extrair_linhas_tabela(blocos, "abc123")
+    assert not any(set("".join(i["celulas"])) <= {"-", ":", " "} for i in itens)
 
 
-def test_tipo_documento_invalido_e_rejeitado():
-    with pytest.raises(ValueError, match="tipo_documento"):
-        DocumentoParaChunking(
-            documento_id="x",
-            tipo_documento="planilha",
-            orgao="SES/GO",
-            paginas=[PaginaDocumento(numero=1, texto="texto")],
-        )
+def test_documento_completo_produz_chunks_e_itens(documento_extraido):
+    chunks, itens = chunking.chunkar_documento(documento_extraido)
+
+    assert chunks, "documento deveria gerar chunks"
+    assert itens, "documento com tabela deveria gerar itens de planilha"
+    assert {c.tipo for c in chunks} <= {"prosa", "tabela", "metadados"}
+    for c in chunks:
+        assert c.texto_puro in c.texto, "texto_puro precisa ser prefixo-livre de texto"
+        assert c.pagina_inicio > 0, "sem página não há citação de fonte possível"
 
 
-def test_estimar_tokens_nunca_retorna_zero():
-    assert estimar_tokens("") == 1
-    assert estimar_tokens("a" * 400) == 100
-
-
-def test_hash_e_estavel_entre_processos():
-    """Usa SHA-256, não hash() — que é salteado por processo."""
-    assert Chunk.calcular_hash("texto") == (
-        "f46e3b17a6b639e5efddc3d1498ad73491599c22220f7ef6e14772f4ee25b913"
-    )
+def test_ids_de_chunk_sao_unicos(documento_extraido):
+    chunks, _ = chunking.chunkar_documento(documento_extraido)
+    ids = [c.id for c in chunks]
+    assert len(ids) == len(set(ids))
