@@ -108,7 +108,10 @@ def main_chunks(argv: list[str] | None = None) -> int:
         return 1
 
     for caminho in jsons:
-        doc = json.loads(caminho.read_text(encoding="utf-8"))
+        # utf-8-sig, não utf-8: o time trabalha no Windows, e várias ferramentas
+        # gravam JSON com BOM. `utf-8` puro estoura com "Expecting value: line 1
+        # column 1" — erro que não parece de encoding. `utf-8-sig` lê os dois.
+        doc = json.loads(caminho.read_text(encoding="utf-8-sig"))
         chunks, itens = chunking.chunkar_documento(doc)
 
         (saida / f"{caminho.stem}_chunks.json").write_text(

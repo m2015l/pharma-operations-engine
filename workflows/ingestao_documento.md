@@ -15,9 +15,9 @@ Transformar um documento bruto (PDF nativo ou escaneado) em registros estruturad
 | Etapa | Tool | Status |
 |-------|------|--------|
 | Upload do original para o Storage + registro inicial | `tools/ingest_document.py` | 🔲 a implementar |
-| Triagem nativo × escaneado + extração de texto | `tools/extract_text.py` | 🔲 a implementar |
+| Triagem nativo × escaneado + extração de texto | `tools/extract_text.py` | ✅ feito (ADR-005 — OCR por VLM) |
 | Classificação + metadados + sumarização via LLM | `tools/classify_and_extract.py` | 🔲 a implementar |
-| Chunking estrutural | `tools/chunk_document.py` | 🔲 a implementar |
+| Chunking por regime de conteúdo | `tools/chunk_document.py` | ✅ feito (ADR-006) |
 
 > Atualize a coluna Status conforme os scripts forem criados. Regras detalhadas de qualidade: skill `ocr-ingestao` (Skills/ocr-ingestao/SKILL.md).
 

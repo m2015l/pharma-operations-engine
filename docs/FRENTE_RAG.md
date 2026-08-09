@@ -2,7 +2,7 @@
 
 > **Comece por aqui** se você vai mexer no pipeline RAG ou no agente.
 > Branch: `feature/rag-agente` · Estado: implementado e testado offline.
-> A decisão do LangChain foi tomada — **opção B**, ver [ADR-005 em DECISOES.md](DECISOES.md):
+> A decisão do LangChain foi tomada — **opção B**, ver [ADR-008 em DECISOES.md](DECISOES.md):
 > LangChain no pipeline de RAG (embeddings, splitters, vector store), Python puro no
 > grafo do agente.
 
@@ -52,7 +52,7 @@ src/solufarma_rag/
 ├── ingestion/
 │   ├── chunking.py        Quebra estrutural por seções de edital → Chunk com metadados
 │   └── embeddings.py      Pipeline incremental + FakeEmbeddingProvider /
-│                          LangChainEmbeddingProvider (camada LangChain — ADR-005)
+│                          LangChainEmbeddingProvider (camada LangChain — ADR-008)
 ├── retrieval/
 │   ├── hybrid_search.py   Vetorial + léxica fundidas por RRF, com piso de relevância
 │   └── langchain_retriever.py
@@ -93,7 +93,7 @@ Consequência prática: **quando as credenciais chegarem, nenhum código de dom�
 
 **A busca busca 2× candidatos antes de fundir** — mesma proporção do `match_count * 2` da RPC SQL, para que o comportamento testado offline seja representativo do de produção.
 
-**LangChain entra no pipeline, não no agente** (ADR-005, opção B). `LangChainEmbeddingProvider` adapta qualquer `Embeddings` do LangChain ao Protocol `EmbeddingProvider` — trocar OpenAI por outro fornecedor é trocar o objeto passado ao adaptador, sem tocar no pipeline. O grafo do agente segue em Python puro, e o cliente Anthropic segue no SDK direto (o wrapper perderia o prompt caching e o tratamento de `refusal`). O import de `langchain_openai` é tardio, então os testes rodam sem a biblioteca instalada.
+**LangChain entra no pipeline, não no agente** (ADR-008, opção B). `LangChainEmbeddingProvider` adapta qualquer `Embeddings` do LangChain ao Protocol `EmbeddingProvider` — trocar OpenAI por outro fornecedor é trocar o objeto passado ao adaptador, sem tocar no pipeline. O grafo do agente segue em Python puro, e o cliente Anthropic segue no SDK direto (o wrapper perderia o prompt caching e o tratamento de `refusal`). O import de `langchain_openai` é tardio, então os testes rodam sem a biblioteca instalada.
 
 **Indexação é incremental por hash.** Cada chunk tem `content_hash` (SHA-256, não `hash()` do Python, que é salteado por processo). Só é re-embeddado o que mudou.
 

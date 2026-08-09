@@ -25,8 +25,13 @@ class PaginaDocumento(BaseModel):
 class DocumentoParaChunking(BaseModel):
     """Documento com texto por página + metadados, pronto para o chunking.
 
-    É o contrato de entrada de `ingestion.chunking.gerar_chunks` e do CLI
-    `tools/chunk_document.py` (JSON com estes campos).
+    É o contrato de entrada de `ingestion.chunking.gerar_chunks`.
+
+    Nota: desde o merge com o pipeline de OCR, `tools/chunk_document.py` é o CLI
+    do chunker de `solufarma.chunking` (ADR-006), não deste. `gerar_chunks` só é
+    chamado por testes hoje — ele volta a ter entrada de CLI quando o port do
+    pacote decidir se o chunking de edital nativo vira um regime do chunker da
+    Diva (item 14 do PLANO_PROJETO).
     """
 
     documento_id: str = Field(min_length=1, description="UUID da linha em `documentos`")

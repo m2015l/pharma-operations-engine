@@ -12,7 +12,7 @@ offline) para testes, `LangChainEmbeddingProvider` para produção quando a
 OPENAI_API_KEY estiver provisionada (docs/ARQUITETURA.md §2.2:
 text-embedding-3-large com dimensions=1024).
 
-O provedor de produção é a camada LangChain do pipeline (ADR-005, opção B):
+O provedor de produção é a camada LangChain do pipeline (ADR-008, opção B):
 qualquer objeto `Embeddings` do LangChain serve, o que permite trocar de
 fornecedor sem tocar neste pipeline. `criar_provedor_openai()` monta o padrão da
 arquitetura; a importação de `langchain_openai` é tardia para que os testes
@@ -100,7 +100,7 @@ class FakeEmbeddingProvider:
 class LangChainEmbeddingProvider:
     """Adapta qualquer `Embeddings` do LangChain ao Protocol `EmbeddingProvider`.
 
-    Esta é a camada LangChain do pipeline de RAG (ADR-005, opção B): o pipeline
+    Esta é a camada LangChain do pipeline de RAG (ADR-008, opção B): o pipeline
     acima não conhece fornecedor nenhum, só este adaptador. Trocar OpenAI por
     outro modelo é trocar o objeto passado em `embeddings` — nada mais muda.
 

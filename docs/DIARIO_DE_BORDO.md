@@ -80,7 +80,7 @@ As fixtures reproduzem numericamente as condições do CLAUDE.md (347 caracteres
 - 64 testes passando, ruff limpo. **Nada rodou contra o banco real ainda** — falta a senha.
 
 **Duas decisões que mudaram o rumo:**
-1. **`langchain-postgres` ficou de fora.** A ressalva da ADR-005 se confirmou: schema próprio,
+1. **`langchain-postgres` ficou de fora.** A ressalva da ADR-008 se confirmou: schema próprio,
    sem busca híbrida com filtros sobre `licitacoes`. Usá-lo custaria a rastreabilidade
    chunk → documento → página. O Retriever resolve sem essa troca;
 2. **A RPC `busca_hibrida` não entrou no schema.** O RRF já existe em Python e é o que os testes
@@ -102,7 +102,7 @@ schema pode ser aplicado pelo SQL Editor do painel, que não exige a senha.
 ## 2026-08-06 — ADR-008 decidida: LangChain no pipeline, Python puro no agente (Roger + Claude)
 
 
-**A decisão** (branch `feature/rag-agente`): Roger escolheu a **opção B** da [ADR-005](DECISOES.md),
+**A decisão** (branch `feature/rag-agente`): Roger escolheu a **opção B** da [ADR-008](DECISOES.md),
 que destravou o merge. A regra que sai disso, em uma linha: **LangChain é o encanamento do
 pipeline de RAG; o grafo do agente e o cliente Anthropic ficam em Python puro.**
 
@@ -165,7 +165,7 @@ wrapper custaria esse controle sem ganho contratual (o entregável nomeia o *pip
 
 **Onde ler os detalhes:**
 - Guia completo do código da frente (estrutura, como rodar, decisões de design, o que falta): [FRENTE_RAG.md](FRENTE_RAG.md);
-- Questão do LangChain, com opções e recomendação: [ADR-005 em DECISOES.md](DECISOES.md).
+- Questão do LangChain, com opções e recomendação: [ADR-008 em DECISOES.md](DECISOES.md).
 
 **Pendências abertas por esta sessão** (ver PLANO_PROJETO.md, itens 8–12):
 - 🔴 **LangChain**: o código não usa a biblioteca, mas ela é item explícito dos entregáveis contratados. **Decisão da equipe/Diva antes do merge** — não é escolha técnica isolada;

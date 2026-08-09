@@ -1,4 +1,4 @@
-"""Adapta a busca híbrida a um `BaseRetriever` do LangChain (ADR-005, opção B).
+"""Adapta a busca híbrida a um `BaseRetriever` do LangChain (ADR-008, opção B).
 
 Por que este arquivo existe: a opção B previa `langchain-postgres` como vector
 store, mas ele impõe schema próprio (tabelas `langchain_pg_*` com metadados em

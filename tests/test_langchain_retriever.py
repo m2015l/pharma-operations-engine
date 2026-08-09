@@ -1,4 +1,4 @@
-"""Testes do Retriever LangChain sobre a busca híbrida (ADR-005, opção B).
+"""Testes do Retriever LangChain sobre a busca híbrida (ADR-008, opção B).
 
 Rodam offline: usam o repositório em memória e o provedor fake, sem Supabase e
 sem chave de API. O que importa aqui é a fronteira — o que atravessa do nosso

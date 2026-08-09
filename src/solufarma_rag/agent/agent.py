@@ -19,7 +19,7 @@ Se nada for encontrado no acervo, o agente responde explicitamente que não
 encontrou (`encontrou_no_acervo=False`) em vez de responder por conhecimento
 geral — regra central do projeto.
 
-Nota de decisão (formalizada na ADR-005, opção B — docs/DECISOES.md): o núcleo
+Nota de decisão (formalizada na ADR-008, opção B — docs/DECISOES.md): o núcleo
 não importa LangGraph. O grafo tem 5 nós, 1 aresta condicional e nenhum
 requisito de persistência/checkpoint, então o custo de manutenção da dependência
 não se paga nesta fatia; toda a lógica fica testável offline com fakes. LangChain

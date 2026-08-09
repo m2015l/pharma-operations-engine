@@ -33,16 +33,19 @@ class Settings:
     """
 
     supabase_url: str = field(default_factory=lambda: os.getenv("SUPABASE_URL", ""))
-    # Chaves no formato novo do Supabase (sb_publishable_... / sb_secret_...).
-    # Os nomes antigos (ANON / SERVICE_ROLE) continuam sendo lidos como fallback
-    # para não quebrar quem ainda tiver o `.env` no formato anterior.
+    # `SUPABASE_SERVICE_KEY` é o nome canônico — é o que `solufarma/config.py`
+    # exige no estágio `indexacao`. Os outros são fallback para `.env` antigos:
+    # SECRET_KEY (formato sb_secret_) e SERVICE_ROLE_KEY (JWT legado).
+    # Ter dois nomes para a mesma chave era o caminho para ela chegar vazia aqui
+    # e o erro só aparecer na primeira chamada real.
+    supabase_secret_key: str = field(
+        default_factory=lambda: os.getenv("SUPABASE_SERVICE_KEY")
+        or os.getenv("SUPABASE_SECRET_KEY")
+        or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    )
     supabase_publishable_key: str = field(
         default_factory=lambda: os.getenv("SUPABASE_PUBLISHABLE_KEY")
         or os.getenv("SUPABASE_ANON_KEY", "")
-    )
-    supabase_secret_key: str = field(
-        default_factory=lambda: os.getenv("SUPABASE_SECRET_KEY")
-        or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     )
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
 

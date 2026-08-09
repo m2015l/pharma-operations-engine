@@ -90,7 +90,7 @@ Atenção: usar `vector(1024)` + índice `hnsw (embedding vector_cosine_ops)`; f
 
 ### 2.4 Orquestração
 
-> **Atualizado pela [ADR-005](DECISOES.md) (opção B, 06/08/26).** A recomendação original desta
+> **Atualizado pela [ADR-008](DECISOES.md) (opção B, 06/08/26).** A recomendação original desta
 > seção era LangChain + LangGraph em tudo. Ao implementar, o grafo se mostrou pequeno demais para
 > justificar LangGraph, e a decisão foi dividir as camadas.
 
