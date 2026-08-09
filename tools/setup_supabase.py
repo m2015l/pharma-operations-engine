@@ -100,7 +100,10 @@ def checar(conn) -> bool:
         try:
             cur.execute("select %s::vector", ([0.1] * 1024,))
             devolvido = cur.fetchone()[0]
-            ok_vetor = len(devolvido) == 1024
+            # O pgvector devolve um objeto Vector (ou ndarray, se numpy estiver
+            # instalado), não uma lista — daí a normalização antes de medir.
+            valores = devolvido.to_list() if hasattr(devolvido, "to_list") else list(devolvido)
+            ok_vetor = len(valores) == 1024
             tudo_ok &= ok_vetor
             print(f"{OK if ok_vetor else FALHA}vector(1024) enviado e recebido de volta")
         except Exception as exc:  # noqa: BLE001 - diagnóstico precisa reportar qualquer falha
