@@ -17,6 +17,27 @@ create extension if not exists vector;
 create extension if not exists pg_trgm;
 create extension if not exists unaccent;
 
+-- `unaccent()` é declarada STABLE, não IMMUTABLE, porque o dicionário que ela
+-- usa pode ser recarregado em tempo de execução. O Postgres recusa função
+-- STABLE dentro de índice e de coluna gerada — foi o erro
+-- "functions in index expression must be marked IMMUTABLE".
+--
+-- O contorno padrão é este wrapper: a forma de dois argumentos fixa o
+-- dicionário explicitamente, o que torna o resultado de fato determinístico e
+-- a declaração IMMUTABLE defensável. O `search_path` fixo garante que o
+-- dicionário seja encontrado independente de quem chama.
+--
+-- ATENÇÃO: toda busca textual precisa usar `f_unaccent`, nunca `unaccent`
+-- direto — senão a consulta normaliza diferente do índice e não casa.
+create or replace function public.f_unaccent(text)
+returns text
+language sql
+immutable
+parallel safe
+strict
+set search_path = public, extensions, pg_catalog
+as $$ select unaccent('unaccent', $1) $$;
+
 -- 1. Licitações --------------------------------------------------------------
 create table if not exists licitacoes (
     id              uuid primary key default gen_random_uuid(),
@@ -37,7 +58,7 @@ create table if not exists licitacoes (
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now()
 );
-create index if not exists idx_licitacoes_orgao on licitacoes using gin (to_tsvector('portuguese', unaccent(orgao)));
+create index if not exists idx_licitacoes_orgao on licitacoes using gin (to_tsvector('portuguese', public.f_unaccent(orgao)));
 create index if not exists idx_licitacoes_resultado on licitacoes (resultado);
 create index if not exists idx_licitacoes_data on licitacoes (data_abertura);
 
@@ -97,7 +118,7 @@ create table if not exists doc_chunks (
     -- `documentos.hash_sha256` não serve aqui: é dedup do arquivo, não do chunk.
     content_hash           text not null,
     embedding_content_hash text,
-    fts             tsvector generated always as (to_tsvector('portuguese', unaccent(conteudo))) stored,
+    fts             tsvector generated always as (to_tsvector('portuguese', public.f_unaccent(conteudo))) stored,
     unique (documento_id, chunk_index)
 );
 
@@ -112,7 +133,38 @@ create index if not exists idx_chunks_fts on doc_chunks using gin (fts);
 create index if not exists idx_chunks_pendentes on doc_chunks (documento_id, chunk_index)
     where embedding is null;
 
--- 5. Log de consultas do agente ---------------------------------------------
+-- 5. Linhas de planilha (ADR-006) --------------------------------------------
+--
+-- Uma planilha de quantitativos precisa de SQL, não de busca vetorial:
+-- "quanto de piso vinílico já fornecemos no total?" é um SUM, e RAG não soma.
+-- `chunking.extrair_linhas_tabela()` produz estas linhas em paralelo aos chunks.
+--
+-- Duas colunas de documento, de propósito:
+--   `documento_hash` é o que o pipeline de extração produz hoje (hash_documento,
+--   16 hex) — permite gravar sem depender de cadastro prévio;
+--   `documento_id` é a FK de verdade, preenchida quando o documento for
+--   registrado em `documentos`. Nula até lá, em vez de bloquear a ingestão.
+create table if not exists itens_planilha (
+    id              uuid primary key default gen_random_uuid(),
+    documento_hash  text not null,
+    documento_id    uuid references documentos(id) on delete cascade,
+    pagina          int,
+    secao           text,
+    -- Células cruas, na ordem da linha. Valores em formato pt-BR ("19.541,00")
+    -- ficam como string: o parse é responsabilidade de quem consulta, e
+    -- converter cedo perderia o original em caso de erro de OCR.
+    celulas         text[] not null,
+    created_at      timestamptz not null default now()
+);
+-- FK sem índice faz JOIN e DELETE CASCADE varrerem a tabela inteira.
+create index if not exists idx_itens_planilha_documento on itens_planilha (documento_id);
+-- O caminho de acesso enquanto o documento_id ainda não foi resolvido.
+create index if not exists idx_itens_planilha_hash on itens_planilha (documento_hash);
+-- Índice de busca por conteúdo de célula fica para quando as consultas reais
+-- existirem: sem saber a ordem das colunas do acervo, qualquer índice aqui é
+-- chute — e índice não usado só custa escrita.
+
+-- 6. Log de consultas do agente ---------------------------------------------
 create table if not exists agent_query_log (
     id              uuid primary key default gen_random_uuid(),
     session_id      uuid,
@@ -151,6 +203,7 @@ alter table licitacoes       enable row level security;
 alter table licitacao_itens  enable row level security;
 alter table documentos       enable row level security;
 alter table doc_chunks       enable row level security;
+alter table itens_planilha   enable row level security;
 alter table agent_query_log  enable row level security;
 
 -- ============================================================================

@@ -29,7 +29,14 @@ from solufarma_rag.db.repository import criar_conexao
 MIGRACAO = RAIZ / "src" / "solufarma_rag" / "db" / "migrations" / "001_schema_inicial.sql"
 
 EXTENSOES = ("vector", "pg_trgm", "unaccent")
-TABELAS = ("licitacoes", "licitacao_itens", "documentos", "doc_chunks", "agent_query_log")
+TABELAS = (
+    "licitacoes",
+    "licitacao_itens",
+    "documentos",
+    "doc_chunks",
+    "itens_planilha",
+    "agent_query_log",
+)
 # Sem estas duas a indexação incremental não funciona (ver ADR/FRENTE_RAG).
 COLUNAS_CRITICAS = (("doc_chunks", "content_hash"), ("doc_chunks", "embedding_content_hash"))
 
@@ -122,14 +129,123 @@ def checar(conn) -> bool:
     return tudo_ok
 
 
+def fumaca(conn) -> bool:
+    """Exercita o SupabaseChunkRepository de ponta a ponta e desfaz tudo.
+
+    O `--check` prova que o schema existe; este prova que o CÓDIGO fala com ele.
+    São coisas diferentes: uma coluna com nome trocado, um tipo incompatível ou
+    um JOIN errado passam pelo `--check` e só aparecem aqui.
+
+    Usa dados sintéticos com um prefixo reconhecível e apaga no final, inclusive
+    se algo falhar no meio — nunca deixa lixo no banco do cliente.
+    """
+    from solufarma_rag.db.models import Chunk
+    from solufarma_rag.db.repository import FiltrosBusca, SupabaseChunkRepository
+    from solufarma_rag.ingestion.embeddings import (
+        FakeEmbeddingProvider,
+        gerar_embeddings_pendentes,
+    )
+    from solufarma_rag.retrieval.hybrid_search import HybridSearcher
+
+    MARCA = "SMOKE-TEST-SOLUFARMA"
+    ok = True
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "insert into licitacoes (orgao, numero_edital, data_abertura) "
+                "values (%s, 'PE 000/2026', '2026-01-15') returning id",
+                (MARCA,),
+            )
+            licitacao_id = cur.fetchone()[0]
+            cur.execute(
+                "insert into documentos (licitacao_id, tipo, titulo, storage_path) "
+                "values (%s, 'edital', %s, %s) returning id",
+                (licitacao_id, MARCA, f"{MARCA}/doc.pdf"),
+            )
+            documento_id = str(cur.fetchone()[0])
+        conn.commit()
+
+        repo = SupabaseChunkRepository(conn=conn)
+        textos = [
+            "Aquisição de autoclave horizontal 100 litros para esterilização.",
+            "Registro na ANVISA obrigatório para os equipamentos médicos ofertados.",
+        ]
+        chunks = [
+            Chunk(
+                documento_id=documento_id,
+                chunk_index=i,
+                tipo_documento="edital",
+                orgao=MARCA,
+                secao="1. DO OBJETO",
+                pagina_inicio=1,
+                pagina_fim=1,
+                conteudo=texto,
+                token_count=max(1, len(texto) // 4),
+                content_hash=Chunk.calcular_hash(texto),
+            )
+            for i, texto in enumerate(textos)
+        ]
+
+        etapas = []
+        repo.upsert_chunks(chunks)
+        etapas.append(("upsert_chunks", len(repo.listar_pendentes()) == 2))
+
+        provider = FakeEmbeddingProvider()
+        rel = gerar_embeddings_pendentes(repo, provider)
+        etapas.append(("gerar_embeddings", rel.embeddados == 2))
+        etapas.append(("listar_pendentes zera", repo.listar_pendentes() == []))
+        etapas.append(("marca documento indexado", rel.documentos_indexados == [documento_id]))
+
+        # Incremental: segunda passada não pode reembeddar nada.
+        rel2 = gerar_embeddings_pendentes(repo, provider)
+        etapas.append(("incremental nao reprocessa", rel2.embeddados == 0))
+
+        searcher = HybridSearcher(repo=repo, provider=provider)
+        achados = searcher.buscar("autoclave esterilização")
+        etapas.append(("busca hibrida acha", len(achados) > 0))
+        etapas.append(
+            ("busca traz chunk completo", bool(achados) and achados[0].chunk.orgao == MARCA)
+        )
+
+        filtrado = searcher.buscar("autoclave", FiltrosBusca(orgao="Órgão Que Não Existe"))
+        etapas.append(("filtro por orgao corta", filtrado == []))
+
+        for nome, passou in etapas:
+            ok &= passou
+            print(f"{OK if passou else FALHA}{nome}")
+
+    except Exception as exc:  # noqa: BLE001 - smoke test precisa reportar qualquer falha
+        ok = False
+        print(f"{FALHA}{type(exc).__name__}: {exc}")
+    finally:
+        conn.rollback()
+        with conn.cursor() as cur:
+            cur.execute("delete from licitacoes where orgao = %s", (MARCA,))
+            cur.execute("delete from documentos where titulo = %s", (MARCA,))
+        conn.commit()
+        with conn.cursor() as cur:
+            cur.execute("select count(*) from documentos where titulo = %s", (MARCA,))
+            restou = cur.fetchone()[0]
+        print(f"{OK if restou == 0 else FALHA}limpeza (0 linhas de teste no banco)")
+        ok &= restou == 0
+
+    return ok
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Aplica a migração 001")
     parser.add_argument("--check", action="store_true", help="Diagnostica o estado do banco")
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Exercita o repositório de ponta a ponta com dados sintéticos (e apaga)",
+    )
     args = parser.parse_args()
 
-    if not (args.apply or args.check):
-        parser.error("informe --apply e/ou --check")
+    if not (args.apply or args.check or args.smoke):
+        parser.error("informe --apply, --check e/ou --smoke")
 
     try:
         conn = criar_conexao()
@@ -140,10 +256,15 @@ def main() -> int:
     try:
         if args.apply:
             aplicar(conn)
+        tudo_ok = True
         if args.check:
-            pronto = checar(conn)
-            print("\nBanco pronto para uso." if pronto else "\nHá itens pendentes acima.")
-            return 0 if pronto else 1
+            tudo_ok &= checar(conn)
+        if args.smoke:
+            print("\nSmoke test do repositório (dados sintéticos, apagados no fim):")
+            tudo_ok &= fumaca(conn)
+        if args.check or args.smoke:
+            print("\nBanco pronto para uso." if tudo_ok else "\nHá itens pendentes acima.")
+            return 0 if tudo_ok else 1
     finally:
         conn.close()
     return 0

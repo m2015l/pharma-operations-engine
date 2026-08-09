@@ -5,6 +5,49 @@
 
 ---
 
+## 2026-08-09 — Supabase configurado e validado; merge com o pipeline da Diva (Roger + Claude)
+
+**Merge das duas frentes.** `origin/main` tinha o pipeline de OCR/chunking da Diva (`bcc00e3`),
+paralelo ao nosso. 8 arquivos conflitavam. As decisões dela venceram todos; nossa ADR-005
+(orquestração do agente) foi renumerada para **ADR-008**, porque a 005 dela (OCR via OpenRouter)
+já estava na main. Uma auditoria adversarial por agente pegou 5 problemas de contrato que teste
+nenhum acusaria — o pior: o `.env.example` deixou de configurar o nosso pacote, e a chave chegaria
+vazia com erro só na primeira chamada real. Tudo corrigido antes do merge na main.
+
+**Supabase, de configurado a provado.** O schema foi aplicado no banco real (PostgreSQL 17.6,
+session pooler `sa-east-1`): 6 tabelas, extensões, índices HNSW/GIN e RLS ligado nas 6.
+
+Dois problemas reais apareceram na aplicação:
+1. **`unaccent()` não é IMMUTABLE**, e o Postgres recusa função STABLE em índice e em coluna
+   gerada. A migração inteira abortava. Contornado com o wrapper `public.f_unaccent()`, que fixa
+   o dicionário explicitamente. Toda busca textual precisa usar ele — usar `unaccent` direto faz
+   a consulta normalizar diferente do índice e simplesmente não casar;
+2. **Faltava a tabela `itens_planilha`**, exigida pelo ADR-006 da Diva. Criada com duas colunas de
+   documento de propósito: `documento_hash` (o que o chunking produz hoje) e `documento_id` (a FK
+   de verdade, nula até o cadastro existir) — para a ingestão não travar esperando cadastro.
+
+**`tools/setup_supabase.py --smoke`**: o `SupabaseChunkRepository` nunca tinha rodado contra banco
+real. Agora roda o caminho completo — upsert → embeddings → busca híbrida → filtro por órgão —
+com dados sintéticos que ele mesmo apaga. **9 verificações, todas passando.** Foi a primeira prova
+de que a camada de banco funciona, e não só de que o schema existe.
+
+**Decisões do Roger (09/08):**
+- Modelo de embeddings (Voyage × OpenAI) **fica em aberto** — mas precisa fechar antes da primeira
+  carga real, porque trocar depois obriga a recriar a coluna `vector(N)` e reprocessar tudo;
+- Acesso ao banco é por `DATABASE_URL` (psycopg direto). A API REST do Supabase não faz operador
+  de vetor nem full-text com filtro. `DATABASE_URL` entrou em `VARIAVEIS_POR_ESTAGIO["indexacao"]`;
+- O acervo é escaneado, então **o chunker da Diva é o único** — o nosso, feito para edital digital
+  nativo, não tem fonte de entrada neste fluxo.
+
+**O que falta, especificado e não implementado:** a ponte entre o chunking e o Supabase. Os dois
+`Chunk` (dela e nosso) têm o mesmo nome e nenhum campo em comum além das páginas. A tradução
+campo a campo, o passo de cadastro do documento e as armadilhas conhecidas estão em
+[workflows/indexacao.md](../workflows/indexacao.md).
+
+**Estado:** 99 testes offline + 9 verificações contra o banco real, ruff limpo, main sincronizada.
+
+---
+
 ## 2026-08-07 — Pipeline de extração e chunking implementado (M0 + M1) (Roger + Claude)
 
 

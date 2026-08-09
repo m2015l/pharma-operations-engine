@@ -87,7 +87,19 @@ LINHAS_POR_CHUNK_TABELA = int(os.getenv("SOLUFARMA_LINHAS_TABELA", "18"))
 
 VARIAVEIS_POR_ESTAGIO: dict[str, list[str]] = {
     "extracao": ["OPENROUTER_API_KEY"],
-    "indexacao": ["VOYAGE_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY"],
+    # DATABASE_URL entrou por decisão do Roger (09/08): a API REST do Supabase
+    # não faz operador de vetor nem full-text com filtro, então a indexação e a
+    # busca falam com o Postgres por conexão direta. SUPABASE_SERVICE_KEY
+    # continua sendo necessária para o Storage (upload do PDF original).
+    #
+    # VOYAGE_API_KEY segue na lista porque a pendência do modelo de embeddings
+    # está em aberto. Se a escolha for OpenAI, trocar por OPENAI_API_KEY aqui.
+    "indexacao": [
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_KEY",
+        "DATABASE_URL",
+        "VOYAGE_API_KEY",
+    ],
 }
 
 

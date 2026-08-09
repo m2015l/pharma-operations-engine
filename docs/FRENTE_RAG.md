@@ -74,7 +74,7 @@ Como Supabase e chaves de LLM ainda não existem, cada fronteira externa é um `
 
 | Fronteira | Protocol | Fake (testes) | Real (produção) |
 |---|---|---|---|
-| Banco de dados | `ChunkRepository` | `InMemoryChunkRepository` | `SupabaseChunkRepository` (escrito, **nunca rodou contra banco real**) |
+| Banco de dados | `ChunkRepository` | `InMemoryChunkRepository` | `SupabaseChunkRepository` (✅ validado contra o banco real — `--smoke`) |
 | Embeddings | `EmbeddingProvider` | `FakeEmbeddingProvider` | `criar_provedor_openai()` → `LangChainEmbeddingProvider` (escrito, sem chave) |
 | LLM | `LLMClient` | `FakeLLM` | `AnthropicLLM` (escrito, sem chave) |
 | Busca | `Searcher` | `SearcherStub` (em `tests/test_agent.py`) | `HybridSearcher` |
@@ -116,8 +116,8 @@ Toda afirmação do agente deve referenciar `[n]`, que resolve para chunk → do
 
 | Item | Por que não foi feito | Dono |
 |---|---|---|
-| **Validar tudo contra o Supabase real** | Falta a senha do banco (a Diva vai passar). O `SupabaseChunkRepository` e a migração 001 estão escritos mas **nunca executados** — esperar ajustes na primeira rodada | Frente RAG |
-| `tools/verify_index.py` | `setup_supabase.py --check` já cobre o diagnóstico do schema; falta o de qualidade do índice | Frente RAG |
+| **Ponte chunking → Supabase** | Especificada em [workflows/indexacao.md](../workflows/indexacao.md), não implementada. É o que falta para o M3 rodar ponta a ponta | Frente RAG |
+| `tools/verify_index.py` | `setup_supabase.py --check --smoke` já cobre schema e repositório; falta o de qualidade do retrieval, que depende do golden set | Frente RAG |
 | Reranker concreto (Haiku) | O hook injetável existe; falta chave de API | Frente RAG |
 | **Golden set de avaliação** | Depende de casos reais da Solufarma. **É a lacuna mais séria** — a skill `rag-licitacoes` pede avaliação desde o início, e sem ela toda mudança de prompt/chunking é feita no escuro | Frente RAG ↔ Cliente |
 
@@ -132,7 +132,10 @@ As duas lacunas de DDL que bloqueavam o repositório foram resolvidas em [001_sc
 
 ## 9. Por onde continuar
 
-1. **Aplicar o schema**: `python tools/setup_supabase.py --apply --check` (ou colar o SQL no painel — o SQL Editor não exige a senha do banco, o `--apply` exige);
-2. Com a `DATABASE_URL` preenchida: rodar `--check` e depois exercitar o `SupabaseChunkRepository` de verdade — ingestão de um edital ponta a ponta;
+1. ~~Aplicar o schema e validar o repositório~~ → feito em 09/08. `make banco` (ou
+   `python tools/setup_supabase.py --check --smoke`) reconfere schema e repositório
+   contra o banco real a qualquer momento;
+2. **Escrever a ponte chunking → Supabase** — especificação completa, com mapeamento campo a
+   campo e armadilhas, em [workflows/indexacao.md](../workflows/indexacao.md);
 4. Com as chaves de LLM: trocar os fakes pelos reais e **recalibrar o piso de similaridade**;
 5. Montar o golden set com casos reais e passar a rodá-lo a cada mudança de prompt ou chunking.

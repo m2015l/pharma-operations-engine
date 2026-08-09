@@ -9,7 +9,7 @@
 #   make testar   ->  uv run pytest
 #   make lint     ->  uv run ruff check src tests tools
 
-.PHONY: setup extrair chunks calibrar indexar testar lint limpar-cache
+.PHONY: setup extrair chunks calibrar indexar banco testar lint limpar-cache
 
 setup:
 	uv sync --extra dev
@@ -25,7 +25,12 @@ calibrar:
 	@echo "M2 ainda não implementado — ver BRIEFING.md."
 
 indexar:
-	@echo "M3 ainda não implementado — depende dos limiares do M2."
+	@echo "M3 ainda não implementado. Banco e repositório prontos e validados;"
+	@echo "falta a ponte chunking -> Supabase. Especificação: workflows/indexacao.md"
+
+# Diagnóstico e smoke test do Supabase (schema + repositório contra o banco real).
+banco:
+	uv run python tools/setup_supabase.py --check --smoke
 
 testar:
 	uv run pytest -v

@@ -414,10 +414,10 @@ class SupabaseChunkRepository:
         with self.conn.cursor() as cur:
             cur.execute(
                 _SELECT_CHUNK.format(
-                    score="ts_rank(c.fts, websearch_to_tsquery('portuguese', unaccent(%(consulta)s)))"
+                    score="ts_rank(c.fts, websearch_to_tsquery('portuguese', public.f_unaccent(%(consulta)s)))"
                 )
                 + """
-                where c.fts @@ websearch_to_tsquery('portuguese', unaccent(%(consulta)s))
+                where c.fts @@ websearch_to_tsquery('portuguese', public.f_unaccent(%(consulta)s))
                 """
                 + _WHERE_FILTROS
                 + """

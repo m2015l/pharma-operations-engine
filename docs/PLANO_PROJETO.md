@@ -120,8 +120,10 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 | 8 | **`SENAI_CETIQT_CAT_576640.pdf` em `data/brutos/`** — bloqueia todos os critérios de aceite do M1 e a troca das fixtures sintéticas por reais | Roger | 🔴 Bloqueante |
 | 9 | Confirmar o slug do modelo em openrouter.ai/models e ajustar `OPENROUTER_MODELO` + preços no `.env` se divergir | Roger | ⏳ Aguardando |
 | 10 | 20 documentos variados do Drive (edital, ata, certidão, memorial, planilha + um problemático) para o M2 | Roger / Solufarma | ⏳ Aberto |
-| 11 | Conflito de embeddings entre `ARQUITETURA.md` (OpenAI) e `CLAUDE.md` (Voyage) — resolver antes do M3 | Equipe | ⏳ Aberto |
+| 11 | Modelo de embeddings (OpenAI × Voyage) — **deixado em aberto por decisão do Roger (09/08)**. Precisa fechar ANTES da primeira carga real: trocar depois obriga a recriar a coluna `vector(N)` e reprocessar tudo | Equipe | ⏳ Aberto |
 | 12 | Piso de similaridade da busca (`SIMILARIDADE_MINIMA_PADRAO=0.15`) foi calibrado contra o provedor fake — recalibrar com embeddings reais | Frente RAG | ⏳ Depende do item 11 |
 | 13 | **Golden set de avaliação do RAG não existe** — sem ele toda mudança de prompt/chunking é feita no escuro | Frente RAG ↔ Cliente | ⏳ Aberto |
 | 14 | **Port de `src/solufarma_rag/` para dentro de `src/solufarma/`** (ADR-007): achatar subpacotes, Pydantic→dataclass, `Settings`→constantes, nomes em português | Frente RAG | 🔴 Em andamento |
-| 15 | Reconciliar acesso ao Supabase: `config.py` declara `SUPABASE_SERVICE_KEY` (REST), mas indexação e busca usam `DATABASE_URL` (psycopg/pgvector) — as duas precisam coexistir no `exigir("indexacao")` | Frente RAG ↔ Diva | 🔴 Aberto |
+| 15 | ~~Reconciliar acesso ao Supabase~~ → decisão do Roger: acesso por `DATABASE_URL` (psycopg direto), porque a REST não faz operador de vetor nem full-text com filtro. `DATABASE_URL` entrou em `VARIAVEIS_POR_ESTAGIO["indexacao"]` | Roger | ✅ Resolvido (09/08/26) |
+| 16 | **Ponte chunking → Supabase** (cadastro do documento + tradução do `Chunk`) — especificada em [workflows/indexacao.md](../workflows/indexacao.md), não implementada | Frente RAG | 🔴 Bloqueia o M3 |
+| 17 | Origem de `orgao`/`numero_edital`/`data`: usuário informa no upload ou LLM extrai da capa? Bloqueia o cadastro do documento | Roger ↔ Cliente | 🔴 Aberto |
