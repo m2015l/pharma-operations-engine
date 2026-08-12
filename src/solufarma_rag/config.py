@@ -52,6 +52,18 @@ class Settings:
     anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
 
+    # Qual fornecedor de embeddings roda: voyage | openai | fake.
+    # É o interruptor do teste A/B (tools/avaliar.py). O padrão é voyage porque a
+    # voyage-4 entrega 1024 dimensões NATIVAS — a coluna do banco é vector(1024),
+    # e a OpenAI chega lá truncando 3072. Ver VoyageEmbeddingProvider.
+    embedding_provider: str = field(
+        default_factory=lambda: os.getenv("EMBEDDING_PROVIDER", "voyage")
+    )
+    voyage_api_key: str = field(default_factory=lambda: os.getenv("VOYAGE_API_KEY", ""))
+    voyage_model: str = field(
+        default_factory=lambda: os.getenv("VOYAGE_MODEL", "voyage-4-large")
+    )
+
     embedding_model: str = field(
         default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
     )
@@ -73,6 +85,18 @@ class Settings:
     )
     agent_model: str = field(
         default_factory=lambda: os.getenv("AGENT_MODEL", "claude-sonnet-5")
+    )
+
+    # Piso de similaridade da busca vetorial. Vive aqui, e não só como constante
+    # em hybrid_search.py, porque o valor certo depende do MODELO de embeddings:
+    # cada um tem sua escala de cosseno. Ajustar por variável de ambiente permite
+    # aplicar o resultado de `tools/avaliar.py --calibrar` sem editar código —
+    # e sem reeditar a cada troca de provedor no teste A/B.
+    #
+    # O padrão 0.15 é o valor histórico, calibrado contra o FakeEmbeddingProvider
+    # (bag-of-words). NÃO é válido para modelo real: meça antes de confiar.
+    similaridade_minima: float = field(
+        default_factory=lambda: float(os.getenv("SIMILARIDADE_MINIMA", "0.15"))
     )
 
 

@@ -17,12 +17,12 @@ repositório em memória, executa a mesma semântica localmente. O reranker
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from ..db.models import Chunk, ChunkComScore
 from ..db.repository import ChunkRepository, FiltrosBusca
-from ..ingestion.embeddings import EmbeddingProvider
+from ..ingestion.embeddings import EmbeddingProvider, embeddar_consulta
 
 RRF_K = 60  # constante clássica do RRF; igual à usada no SQL
 CANDIDATOS_PADRAO = 20
@@ -36,10 +36,21 @@ TOP_K_PADRAO = 5
 # O ramo léxico já tem piso natural (só casa quem contém os termos).
 #
 # CALIBRAR com embeddings reais: o valor abaixo foi ajustado contra o provedor
-# fake (bag-of-words), cuja escala de similaridade é diferente da do
-# text-embedding-3-large. Revisar na semana de vetorização, medindo contra o
-# golden set (skill rag-licitacoes).
+# fake (bag-of-words), cuja escala de similaridade é diferente da de um modelo
+# real. Cada modelo tem sua própria escala, então o piso é por modelo.
+#
+# NÃO CHUTE ESTE VALOR. `tools/avaliar.py --calibrar` mede a distribuição real
+# dos scores contra o golden set — o maior score de trecho irrelevante (ruído)
+# e o menor score de trecho correto (sinal) — e recomenda um piso entre os dois.
+# Aplique o resultado em SIMILARIDADE_MINIMA no .env, sem editar este arquivo.
 SIMILARIDADE_MINIMA_PADRAO = 0.15
+
+
+def _piso_padrao() -> float:
+    """Lê o piso do `.env`, caindo no valor histórico quando não houver."""
+    from ..config import get_settings
+
+    return get_settings().similaridade_minima
 
 # Reranker opcional: recebe (consulta, candidatos) e devolve os candidatos
 # reordenados. Fase 1 do MVP: LLM-as-reranker com Haiku (a implementar quando
@@ -85,7 +96,7 @@ class HybridSearcher:
     provider: EmbeddingProvider
     candidatos: int = CANDIDATOS_PADRAO
     reranker: Reranker | None = None
-    similaridade_minima: float = SIMILARIDADE_MINIMA_PADRAO
+    similaridade_minima: float = field(default_factory=_piso_padrao)
 
     def buscar(
         self, consulta: str, filtros: FiltrosBusca | None = None, top_k: int = TOP_K_PADRAO
@@ -98,7 +109,10 @@ class HybridSearcher:
         """
         filtros = filtros or FiltrosBusca()
 
-        embedding_consulta = self.provider.embed_batch([consulta])[0]
+        # `embeddar_consulta` e não `embed_batch`: a Voyage embedda pergunta e
+        # documento de formas diferentes, e usar o modo errado degrada o recall
+        # sem gerar erro. Provedores sem essa distinção caem no caminho antigo.
+        embedding_consulta = embeddar_consulta(self.provider, consulta)
         # Pool 2× por ramo antes de fundir — mesma proporção do `match_count * 2`
         # da RPC SQL. Sem isso o comportamento testado offline teria recall menor
         # que o de produção, e os testes deixariam de ser representativos.

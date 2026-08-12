@@ -87,3 +87,74 @@ class AnthropicLLM:
                 "filtros de segurança do modelo)."
             )
         return "".join(bloco.text for bloco in resposta.content if bloco.type == "text")
+
+
+class OpenRouterLLM:
+    """Mesmo Claude Sonnet 5, alcançado pelo OpenRouter em vez da API direta.
+
+    POR QUE EXISTE
+    O `.env` do projeto tem OPENROUTER_API_KEY preenchida (é o que o OCR usa) e
+    ANTHROPIC_API_KEY vazia. Sem esta classe, testar o agente exigiria abrir
+    conta na Anthropic antes de saber se o RAG funciona — uma barreira que não
+    tem nada a ver com o que está sendo testado.
+
+    O modelo é o mesmo (`anthropic/claude-sonnet-5`), então a qualidade da
+    resposta é a mesma. O que muda é a rota e a fatura.
+
+    QUANDO TROCAR PARA AnthropicLLM
+    Quando a ANTHROPIC_API_KEY existir. A API direta dá acesso a prompt caching
+    explícito (o `cache_control` que a AnthropicLLM já usa no system prompt),
+    que aqui não é aproveitado — em produção, com o system prompt do agente
+    repetido a cada pergunta, isso é economia real.
+    """
+
+    URL_BASE = "https://openrouter.ai/api/v1"
+
+    def __init__(self, model: str | None = None) -> None:
+        try:
+            from openai import OpenAI
+        except ImportError as exc:  # pragma: no cover - caminho de produção
+            raise ImportError(
+                "O pacote 'openai' não está instalado — é o cliente usado para "
+                "falar com o endpoint compatível do OpenRouter."
+            ) from exc
+        import os
+
+        from ..config import get_settings
+
+        settings = get_settings()
+        chave = os.getenv("OPENROUTER_API_KEY", "")
+        if not chave:
+            raise RuntimeError("OPENROUTER_API_KEY não está no .env.")
+
+        self._client = OpenAI(api_key=chave, base_url=self.URL_BASE)
+        # O slug do OpenRouter exige o prefixo do fornecedor. AGENT_MODEL guarda
+        # o id puro da Anthropic (`claude-sonnet-5`), que aqui não resolve.
+        modelo = model or os.getenv("OPENROUTER_MODELO") or f"anthropic/{settings.agent_model}"
+        self._model = modelo if "/" in modelo else f"anthropic/{modelo}"
+
+    def completar(
+        self, system: str, mensagens: list[dict], max_tokens: int = 4096
+    ) -> str:  # pragma: no cover - exige chave de API
+        resposta = self._client.chat.completions.create(
+            model=self._model,
+            max_tokens=max_tokens,
+            messages=[{"role": "system", "content": system}, *mensagens],
+        )
+        return resposta.choices[0].message.content or ""
+
+
+def criar_llm(nome: str | None = None) -> LLMClient:
+    """Fábrica: escolhe o cliente conforme AGENT_PROVIDER do `.env`.
+
+    Padrão `openrouter` porque é a chave que o projeto tem hoje. Vira
+    `anthropic` trocando uma linha, quando a chave direta existir.
+    """
+    import os
+
+    escolhido = (nome or os.getenv("AGENT_PROVIDER", "openrouter")).strip().lower()
+    if escolhido == "openrouter":
+        return OpenRouterLLM()
+    if escolhido == "anthropic":
+        return AnthropicLLM()
+    raise ValueError(f"AGENT_PROVIDER inválido: {escolhido!r}. Use 'openrouter' ou 'anthropic'.")

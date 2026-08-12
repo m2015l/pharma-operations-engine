@@ -232,6 +232,23 @@ def documento() -> DocumentoParaChunking:
     )
 
 
+@pytest.fixture(autouse=True)
+def _piso_de_similaridade_fixo(monkeypatch):
+    """Isola os testes do SIMILARIDADE_MINIMA do `.env` do desenvolvedor.
+
+    O piso da busca vetorial passou a ser configurável por ambiente, porque o
+    valor certo depende do modelo de embeddings (`tools/avaliar.py --calibrar`).
+    Sem esta fixture, a suíte passaria a depender de qual calibração está no
+    `.env` da máquina: alguém mede 0.62 para o modelo de produção, comita, e os
+    testes de retrieval quebram sem que uma linha de código tenha mudado — com
+    um erro que não aponta para a causa.
+
+    0.15 é o valor calibrado contra o FakeEmbeddingProvider, que é o provedor
+    que os testes usam. Fixá-lo aqui mantém os testes medindo o CÓDIGO.
+    """
+    monkeypatch.setenv("SIMILARIDADE_MINIMA", "0.15")
+
+
 @pytest.fixture
 def provider() -> FakeEmbeddingProvider:
     return FakeEmbeddingProvider()

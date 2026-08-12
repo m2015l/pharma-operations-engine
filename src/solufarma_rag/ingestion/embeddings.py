@@ -55,6 +55,26 @@ class EmbeddingProvider(Protocol):
         ...
 
 
+def embeddar_consulta(provider: EmbeddingProvider, consulta: str) -> list[float]:
+    """Embedda o texto de uma PERGUNTA (não de um documento do acervo).
+
+    POR QUE NÃO É SÓ `embed_batch([consulta])[0]`:
+    a Voyage embedda pergunta e documento de formas diferentes — `input_type`
+    "query" prefixa "Represent the query for retrieving supporting documents:",
+    "document" prefixa "Represent the document for retrieval:". Usar o mesmo
+    modo nos dois lados é uma perda de qualidade que não gera erro nenhum: a
+    busca simplesmente devolve resultados piores, em silêncio.
+
+    Provedores sem essa distinção (OpenAI, o fake dos testes) não precisam de
+    mudança: quem não expõe `embed_query` cai no caminho antigo. Foi feito assim
+    de propósito, para não quebrar a assinatura que os testes já usam.
+    """
+    metodo = getattr(provider, "embed_query", None)
+    if metodo is not None:
+        return metodo(consulta)
+    return provider.embed_batch([consulta])[0]
+
+
 @dataclass
 class FakeEmbeddingProvider:
     """Provedor determinístico e offline para testes e desenvolvimento.
@@ -167,6 +187,111 @@ def criar_provedor_openai(
         embeddings=OpenAIEmbeddings(model=modelo, dimensions=dims, **extras),
         model=modelo,
         dims=dims,
+    )
+
+
+@dataclass
+class VoyageEmbeddingProvider:
+    """Provedor da Voyage AI — o padrão do projeto (ADR pendente, ver §7 do SOP).
+
+    POR QUE VOYAGE E NÃO OPENAI (decidido 2026-08-11):
+    a coluna do banco é `vector(1024)` e a voyage-4 entrega 1024 NATIVAMENTE,
+    enquanto a text-embedding-3-large entrega 3072 truncados para 1024. Os dois
+    funcionam; um modelo treinado para ser bom em 1024 tende a usar melhor esse
+    espaço do que um de 3072 cortado. Somado a isso, a faixa gratuita da Voyage
+    (200M tokens) é ~157x o acervo inteiro (1,28M tokens projetados para os 40
+    documentos), então o custo é zero.
+
+    A decisão NÃO está fechada: `tools/avaliar.py` mede os dois contra o golden
+    set. Trocar é mudar EMBEDDING_PROVIDER no .env e reembeddar.
+
+    `input_type` existe porque a Voyage embedda pergunta e documento de formas
+    diferentes — ver `embeddar_consulta()`.
+    """
+
+    client: object  # voyageai.Client
+    model: str
+    dims: int
+
+    # Teto de itens por chamada da API da Voyage. O limite de TOKENS por chamada
+    # (120k no voyage-4-large) é mais apertado na prática, mas com chunks de ~198
+    # tokens em média são ~600 chunks até esbarrar nele — abaixo deste teto.
+    MAX_ITENS_LOTE = 1000
+
+    @property
+    def model_id(self) -> str:
+        return f"{self.model}-{self.dims}"
+
+    @property
+    def dimensions(self) -> int:
+        return self.dims
+
+    def embed_batch(self, textos: list[str]) -> list[list[float]]:  # pragma: no cover
+        return self._embed(textos, "document")
+
+    def embed_query(self, texto: str) -> list[float]:  # pragma: no cover
+        return self._embed([texto], "query")[0]
+
+    def _embed(self, textos: list[str], input_type: str) -> list[list[float]]:
+        resultado = self.client.embed(
+            textos,
+            model=self.model,
+            input_type=input_type,
+            output_dimension=self.dims,
+        )
+        return resultado.embeddings
+
+
+def criar_provedor_voyage(
+    model: str | None = None, dimensions: int | None = None
+) -> VoyageEmbeddingProvider:
+    """Monta o provedor da Voyage a partir do `.env`.
+
+    Import tardio pelo mesmo motivo do `criar_provedor_openai`: os testes rodam
+    offline com o fake e não devem exigir o pacote instalado.
+    """
+    try:
+        import voyageai
+    except ImportError as exc:  # pragma: no cover - caminho de produção
+        raise ImportError(
+            "O pacote 'voyageai' não está instalado. Instale-o para gerar "
+            "embeddings com a Voyage, ou use EMBEDDING_PROVIDER=openai."
+        ) from exc
+    from ..config import get_settings
+
+    settings = get_settings()
+    if not settings.voyage_api_key:
+        raise RuntimeError(
+            "VOYAGE_API_KEY não está no .env. Pegue a chave em dash.voyageai.com "
+            "ou use EMBEDDING_PROVIDER=openai."
+        )
+
+    return VoyageEmbeddingProvider(
+        client=voyageai.Client(api_key=settings.voyage_api_key),
+        model=model or settings.voyage_model,
+        dims=dimensions or settings.embedding_dimensions,
+    )
+
+
+def criar_provedor(nome: str | None = None) -> EmbeddingProvider:
+    """Fábrica única: devolve o provedor conforme EMBEDDING_PROVIDER do `.env`.
+
+    É o ponto de troca do teste A/B (`tools/avaliar.py`). Todo o resto do
+    pipeline fala com o Protocol e não sabe qual fornecedor está rodando.
+
+    `fake` existe para o smoke test offline não precisar de chave nem de rede.
+    """
+    from ..config import get_settings
+
+    escolhido = (nome or get_settings().embedding_provider).strip().lower()
+    if escolhido == "voyage":
+        return criar_provedor_voyage()
+    if escolhido == "openai":
+        return criar_provedor_openai()
+    if escolhido == "fake":
+        return FakeEmbeddingProvider()
+    raise ValueError(
+        f"EMBEDDING_PROVIDER inválido: {escolhido!r}. Use 'voyage', 'openai' ou 'fake'."
     )
 
 
