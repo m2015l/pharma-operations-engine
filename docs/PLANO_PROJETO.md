@@ -16,7 +16,7 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 ## Escopo funcional
 
 ### 1. Criação e tratamento do banco de dados
-- [ ] Configuração do banco em Supabase / PostgreSQL
+- [x] Configuração do banco em Supabase / PostgreSQL
 - [ ] Ingestão do acervo histórico: editais, atas e resultados
 - [ ] OCR em PDFs e documentos escaneados
 - [ ] Classificação e sumarização dos documentos via IA
@@ -54,7 +54,7 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 
 ### Semanas 1–4 — Infraestrutura e Dados
 - [x] Ambiente Python montado e validado (`pyproject.toml` + `uv`, 33 testes passando) — 07/08/26
-- [ ] Configuração do banco Supabase *(pendente: credenciais)*
+- [x] Configuração do banco Supabase — schema aplicado no banco real, RLS ligado, repositório validado por smoke test — 09/08/26
 - [ ] Levantamento e organização do acervo histórico da Solufarma
 - [ ] Rotinas de OCR para PDFs e documentos escaneados
   - [x] Detecção de formato por magic number, roteamento nativo/VLM, carry-over entre páginas, cache por hash, lote tolerante a falha, relatório de custo — 07/08/26
@@ -116,7 +116,7 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 | 4 | ~~Datas do cronograma~~ → decisão: não gerenciar por datas absolutas, apenas por fases/semanas relativas | — | ✅ Resolvido (05/08/26) |
 | 5 | Critérios de decisão da Solufarma para padronizar saídas do agente | Cliente | ⏳ Aberto |
 | 6 | ~~Nomes da equipe~~ → registrados em EQUIPE.md; falta confirmar GitHub de cada um e a divisão por frentes | Equipe | 🔶 Parcial |
-| 7 | Push do commit inicial para o GitHub (repo remoto ainda vazio) | Roger | ⏳ Aguardando confirmação |
+| 7 | ~~Push do commit inicial~~ → repositório ativo, `main` sincronizada | Roger | ✅ Resolvido |
 | 8 | **`SENAI_CETIQT_CAT_576640.pdf` em `data/brutos/`** — bloqueia todos os critérios de aceite do M1 e a troca das fixtures sintéticas por reais | Roger | 🔴 Bloqueante |
 | 9 | Confirmar o slug do modelo em openrouter.ai/models e ajustar `OPENROUTER_MODELO` + preços no `.env` se divergir | Roger | ⏳ Aguardando |
 | 10 | 20 documentos variados do Drive (edital, ata, certidão, memorial, planilha + um problemático) para o M2 | Roger / Solufarma | ⏳ Aberto |
