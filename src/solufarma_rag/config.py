@@ -55,6 +55,19 @@ class Settings:
     embedding_model: str = field(
         default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
     )
+    # Endpoint compatível com a API da OpenAI. Vazio = OpenAI direto.
+    # Apontar para o OpenRouter (https://openrouter.ai/api/v1) permite reusar a
+    # OPENROUTER_API_KEY que o OCR já usa, sem abrir conta na OpenAI — o slug do
+    # modelo então vira `openai/text-embedding-3-large`.
+    embedding_base_url: str = field(default_factory=lambda: os.getenv("EMBEDDING_BASE_URL", ""))
+    # Precedência explícita: uma chave dedicada vence; senão a da OpenAI; senão a
+    # do OpenRouter. Sem isso, apontar a base_url para o OpenRouter e esquecer a
+    # chave produziria um 401 que parece problema de modelo.
+    embedding_api_key: str = field(
+        default_factory=lambda: os.getenv("EMBEDDING_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY", "")
+    )
     embedding_dimensions: int = field(
         default_factory=lambda: int(os.getenv("EMBEDDING_DIMENSIONS", "1024"))
     )

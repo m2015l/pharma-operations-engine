@@ -12,7 +12,19 @@ from datetime import date
 
 from pydantic import BaseModel, Field, field_validator
 
-TIPOS_DOCUMENTO = ("edital", "ata", "resultado", "anexo", "proposta", "recurso", "outro")
+# Espelha o CHECK de `documentos.tipo` (migrations/003_tipo_atestado.sql).
+# `atestado` = CAT / atestado de capacidade técnica: é o documento que prova
+# obra já executada, e o que responde "já fizemos isso antes?".
+TIPOS_DOCUMENTO = (
+    "edital",
+    "ata",
+    "resultado",
+    "atestado",
+    "anexo",
+    "proposta",
+    "recurso",
+    "outro",
+)
 
 
 class PaginaDocumento(BaseModel):

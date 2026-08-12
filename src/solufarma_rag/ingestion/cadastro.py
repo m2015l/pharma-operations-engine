@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from datetime import date
 
-TIPOS_VALIDOS = ("edital", "ata", "resultado", "anexo", "proposta", "recurso", "outro")
+from ..db.models import TIPOS_DOCUMENTO as TIPOS_VALIDOS
 
 
 def _achar_ou_criar_licitacao(

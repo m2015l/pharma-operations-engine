@@ -150,8 +150,21 @@ def criar_provedor_openai(
     settings = get_settings()
     modelo = model or settings.embedding_model
     dims = dimensions or settings.embedding_dimensions
+
+    extras: dict = {}
+    if settings.embedding_base_url:
+        # Gateway compatível com a API da OpenAI (OpenRouter, Azure, vLLM...).
+        extras["base_url"] = settings.embedding_base_url
+        # `check_embedding_ctx_length=False`: a contagem de tokens client-side do
+        # langchain-openai usa o tiktoken do modelo pelo NOME. Com o slug do
+        # gateway (`openai/text-embedding-3-large`) ele não reconhece o modelo e
+        # quebra antes de qualquer chamada de rede.
+        extras["check_embedding_ctx_length"] = False
+    if settings.embedding_api_key:
+        extras["api_key"] = settings.embedding_api_key
+
     return LangChainEmbeddingProvider(
-        embeddings=OpenAIEmbeddings(model=modelo, dimensions=dims),
+        embeddings=OpenAIEmbeddings(model=modelo, dimensions=dims, **extras),
         model=modelo,
         dims=dims,
     )
