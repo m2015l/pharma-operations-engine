@@ -26,9 +26,16 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 from solufarma_rag.db.repository import criar_conexao
 
-MIGRACAO = RAIZ / "src" / "solufarma_rag" / "db" / "migrations" / "001_schema_inicial.sql"
+MIGRACOES_DIR = RAIZ / "src" / "solufarma_rag" / "db" / "migrations"
+# Só os arquivos numerados entram, em ordem lexicográfica (= ordem de criação).
+# `rascunho_busca_hibrida.sql` fica de fora de propósito: o rodapé da 001 explica
+# por que a RPC não vai para o banco.
+MIGRACOES = sorted(MIGRACOES_DIR.glob("[0-9][0-9][0-9]_*.sql"))
 
 EXTENSOES = ("vector", "pg_trgm", "unaccent")
+# Bucket dos PDFs originais. `documentos.storage_path` é NOT NULL, então sem ele
+# nenhuma linha entra em `documentos` — ver migrations/002_storage.sql.
+BUCKET = "documentos"
 TABELAS = (
     "licitacoes",
     "licitacao_itens",
@@ -45,11 +52,19 @@ FALHA = "  [FALHA] "
 
 
 def aplicar(conn) -> None:
-    sql = MIGRACAO.read_text(encoding="utf-8")
-    with conn.cursor() as cur:
-        cur.execute(sql)
-    conn.commit()
-    print(f"Migração aplicada: {MIGRACAO.relative_to(RAIZ)}")
+    """Aplica todas as migrações numeradas, em ordem.
+
+    Commit por migração, não no fim: se a 003 falhar, a 002 já aplicada
+    permanece. Todas são idempotentes, então reexecutar é sempre seguro.
+    """
+    if not MIGRACOES:
+        raise RuntimeError(f"Nenhuma migração encontrada em {MIGRACOES_DIR}")
+    for caminho in MIGRACOES:
+        sql = caminho.read_text(encoding="utf-8")
+        with conn.cursor() as cur:
+            cur.execute(sql)
+        conn.commit()
+        print(f"Migração aplicada: {caminho.relative_to(RAIZ)}")
 
 
 def checar(conn) -> bool:
@@ -103,6 +118,20 @@ def checar(conn) -> bool:
             tudo_ok &= presente
             print(f"{OK if presente else FALHA}{indice}")
 
+        print("\nStorage (destino dos PDFs originais):")
+        cur.execute("select public from storage.buckets where id = %s", (BUCKET,))
+        linha = cur.fetchone()
+        if linha is None:
+            tudo_ok = False
+            print(f"{FALHA}bucket '{BUCKET}' não existe — rode --apply")
+        else:
+            print(f"{OK}bucket '{BUCKET}' existe")
+            # Bucket público gera URL aberta na internet: documento de licitação
+            # de cliente vazaria sem login. Ver migrations/002_storage.sql.
+            privado = not linha[0]
+            tudo_ok &= privado
+            print(f"{OK if privado else FALHA}bucket é privado")
+
         print("\nRound-trip de vetor (pgvector ↔ driver):")
         try:
             cur.execute("select %s::vector", ([0.1] * 1024,))
@@ -125,6 +154,8 @@ def checar(conn) -> bool:
         if "doc_chunks" in tabelas:
             cur.execute("select count(*) from doc_chunks where embedding is not null")
             print(f"         doc_chunks com embedding: {cur.fetchone()[0]}")
+        cur.execute("select count(*) from storage.objects where bucket_id = %s", (BUCKET,))
+        print(f"         PDFs no Storage: {cur.fetchone()[0]}")
 
     return tudo_ok
 
