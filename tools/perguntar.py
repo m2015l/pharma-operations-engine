@@ -25,15 +25,15 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from solufarma_rag.agent.agent import AgenteLicitacoes  # noqa: E402
-from solufarma_rag.agent.llm import criar_llm  # noqa: E402
-from solufarma_rag.db.repository import (  # noqa: E402
+from solufarma_rag.agent.agent import AgenteLicitacoes
+from solufarma_rag.agent.llm import criar_llm
+from solufarma_rag.db.repository import (
     FiltrosBusca,
     SupabaseChunkRepository,
     criar_conexao,
 )
-from solufarma_rag.ingestion.embeddings import criar_provedor  # noqa: E402
-from solufarma_rag.retrieval.hybrid_search import HybridSearcher  # noqa: E402
+from solufarma_rag.ingestion.embeddings import criar_provedor
+from solufarma_rag.retrieval.hybrid_search import HybridSearcher
 
 
 def _mostrar_busca(searcher: HybridSearcher, pergunta: str, filtros: FiltrosBusca, top_k: int):

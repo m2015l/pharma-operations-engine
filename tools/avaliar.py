@@ -42,13 +42,13 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from solufarma_rag.db.repository import (  # noqa: E402
+from solufarma_rag.db.repository import (
     FiltrosBusca,
     SupabaseChunkRepository,
     criar_conexao,
 )
-from solufarma_rag.ingestion.embeddings import criar_provedor  # noqa: E402
-from solufarma_rag.retrieval.hybrid_search import HybridSearcher  # noqa: E402
+from solufarma_rag.ingestion.embeddings import criar_provedor
+from solufarma_rag.retrieval.hybrid_search import HybridSearcher
 
 GOLDEN = RAIZ / "data" / "golden_set.json"
 DIR_RESULTADOS = RAIZ / "data" / "relatorios"
@@ -225,7 +225,7 @@ def calibrar(repo, provider, casos: list[dict], pool: int) -> None:
         maior_distrator, pergunta_distrator = max(distratores, key=lambda t: t[0])
         acima = sum(1 for (s, q), (d, _) in zip(sinais, distratores) if d > s)
         print(f"\n{'-' * 72}")
-        print(f"Diagnóstico de ordenação (NÃO afeta o piso):")
+        print("Diagnóstico de ordenação (NÃO afeta o piso):")
         print(f"  Maior distrator: {maior_distrator:.4f} ({pergunta_distrator[:44]})")
         print(f"  Perguntas em que um distrator vence o sinal: {acima}/{len(sinais)}")
         if acima:

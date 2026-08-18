@@ -33,8 +33,8 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from solufarma_rag.db.repository import InMemoryChunkRepository  # noqa: E402
-from solufarma_rag.ingestion.embeddings import (  # noqa: E402
+from solufarma_rag.db.repository import InMemoryChunkRepository
+from solufarma_rag.ingestion.embeddings import (
     FakeEmbeddingProvider,
     criar_provedor,
     gerar_embeddings_pendentes,
