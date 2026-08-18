@@ -7,6 +7,19 @@
 
 Desenvolver um **assistente de IA para validação de licitações** da Solufarma Engenharia, com arquitetura de dados robusta para ingestão, processamento e uso inteligente do acervo histórico de editais, atas e resultados. Respostas devem ser consistentes, contextualizadas, **rastreáveis** (com citação das fontes) e alinhadas ao histórico real de participações.
 
+## Onde o projeto está (11/08/26)
+
+> **Construção adiantada, validação parada.** O encanamento completo existe e é testado:
+> OCR, chunking, banco, vetores, busca híbrida, agente com citação, e as ferramentas de
+> ponta a ponta. **99 testes automáticos passando** + 9 verificações contra o Supabase real.
+>
+> O que falta se divide em três:
+> 1. **Construir** — a aplicação Streamlit (nenhuma linha) e a classificação/sumarização;
+> 2. **Validar** — nada nunca rodou com IA de verdade nem com documento real; falta chave de API;
+> 3. **Receber do cliente** — o acervo, os critérios de decisão e as perguntas-teste.
+>
+> Os itens marcados com *itálico* abaixo significam "código pronto, nunca rodou de verdade".
+
 ## Prazo e investimento
 
 - **Prazo**: 12 semanas de desenvolvimento + 2 semanas de suporte;
@@ -17,37 +30,37 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 
 ### 1. Criação e tratamento do banco de dados
 - [x] Configuração do banco em Supabase / PostgreSQL
-- [ ] Ingestão do acervo histórico: editais, atas e resultados
-- [ ] OCR em PDFs e documentos escaneados
-- [ ] Classificação e sumarização dos documentos via IA
-- [ ] Limpeza, padronização e estruturação dos dados
+- [ ] Ingestão do acervo histórico: editais, atas e resultados — *ferramentas prontas (`upload_documento`, `cadastro`, `indexar`); **nenhum documento carregado***
+- [ ] OCR em PDFs e documentos escaneados — *pipeline completo; **nunca rodou em documento real** (falta chave + acervo)*
+- [ ] Classificação e sumarização dos documentos via IA — ❌ **não iniciado**
+- [x] Limpeza, padronização e estruturação dos dados — remoção de boilerplate, costura entre páginas, chunking por regime
 
 ### 2. Base de conhecimento (RAG)
-- [ ] Base vetorial para embeddings dos documentos
-- [ ] Processamento e indexação de editais, atas e resultados
-- [ ] Busca por similaridade semântica (por conceito, não só palavra-chave)
-- [ ] Integração da base vetorial ao fluxo da IA
-- [ ] Rastreabilidade com citação das fontes originais
+- [x] Base vetorial para embeddings dos documentos — `vector(1024)` + índice HNSW no Supabase
+- [ ] Processamento e indexação de editais, atas e resultados — *pipeline incremental pronto e validado contra o banco real; **acervo vazio***
+- [x] Busca por similaridade semântica (por conceito, não só palavra-chave) — híbrida (vetorial + léxica + RRF), validada contra o banco real
+- [x] Integração da base vetorial ao fluxo da IA
+- [x] Rastreabilidade com citação das fontes originais — com verificação de citação alucinada (`contrato_citacao_ok`)
 
 ### 3. Agente de IA
-- [ ] Integração com APIs Claude (Anthropic) e/ou OpenAI
+- [ ] Integração com APIs Claude (Anthropic) e/ou OpenAI — *cliente escrito; **nunca chamou a API** (falta chave)*
 - [ ] Orquestração com LangChain
-- [ ] Lógica de interpretação de solicitações sobre licitações
-- [ ] Busca automatizada de projetos/equipamentos semelhantes no histórico
-- [ ] Análise de novos editais contra o acervo validado
-- [ ] Padronização das saídas conforme critérios de decisão da Solufarma
+- [x] Lógica de interpretação de solicitações sobre licitações
+- [x] Busca automatizada de projetos/equipamentos semelhantes no histórico
+- [x] Análise de novos editais contra o acervo validado — fluxo `analise_edital`
+- [ ] Padronização das saídas conforme critérios de decisão da Solufarma — 🔴 **os critérios nunca foram fornecidos** (pendência 5)
 
 ### 4. Engenharia de prompts
-- [ ] Desenvolvimento e calibragem de prompts
-- [ ] Estruturas de entrada/saída por tipo de consulta
-- [ ] Controle de contexto e aderência ao domínio de licitações
+- [ ] Desenvolvimento e calibragem de prompts — *escritos; **calibragem depende de casos reais***
+- [x] Estruturas de entrada/saída por tipo de consulta — `consulta_historico` e `analise_edital`
+- [x] Controle de contexto e aderência ao domínio de licitações — o agente recusa responder fora do acervo
 - [ ] Ajustes iterativos com casos reais
 
 ### 5. Interface e handoff
-- [ ] Aplicação web em Streamlit (foco desktop)
+- [ ] Aplicação web em Streamlit (foco desktop) — ❌ **nenhuma linha escrita. É o maior item em aberto**
 - [ ] Chat em linguagem natural com o agente
 - [ ] Upload de novos editais para análise imediata
-- [ ] Links para os documentos originais de cada resposta
+- [ ] Links para os documentos originais de cada resposta — *o dado já está guardado (Storage + `storage_path`); falta a tela*
 - [ ] Testes, otimizações e treinamento da equipe Solufarma
 
 ## Cronograma detalhado
@@ -60,8 +73,8 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
   - [x] Detecção de formato por magic number, roteamento nativo/VLM, carry-over entre páginas, cache por hash, lote tolerante a falha, relatório de custo — 07/08/26
   - [ ] **Validação contra o documento real** *(bloqueado: o PDF do SENAI não está no repositório e falta a chave do OpenRouter)*
 - [x] Chunking por regime de conteúdo (prosa / tabela / metadados) — 07/08/26
-- [ ] Classificação, sumarização e tratamento dos documentos via IA
-- [ ] Estruturação inicial da base e preparação para embeddings
+- [ ] Classificação, sumarização e tratamento dos documentos via IA — ❌ **não iniciado**
+- [x] Estruturação inicial da base e preparação para embeddings — schema, Storage, cadastro do documento e ponte chunking→banco — 11/08/26
 
 **Resultado esperado**: documentos estáticos viram base estruturada, pesquisável e pronta para alimentar a IA.
 
@@ -71,19 +84,19 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 > com limiar errado significa indexar lixo com confiança. Ver `BRIEFING.md`.
 
 ### Semanas 5–9 — Agente de IA e Vetorização
-- [ ] Criação da base vetorial e geração dos embeddings
-- [ ] Indexação de editais, atas e resultados históricos
-- [ ] Pipeline de RAG com LangChain
-- [ ] Integração com APIs Claude / OpenAI
-- [ ] Lógica do agente e fluxos de entrada/saída
-- [ ] Busca semântica e respostas com fontes citadas
-- [ ] Engenharia de prompts: desenvolvimento, calibragem, iteração
+- [x] Criação da base vetorial e geração dos embeddings — pipeline incremental por hash, dois provedores (Voyage/OpenAI) com interruptor — 11/08/26
+- [ ] Indexação de editais, atas e resultados históricos — *`tools/indexar.py` pronto; **depende do acervo e da chave***
+- [x] Pipeline de RAG com LangChain — embeddings + retriever, na forma do **ADR-008** — 06/08/26
+- [ ] Integração com APIs Claude / OpenAI — *código pronto; **nunca chamou a API***
+- [x] Lógica do agente e fluxos de entrada/saída — interpretar → buscar → refinar → responder → citar
+- [x] Busca semântica e respostas com fontes citadas — busca validada contra o banco real
+- [ ] Engenharia de prompts: desenvolvimento, calibragem, iteração — *escritos; **calibragem e iteração dependem de casos reais***
 
 **Resultado esperado**: o "cérebro" da Solufarma — inteligência consultável em linguagem natural.
 
 ### Semanas 10–12 — Interface, Validação e Handoff
-- [ ] Aplicação web em Streamlit
-- [ ] Chat e upload de novos editais
+- [ ] Aplicação web em Streamlit — ❌ **nenhuma linha. Maior frente de construção em aberto**
+- [ ] Chat e upload de novos editais — ❌ existe por linha de comando (`tools/perguntar.py`), não por tela
 - [ ] Links para documentos originais em cada resposta
 - [ ] Testes com cenários reais e otimização de performance
 - [ ] Documentação técnica e treinamento da equipe
@@ -120,10 +133,13 @@ Desenvolver um **assistente de IA para validação de licitações** da Solufarm
 | 8 | **`SENAI_CETIQT_CAT_576640.pdf` em `data/brutos/`** — bloqueia todos os critérios de aceite do M1 e a troca das fixtures sintéticas por reais | Roger | 🔴 Bloqueante |
 | 9 | Confirmar o slug do modelo em openrouter.ai/models e ajustar `OPENROUTER_MODELO` + preços no `.env` se divergir | Roger | ⏳ Aguardando |
 | 10 | 20 documentos variados do Drive (edital, ata, certidão, memorial, planilha + um problemático) para o M2 | Roger / Solufarma | ⏳ Aberto |
-| 11 | Modelo de embeddings (OpenAI × Voyage) — **deixado em aberto por decisão do Roger (09/08)**. Precisa fechar ANTES da primeira carga real: trocar depois obriga a recriar a coluna `vector(N)` e reprocessar tudo | Equipe | ⏳ Aberto |
+| 11 | Modelo de embeddings (OpenAI × Voyage) — os dois estão implementados com interruptor (`EMBEDDING_PROVIDER`) e `tools/avaliar.py` mede o A/B. Falta **rodar o teste com chave** e fechar. Padrão atual: Voyage (1024 dimensões nativas, igual à coluna do banco) | Equipe | ⏳ Depende de chave |
 | 12 | Piso de similaridade da busca (`SIMILARIDADE_MINIMA_PADRAO=0.15`) foi calibrado contra o provedor fake — recalibrar com embeddings reais | Frente RAG | ⏳ Depende do item 11 |
 | 13 | **Golden set de avaliação do RAG não existe** — sem ele toda mudança de prompt/chunking é feita no escuro | Frente RAG ↔ Cliente | ⏳ Aberto |
 | 14 | **Port de `src/solufarma_rag/` para dentro de `src/solufarma/`** (ADR-007): achatar subpacotes, Pydantic→dataclass, `Settings`→constantes, nomes em português | Frente RAG | 🔴 Em andamento |
 | 15 | ~~Reconciliar acesso ao Supabase~~ → decisão do Roger: acesso por `DATABASE_URL` (psycopg direto), porque a REST não faz operador de vetor nem full-text com filtro. `DATABASE_URL` entrou em `VARIAVEIS_POR_ESTAGIO["indexacao"]` | Roger | ✅ Resolvido (09/08/26) |
-| 16 | **Ponte chunking → Supabase** (cadastro do documento + tradução do `Chunk`) — especificada em [workflows/indexacao.md](../workflows/indexacao.md), não implementada | Frente RAG | 🔴 Bloqueia o M3 |
-| 17 | Origem de `orgao`/`numero_edital`/`data`: usuário informa no upload ou LLM extrai da capa? Bloqueia o cadastro do documento | Roger ↔ Cliente | 🔴 Aberto |
+| 16 | ~~Ponte chunking → Supabase~~ → implementada pelo Thiago em 11/08: `ingestion/cadastro.py`, `ingestion/traducao.py`, `tools/indexar.py`, `tools/upload_documento.py` | Thiago | ✅ Resolvido (11/08/26) |
+| 17 | Origem de `orgao`/`numero_edital`/`data`: usuário informa no upload ou LLM extrai da capa? **Não bloqueia mais** — `cadastrar_documento()` recebe os três por parâmetro, agnóstico à origem. Vira decisão de produto na tela de upload | Roger ↔ Cliente | 🔶 Não bloqueante |
+| 18 | **Aplicação Streamlit** — nenhuma linha escrita. Maior frente de construção em aberto, e não depende de chave nem do cliente | Frente Interface | 🔴 Aberto |
+| 19 | **Classificação e sumarização dos documentos via IA** (escopo 1) — não iniciado | Frente Dados | 🔴 Aberto |
+| 20 | Ferramentas novas (`indexar`, `perguntar`, `avaliar`, `upload_documento`, `cadastro`, `traducao`) **não têm testes automáticos** | Frente RAG | ⏳ Aberto |
