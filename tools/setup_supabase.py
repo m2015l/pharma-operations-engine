@@ -5,8 +5,8 @@ Uso:
     python tools/setup_supabase.py --apply     # aplica migrations/001_schema_inicial.sql
     python tools/setup_supabase.py --apply --check
 
-Precisa de DATABASE_URL no `.env` (Supabase → Project Settings → Database →
-Connection string → URI, com a senha preenchida). A migração é idempotente:
+Precisa de DATABASE_URL no `.env` (Supabase -> Project Settings -> Database ->
+Connection string -> URI, com a senha preenchida). A migração é idempotente:
 rodar `--apply` duas vezes não quebra nada.
 
 O `--check` é o que responde "o banco está pronto?": confere extensões, tabelas,
@@ -25,6 +25,15 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
 from solufarma_rag.db.repository import criar_conexao
+
+# O console do Windows abre em cp1252 e derruba o processo com
+# UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,
+# sigma, "aproximadamente"). Forcar UTF-8 na saida evita que um caractere de
+# relatorio mate uma execucao que ja gastou chamada paga.
+for _fluxo in (sys.stdout, sys.stderr):
+    if hasattr(_fluxo, "reconfigure"):
+        _fluxo.reconfigure(encoding="utf-8", errors="replace")
+
 
 MIGRACOES_DIR = RAIZ / "src" / "solufarma_rag" / "db" / "migrations"
 # Só os arquivos numerados entram, em ordem lexicográfica (= ordem de criação).
@@ -132,7 +141,7 @@ def checar(conn) -> bool:
             tudo_ok &= privado
             print(f"{OK if privado else FALHA}bucket é privado")
 
-        print("\nRound-trip de vetor (pgvector ↔ driver):")
+        print("\nRound-trip de vetor (pgvector <-> driver):")
         try:
             cur.execute("select %s::vector", ([0.1] * 1024,))
             devolvido = cur.fetchone()[0]

@@ -33,6 +33,15 @@ import sys
 import unicodedata
 from pathlib import Path
 
+# O console do Windows abre em cp1252 e derruba o processo com
+# UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,
+# sigma, "aproximadamente"). Forcar UTF-8 na saida evita que um caractere de
+# relatorio mate uma execucao que ja gastou chamada paga.
+for _fluxo in (sys.stdout, sys.stderr):
+    if hasattr(_fluxo, "reconfigure"):
+        _fluxo.reconfigure(encoding="utf-8", errors="replace")
+
+
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 

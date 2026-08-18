@@ -35,6 +35,15 @@ from solufarma_rag.db.repository import (
 from solufarma_rag.ingestion.embeddings import criar_provedor
 from solufarma_rag.retrieval.hybrid_search import HybridSearcher
 
+# O console do Windows abre em cp1252 e derruba o processo com
+# UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,
+# sigma, "aproximadamente"). Forcar UTF-8 na saida evita que um caractere de
+# relatorio mate uma execucao que ja gastou chamada paga.
+for _fluxo in (sys.stdout, sys.stderr):
+    if hasattr(_fluxo, "reconfigure"):
+        _fluxo.reconfigure(encoding="utf-8", errors="replace")
+
+
 
 def _mostrar_busca(searcher: HybridSearcher, pergunta: str, filtros: FiltrosBusca, top_k: int):
     resultados = searcher.buscar(pergunta, filtros, top_k)
