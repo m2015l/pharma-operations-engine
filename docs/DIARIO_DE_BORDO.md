@@ -5,6 +5,34 @@
 
 ---
 
+## 2026-08-17 — RAG validado ponta a ponta e auditado por workflow de dois agentes (Roger + Claude)
+
+**O que foi feito:**
+- **RAG rodou de verdade pela primeira vez**, contra o banco real: 1 documento (CAT 576640 do SENAI CETIQT, 60 páginas), 161 chunks, todos embeddados. Resposta com 5 citações apontando para páginas reais; controle negativo ("autoclaves para o Hospital das Clínicas") recusado corretamente;
+- Dois problemas de configuração corrigidos no caminho: `EMBEDDING_PROVIDER=voyage` com `VOYAGE_API_KEY` vazia contra 161 chunks embeddados com `openai/text-embedding-3-large-1024` (busca devolveria lixo sem erro), e `UnicodeEncodeError` no console cp1252 do Windows — resolvido forçando UTF-8 na saída dos 9 CLIs;
+- Criado `tools/dump_acervo.py`: despeja o acervo indexado por inteiro (página, seção, texto). Sem ele, auditar o RAG é circular — a única janela para o conteúdo era a própria busca;
+- **Workflow de dois agentes com contextos deliberadamente separados**, a pedido do Roger. Agente 1 (cego: sem acervo, sem código) interpretou uma analista de licitações em 4 sessões encadeadas / 20 turnos, com pronome solto, desconfiança, reformulação e pedido de formato — registro verbatim em `docs/auditorias/2026-08-17_conversas_rag.md`. Agente 2 (com o acervo integral + o código, sem o raciocínio do agente 1) conferiu turno a turno e escreveu `PRECISÃO.md`;
+- `PRECISÃO.md` criado na raiz: veredito turno a turno, 10 padrões por causa raiz, 10 instruções acionáveis ordenadas por impacto/esforço, seção "o que NÃO mudar" e limites da avaliação.
+
+**Aprendizados / observações:**
+- **Placar: 7 turnos com problema grave, 3 médios, 2 leves, 8 limpos. Nota do RAG hoje: 3 de 5** — fundação sólida (4), experiência entregue ao cliente (2);
+- **Zero alucinação em 20 turnos.** Nenhum marcador `[n]` inválido, nenhum dado de obra inventado. A parte difícil (não mentir) está funcionando;
+- **A falha mais perigosa é a recusa falsa.** Três vezes o agente disse "não encontrei no acervo" sobre informação que está lá: a área certificada (5.655,00 m², p.2), os 311 postos de consumo de gases (p.45) e a nomenclatura "sala limpa" (p.11 + planilha). Recusa errada *parece* acerto de honestidade, então ninguém audita. Só se detecta com o acervo inteiro na mão — foi por isso que o dump precisou existir antes do agente avaliador;
+- **Causa raiz reproduzível:** `PROMPT_INTERPRETAR` oferece o enum `edital|ata|resultado` e o único documento é `tipo='atestado'`. Qualquer filtro que o modelo emitir garante zero resultados. Pior: o nó de refinamento troca a consulta e **mantém os filtros**, então a segunda chamada paga nasce condenada;
+- `top_k=5` corta a última peça em respostas que precisam de N trechos homogêneos: faltaram 3.695,36 m² dos maiores itens de piso, e a resposta ainda declarou a lista completa;
+- A tabela `itens_planilha` tem 807 linhas populadas e indexadas, e **nunca é consultada** — as duas piores respostas de quantitativo são as que um `SELECT` resolveria;
+- Chunks de planilha herdam seção errada (quantitativos de GASES rotulados como quadro de distribuição elétrica), porque as divisões são linhas de tabela e o chunker só empilha headings markdown. O rótulo errado entra no embedding;
+- Separar os contextos dos dois agentes foi o que produziu o achado principal: o testador cego não podia saber que a recusa era falsa, e o avaliador não podia ser contaminado por opinião de teste;
+- **A nota 3 é provisória e provavelmente otimista** — medida contra 1 documento de 1 tipo, que nem é o tipo principal do produto.
+
+**Próximos passos:**
+- Aplicar as 4 primeiras instruções do `PRECISÃO.md` (baixo esforço, cobrem 6 dos 7 turnos graves): I1 parar de gerar filtros na interpretação, I2 relaxar filtros no refinamento, I3 separar "não está nos trechos" de "não está no acervo", I4 subir `top_k` para 8;
+- **I10 só depois de I3 e I4** — antes disso ela deixaria a resposta errada mais assertiva;
+- Refazer a mesma bateria de 20 turnos depois das mudanças e comparar (é a única forma de saber se a nota subiu);
+- Aplicação Streamlit (item 18) segue sendo a maior frente em aberto que não depende de ninguém.
+
+---
+
 ## 2026-08-09 — Supabase configurado e validado; merge com o pipeline da Diva (Roger + Claude)
 
 **Merge das duas frentes.** `origin/main` tinha o pipeline de OCR/chunking da Diva (`bcc00e3`),
