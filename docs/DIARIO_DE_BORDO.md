@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-09-28 — I6 aplicado (folha de rosto da CAT); I9 ligado ao CLI; documentação em PDF (Roger + Claude)
+
+**O que foi feito:**
+- **I9 estava implementada mas não conectada** — `tools/perguntar.py` construía o `AgenteLicitacoes` sem passar `repo_itens`. Corrigido (uma linha). Verificado contra o Supabase real: pergunta sobre pontos de gases especiais agora cita os números exatos da planilha (144+167+28 conjuntos, p.45) em vez de recusar;
+- **I6 aplicado como correção pontual de dados**, não como heurística de código: os 3 chunks que cobrem a folha de rosto da CAT (p.1-2) foram reescritos manualmente — a seção "ATIVIDADE TÉCNICA REALIZADA" (onde está a área certificada de 5.655,00 m²) virou chunk próprio, com heading sintético no cabeçalho contextual; os outros dois chunks da folha de rosto ganharam headings equivalentes ("DADOS DO CONTRATO", "ENDEREÇO DA OBRA/SERVIÇO"). Não houve reprocessamento de OCR — o texto extraído já estava correto, só a divisão em chunks escondia a seção. Script em `tools/i6_reindexar_folha_rosto_cat576640.py` (já executado, não deve rodar de novo — ver aviso no arquivo);
+- Renumeração de `chunk_index` feita com deslocamento em duas fases (offset temporário de 100000) para não violar a constraint `unique(documento_id, chunk_index)` durante a operação — 159 linhas deslocadas, 0 colisões, conferido por asserção antes do commit da transação;
+- Reembeddados só os 3 chunks afetados (882 tokens, OpenAI, ~US$ 0,0001) — o resto do acervo não foi tocado;
+- **Verificação ao vivo, chamada paga real**: o turno 1.3 (3.000 m² de área) voltou a ser testado — agora a resposta lidera com "Sim", cita o número certificado (5.655,00 m²) da nova seção *e* a soma por pavimento (5.187,56 m²), tratando a diferença como ressalva plausível (áreas adicionais não capturadas) em vez de escolher um número às cegas. É a melhor resposta desse turno em toda a sessão;
+- Confirmado por busca crua (`--so-busca`, sem custo): a pergunta "atividade técnica realizada área total construída da obra" agora recupera o novo chunk na **posição 1** — antes da correção só aparecia na posição 7, mesmo com `top_k=8`;
+- **Gerado `data/relatorios/Melhoria_RAG_Solufarma_2026-09-28.pdf`** — documentação da sessão para a empresa (resumo executivo, diagnóstico da auditoria de 17/08, as 9+1 correções aplicadas, evidência antes/depois, situação atual).
+
+**Decisão registrada:** I6 foi tratado como patch de dados específico deste documento (não uma heurística genérica em `src/solufarma/chunking.py`), seguindo a própria recomendação do PRECISÃO.md de não generalizar sem um segundo documento para validar contra. Quando o acervo ganhar mais atestados/editais, vale avaliar se o padrão de "folha de rosto com blocos em caixa alta sem heading" se repete — só aí compensa investir na heurística de código.
+
+**Pendências:**
+- Merge das branches paralelas (`worktree-agent-adfdac112a4b14635` com I1-I4, e esta com I5-I10) em `main` — bloqueado pela permissão de merge automático do ambiente, aguardando o usuário rodar manualmente ou ajustar a permissão;
+- Reauditoria completa dos 20 turnos ainda não feita. Dos 7 turnos de gravidade alta: **3 reconfirmados ao vivo com chamada paga real** (1.3 — área/3000m², 3.3 — contratante/CNPJ/vigência, 2.4 — pontos de gases) e **1 confirmado só por retrieval bruto, sem custo** (1.2 — `--so-busca` agora recupera os 5 pavimentos). Os outros três (1.4, 2.1, 4.3) dependem do mesmo mecanismo já corrigido, mas não foram testados individualmente — ficam para a reauditoria completa.
+
+---
+
 ## 2026-09-28 — Aplicadas I5, I7, I8, I9 e I10 do PRECISÃO.md; I6 fica de fora (Claude)
 
 **O que foi feito** (branch `worktree-i5-i10`, a partir de `worktree-agent-adfdac112a4b14635`, que já tinha I1-I4):
