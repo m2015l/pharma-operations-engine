@@ -26,7 +26,7 @@ from ..ingestion.embeddings import EmbeddingProvider, embeddar_consulta
 
 RRF_K = 60  # constante clássica do RRF; igual à usada no SQL
 CANDIDATOS_PADRAO = 20
-TOP_K_PADRAO = 5
+TOP_K_PADRAO = 8
 
 # Piso de relevância da busca vetorial (similaridade de cosseno).
 #

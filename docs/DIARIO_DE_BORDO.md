@@ -5,6 +5,31 @@
 
 ---
 
+## 2026-09-28 — Aplicadas as 4 instruções de baixo esforço do PRECISÃO.md (I1-I4) (Claude)
+
+**O que foi feito:**
+- **I1** — `PROMPT_INTERPRETAR` (`src/solufarma_rag/agent/prompts.py`) parou de pedir filtros estruturados de verdade: os quatro campos de `filtros` agora saem sempre `null` no JSON pedido ao LLM, com regra explícita "Não invente filtros". Adicionadas também as regras de "consulta" que já estavam no texto do PRECISÃO.md (termos do documento, não do processo licitatório do usuário);
+- **I2** — `AgenteLicitacoes.responder` (`src/solufarma_rag/agent/agent.py`), dentro do `while not resultados`: a segunda tentativa de busca agora chama `self.searcher.buscar(nova_consulta, FiltrosBusca(), self.top_k)` — filtros zerados, não os da interpretação original — para que um filtro que zerou a primeira busca não condene a segunda também;
+- **I3** — regra 3 do `SYSTEM_AGENTE` e última linha do `PROMPT_RESPONDER` trocaram a linguagem de "não está no acervo" / "documento não menciona" por "não está nos trechos recuperados", com a ressalva de que o agente vê 5-8 trechos de um documento de dezenas de páginas — texto colado exatamente como está no PRECISÃO.md;
+- **I4** — `TOP_K_PADRAO` (`src/solufarma_rag/retrieval/hybrid_search.py`) subiu de 5 para 8; `--top-k` default em `tools/perguntar.py` idem. `CANDIDATOS_PADRAO` não foi tocado, como instruído.
+
+**Verificação:**
+- `uv run ruff check src tools tests` limpo;
+- `uv run pytest -q`: **99 testes passando**, nenhum precisou de ajuste — os testes de agente usam `FakeLLM`/`SearcherStub` com JSON de interpretação fixado no próprio teste (não dependem do texto do prompt), e os testes de `top_k` sempre passam o valor explicitamente, nunca dependendo do default;
+- **Não foi possível rodar a verificação `tools/perguntar.py ... --so-busca` prescrita no PRECISÃO.md para I1 e I4** (as perguntas do contratante/CNPJ e da área por pavimento): a conexão com o Supabase do projeto falhou com `EAUTHQUERY ... connection to database not available` em duas tentativas — sintoma de projeto Supabase pausado ou indisponível no momento, não relacionado às mudanças de código. Fica pendente rodar essas duas verificações assim que o banco estiver acessível;
+- I3 é só prompt — como o próprio PRECISÃO.md registra, só dá para confirmar com chamada paga de LLM contra os dois turnos citados (piso/forro e sala limpa), que não foi feita aqui.
+
+**Decisões tomadas que não estavam 100% explícitas no PRECISÃO.md:**
+- O default `top_k: int = 5` em `AgenteLicitacoes` (`agent.py`) **não foi alterado** — I4 só lista `hybrid_search.py` e `perguntar.py` como "Onde". Na prática isso não importa hoje: o único chamador de produção (`tools/perguntar.py`) sempre passa `top_k=args.top_k` explicitamente, que agora já nasce em 8;
+- Copiei o `.env` da raiz do repo (fora da worktree) para dentro da worktree só para tentar a verificação `--so-busca` contra o banco real — arquivo gitignorado, não entrou em nenhum commit.
+
+**Pendências (continuam abertas):**
+- I5-I10 do PRECISÃO.md ficam para depois — fora do escopo desta tarefa;
+- Rodar as verificações `--so-busca` de I1/I4 e a bateria de 20 turnos completa (mencionada no diário de 17/08) assim que o Supabase estiver acessível de novo;
+- Nota do RAG (3/5 em 17/08) continua sem remedição — só uma nova rodada da auditoria de dois agentes confirma se I1-I4 moveram o placar.
+
+---
+
 ## 2026-08-17 — RAG validado ponta a ponta e auditado por workflow de dois agentes (Roger + Claude)
 
 **O que foi feito:**

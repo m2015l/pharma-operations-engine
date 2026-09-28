@@ -97,7 +97,7 @@ def main() -> int:
     p.add_argument("pergunta", nargs="?", help="A pergunta. Sem isto, entra em modo interativo")
     p.add_argument("--orgao", default=None, help="Filtra por órgão")
     p.add_argument("--tipo", default=None, help="Filtra por tipo de documento")
-    p.add_argument("--top-k", type=int, default=5, help="Trechos no contexto (padrão 5)")
+    p.add_argument("--top-k", type=int, default=8, help="Trechos no contexto (padrão 8)")
     p.add_argument("--so-busca", action="store_true", help="Só o retrieval, sem chamar o LLM")
     p.add_argument("--provedor", default=None, help="voyage | openai | fake")
     args = p.parse_args()

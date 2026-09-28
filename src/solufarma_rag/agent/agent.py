@@ -112,7 +112,10 @@ class AgenteLicitacoes:
             if not nova_consulta or nova_consulta == interpretacao.consulta:
                 break
             interpretacao.consulta = nova_consulta
-            resultados = self.searcher.buscar(nova_consulta, interpretacao.filtros, self.top_k)
+            # Segunda tentativa sem filtros: se foi um filtro que zerou a busca
+            # (tipo/órgão que não casa com o acervo), refinar só a consulta não
+            # tem como salvar — a segunda chamada nasce condenada.
+            resultados = self.searcher.buscar(nova_consulta, FiltrosBusca(), self.top_k)
 
         if not resultados:
             return RespostaAgente(
