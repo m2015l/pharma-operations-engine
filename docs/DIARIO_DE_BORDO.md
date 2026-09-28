@@ -56,6 +56,33 @@
 
 ---
 
+## 2026-09-28 — I1-I4 verificadas contra o Supabase real, ao vivo (Roger + Claude)
+
+**O que foi feito:**
+- Supabase estava pausado por inatividade (mais de um mês sem uso) — reativado. Diagnóstico completo (`tools/setup_supabase.py --check`) voltou limpo;
+- Descobertos e corrigidos dois bugs de configuração que travavam qualquer embedding: `EMBEDDING_MODEL` tinha o slug no formato do OpenRouter (`openai/text-embedding-3-large`, inválido pra chamada direta na API da OpenAI) e `EMBEDDING_BASE_URL` apontava pro OpenRouter, que não aceita a chamada de embeddings da forma configurada. Corrigidos os dois no `.env`;
+- Reembeddados os 161 chunks com OpenAI (`text-embedding-3-large`, ~37K tokens, ~US$ 0,005) — o piso de similaridade (0,474) já estava calibrado pra esse modelo, não precisou recalibrar;
+- Decisão do Roger: usar Voyage como padrão (já era o padrão no código) ficou **bloqueada** pelo tier gratuito sem cartão da Voyage (3 RPM / 10K TPM) — toda tentativa de reembeddar falhou, mesmo em lotes pequenos e pausados. Registrado como pendência separada, não bloqueante hoje;
+- **Rodadas as verificações que a sessão anterior não conseguiu** — as prescritas no PRECISÃO.md para I1 e I4, mais duas checagens de I3, todas com chamada paga real (não `--so-busca`):
+  - Turno 1.3 (3.000 m²): recusa falsa → **agora responde**, soma as áreas por pavimento (5.187,56 m²), cita as 5 fontes certas e sinaliza sozinho uma anomalia nos dados (valores repetidos) em vez de afirmar com falsa confiança;
+  - Turno 3.3 (contratante/CNPJ/vigência): recusa falsa → **agora responde** exatamente os dados certos (SENAI CETIQT, CNPJ 03.851.105/0001-42, vigência 07/02/2019–06/02/2020), distinguindo vigência de prazo de execução;
+  - Turno 4.1 (obra hospitalar) e um novo controle (obra de 2021 pro governo do estado): **continuam recusando corretamente**, agora na linguagem do I3 ("não encontrei isso nos trechos recuperados", não "não está no acervo");
+- Rodado `tools/avaliar.py` contra o `data/golden_set.json` novo (15 casos, ver abaixo): **recall 11/11 (100%)** nos casos positivos com `top_k=8`.
+
+**Achado importante — o golden set expôs uma lacuna real:**
+- 3 dos 4 controles negativos "falharam" no nível de **recuperação bruta**: o ramo léxico (full-text) da busca híbrida não tem piso de relevância (só "casa por termo"), e palavras genéricas do domínio ("atestado", "obra", "gases") aparecem no documento mesmo quando o assunto específico da pergunta (hospital, ISO 14644, 2021) não aparece. Com `top_k=8` (I4), mais desse ruído lexical entra na janela visível — não entrava com `top_k=5`;
+- **Mas ao rodar o agente de verdade** (não só a busca) nos dois controles que falharam na recuperação, a resposta final continuou correta nos dois — o I3 pegou o ruído e recusou do jeito certo. Ou seja: o golden set testa disciplina de *recuperação*, não qualidade de *resposta final*, e são coisas diferentes. Isso não é uma regressão de I4, é uma limitação de metodologia do golden set — vale nota para quem for evoluir `tools/avaliar.py`: um controle negativo "falhando" na recuperação merece checagem manual da resposta antes de virar alarme.
+
+**Golden set criado:** `data/golden_set.json` (15 casos: 11 positivos + 4 controles negativos), cada página verificada direto contra `.tmp/acervo_indexado.md` (texto completo indexado), não só contra o resumo do PRECISÃO.md. Passou a ser versionado (exceção pontual no `.gitignore`, já que `data/` é bloqueado por conter documento de cliente).
+
+**Pendências atualizadas:**
+- Item 11 do plano fechado: Voyage por decisão/conveniência, sem A/B formal (chave testada e funcional, mas bloqueada pelo rate limit sem cartão);
+- I5-I10 do PRECISÃO.md seguem em outra sessão paralela (branch `worktree-i5-i10`), fora desta;
+- I6 (reindexar a folha de rosto da CAT com headings sintéticos) ainda não feito — fica para quando I5-I10 estiver consolidado, porque precisa reprocessar e reembeddar contra o banco real;
+- Ainda falta refazer a bateria completa de 20 turnos (não só os 4 verificados aqui) para atualizar a nota 3/5 de 17/08.
+
+---
+
 ## 2026-09-28 — Aplicadas as 4 instruções de baixo esforço do PRECISÃO.md (I1-I4) (Claude)
 
 **O que foi feito:**
