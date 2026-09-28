@@ -5,6 +5,26 @@
 
 ---
 
+## 2026-09-28 — 3 documentos novos indexados; nota 4,5/5 na auditoria; achado grave nos nomes de arquivo do Drive (Roger + Claude)
+
+**O que foi feito:**
+- Indexados 3 dos 31 documentos novos enviados pelo Roger (amostra pequena, de propósito, pra não gastar tokens à toa): `ATESTADO CRISTÁLIA BIOTECNOLOGIA - OBRA II.pdf`, `CNPEM CAT 2620130007911...pdf`, `FIOTEC CIPBR CAT 52669-2020...pdf` (nomes de arquivo, ver achado abaixo). Extração 100% nativa, custo zero (documentos curtos, 2-3 páginas, texto nativo no PDF, sem OCR);
+- **Achado grave: os 4 arquivos conferidos até agora (esses 3 + o Butantan SJC-02542 que o Roger já suspeitava) têm o nome do arquivo trocado em relação ao conteúdo real** — confirmado direto no PDF bruto, não é boato nem bug do pipeline. Conteúdo real: Ariston Indústrias Químicas (não Cristália), Instituto Butantan (não CNPEM), CAT 758012010/cabine de criogenia FIOCRUZ-Bio-Manguinhos (não CIPBR planta industrial, apesar do nome do arquivo). Os 4 vieram assinados pela mesma empresa executante (TEP — Tecnologia em Projetos de Engenharia) e o mesmo responsável técnico (Márcio Flávio Coppio), sugerindo erro sistemático na exportação do lote do Drive, não caso isolado. **Os outros 27 documentos da pasta `data/` não foram tocados — não dá pra confiar no nome do arquivo sem conferir o conteúdo primeiro**;
+- Corrigido no banco: título/órgão dos 3 documentos indexados, usando o conteúdo real (não o nome do arquivo). Um segundo bug encontrado no processo: `--titulo` do `tools/indexar.py` só corrige a coluna `documentos.titulo`, não o cabeçalho contextual gravado dentro de cada chunk (o que aparece nas citações) — corrigido manualmente nos 9 chunks afetados, reembeddados;
+- **Auditoria de 2 agentes rodada nos 3 documentos novos** (mesmo método de 17/08, com um terceiro papel — "orquestrador" — medindo a nota): Agente 1 (analista cega, sem acesso a documentos/código) fez 7 perguntas reais em 2 sessões via `tools/perguntar.py`; Agente 3 (orquestrador, com acesso ao conteúdo real) conferiu cada resposta. **Nota: 4,5/5** (6 sem problema, 1 falha leve, 0 médias/graves) — bem acima do 3/5 de agosto. Relatório completo em `docs/auditorias/2026-09-28_lote2_novos_documentos.md`;
+- **Achado de negócio, não técnico**: ao pedir um parágrafo pronto pra proposta citando "nossa experiência", o sistema atribuiu a obra à Solufarma na primeira frase (sem citação — herdado do system prompt, não do acervo) e só depois se corrigiu numa ressalva dizendo que a executante real é a TEP. Não é alucinação (nenhum número inventado), mas é risco real: **não há vínculo comprovado no acervo entre a TEP (executante desses 3 atestados) e a Solufarma**. Confirmado pelo orquestrador: a palavra "Solufarma" não aparece em nenhum dos 9 chunks novos. **Pendência de confirmação com a Solufarma**: esses 3 atestados podem ser citados como experiência da empresa, ou são de outra pessoa jurídica/profissional? Nada foi mudado no cadastro até essa resposta chegar;
+- Confirmado com chamada paga real, pela primeira vez: a memória de conversa (I8) funcionou nos dois pronomes soltos testados ("esse atestado", "essa obra"), sem vazar entre sessões diferentes;
+- Confirmado: a lacuna de numeração nas fontes (ex. [1][2][4] sem [3]) é comportamento intencional, não bug — só entra na lista quem foi citado de fato no texto, mesmo que mais trechos tenham sido recuperados;
+- O padrão "folha de rosto sem heading" (que motivou o I6) se repetiu nos 3 documentos novos — agora são 4 documentos com o mesmo padrão, não mais 1. Vale reconsiderar generalizar a heurística em `src/solufarma/chunking.py` em vez de seguir corrigindo caso a caso.
+
+**Pendências:**
+- TEP vs. Solufarma — aguardando confirmação do Roger antes de mexer em qualquer coisa relacionada a esses 3 documentos;
+- Verificar os nomes de arquivo dos outros 27 documentos da pasta `data/` antes de indexar qualquer um — não é seguro assumir que o nome bate com o conteúdo;
+- Generalizar I6/P6 (folha de rosto sem heading) em código, agora com evidência de 4 documentos;
+- Captura de log da reescrita do I8 (hoje só foi possível inferir pelo resultado final, não pela pergunta reescrita literal) — melhoria pra próxima auditoria.
+
+---
+
 ## 2026-09-28 — Voyage destravada; acervo migrado; piso recalibrado (Roger + Claude)
 
 **O que foi feito:**
