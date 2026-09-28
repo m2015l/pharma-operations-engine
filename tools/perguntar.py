@@ -66,8 +66,8 @@ def _mostrar_busca(searcher: HybridSearcher, pergunta: str, filtros: FiltrosBusc
     return resultados
 
 
-def _mostrar_resposta(agente: AgenteLicitacoes, pergunta: str) -> None:
-    resposta = agente.responder(pergunta)
+def _mostrar_resposta(agente: AgenteLicitacoes, pergunta: str, historico: list[dict] | None = None):
+    resposta = agente.responder(pergunta, historico=historico)
 
     print("\n" + "=" * 70)
     print(resposta.texto)
@@ -75,11 +75,33 @@ def _mostrar_resposta(agente: AgenteLicitacoes, pergunta: str) -> None:
 
     if not resposta.encontrou_no_acervo:
         print("\n(nada encontrado no acervo — o agente NÃO respondeu por conhecimento geral)")
-        return
+        return resposta
+
+    # I10 (PRECISÃO.md): chunks diferentes que compartilham seção e página
+    # ficam com a mesma linha ("SENAI CETIQT · · p.1-2" três vezes, turno 3.5)
+    # — sem discriminador é indistinguível de bug, mesmo não sendo. O início
+    # do trecho (já truncado em Citacao.trecho) desempata visualmente.
+    identidades = [
+        f"{c.orgao}·{c.secao}·p.{c.pagina_inicio}-{c.pagina_fim}" for c in resposta.citacoes
+    ]
+    repetidas = {ident for ident in identidades if identidades.count(ident) > 1}
 
     print(f"\nFontes ({len(resposta.citacoes)}):")
-    for c in resposta.citacoes:
-        print(f"  [{c.marcador}] {c.orgao} · {c.secao} · p.{c.pagina_inicio}-{c.pagina_fim}")
+    for c, ident in zip(resposta.citacoes, identidades, strict=True):
+        linha = f"  [{c.marcador}] {c.orgao} · {c.secao} · p.{c.pagina_inicio}-{c.pagina_fim}"
+        if ident in repetidas:
+            discriminador = " ".join(c.trecho.split())[:40].strip()
+            linha += f' — "{discriminador}…"'
+        print(linha)
+
+    # Os "buracos" na numeração ([1],[3],[5]) são extrair_citacoes mostrando só
+    # o que foi citado — comportamento correto, não bug (ver PRECISÃO.md I10).
+    # Esta linha transforma o que parecia um bug em informação de calibração:
+    # quantos trechos entraram no contexto vs. quantos o modelo usou de fato.
+    print(
+        f"\nFontes: {len(resposta.citacoes)} citadas de {resposta.trechos_recuperados} "
+        "trechos recuperados"
+    )
 
     # O contrato de rastreabilidade é o requisito central do produto: resposta
     # sem fonte não é resposta boa, é resposta perigosa. Falha alto, não em log.
@@ -90,6 +112,8 @@ def _mostrar_resposta(agente: AgenteLicitacoes, pergunta: str) -> None:
         else:
             print("    o agente respondeu sem citar nenhuma fonte")
         print("    NÃO trate esta resposta como confiável.")
+
+    return resposta
 
 
 def main() -> int:
@@ -135,6 +159,11 @@ def main() -> int:
                 print(f"\nLLM indisponível ({exc}).\nCaindo para --so-busca.\n", file=sys.stderr)
 
         perguntas = [args.pergunta] if args.pergunta else None
+        # Histórico só faz sentido em modo interativo (I8, PRECISÃO.md): uma
+        # única pergunta por execução não tem turno anterior para reescrever
+        # referência ("e a área disso", "aquilo lá"). Acumula pares
+        # pergunta/resposta na mesma forma que AgenteLicitacoes.responder espera.
+        historico: list[dict] = []
         while True:
             if perguntas is None:
                 try:
@@ -152,7 +181,9 @@ def main() -> int:
             if agente is None:
                 _mostrar_busca(searcher, pergunta, filtros, args.top_k)
             else:
-                _mostrar_resposta(agente, pergunta)
+                resposta = _mostrar_resposta(agente, pergunta, historico=historico or None)
+                if resposta is not None:
+                    historico.append({"pergunta": pergunta, "resposta": resposta.texto})
 
             if perguntas is not None and not perguntas:
                 break

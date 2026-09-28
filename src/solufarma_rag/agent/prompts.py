@@ -25,22 +25,31 @@ REGRAS DE CITAÇÃO (OBRIGATÓRIAS):
 4. Nunca invente números de edital, valores, datas ou órgãos.
 
 ESTILO:
-- Responda em português brasileiro, de forma direta e objetiva;
-- Ao comparar um novo edital com o histórico, aponte riscos e precedentes com a
-  respectiva citação [n].
+- Responda em português brasileiro, direto e objetivo;
+- A PRIMEIRA linha responde a pergunta. Se pediram um número, ele vem na
+  primeira linha, com a citação [n]. Detalhamento, ressalvas e recomendações
+  vêm depois, nunca antes;
+- Sem títulos em negrito quando a resposta cabe em um parágrafo;
+- Ao comparar um novo edital com o histórico, aponte riscos e precedentes com
+  a respectiva citação [n].
 """
 
-# Interpretação da pergunta: extrai o fluxo e a consulta de busca. Os filtros
+# Interpretação da pergunta: extrai o fluxo e as consultas de busca. Os filtros
 # estruturados saem sempre null (ver docs/DECISOES.md — o acervo de hoje só
 # tem o tipo "atestado", fora do enum, e qualquer filtro preenchido zera a
 # busca). Usa saída JSON estrita para parsing determinístico.
+#
+# "consultas" (plural, I5 do PRECISÃO.md): pergunta com mais de um assunto
+# ("sala limpa ISO 7" + "manutenção predial") vira uma consulta por assunto —
+# um vetor médio dos dois não casa direito com nenhum. Limite de 3 é aplicado
+# no código (agent.py), não confiar só na instrução do prompt.
 PROMPT_INTERPRETAR = """\
 Analise a pergunta do usuário e responda APENAS com um JSON válido, sem
 comentários, no formato:
 
 {{
   "tipo_fluxo": "consulta_historico" | "analise_edital",
-  "consulta": "<termos de busca no acervo, curtos e específicos>",
+  "consultas": ["<termos de busca no acervo, curtos e específicos>"],
   "filtros": {{
     "orgao": null,
     "tipo_documento": null,
@@ -51,16 +60,39 @@ comentários, no formato:
 
 Use "analise_edital" somente se o usuário enviou um edital para análise.
 
-REGRAS PARA "consulta":
+REGRAS PARA "consultas":
 - Escreva os termos que apareceriam NO DOCUMENTO do acervo, não os termos da
   pergunta. "quero comprovar 3000 m² num edital" vira "área construída total
   da obra por pavimento", não "edital 3000 m²".
 - Nunca inclua palavras sobre o processo licitatório do usuário (edital,
   envelope, habilitação, proposta, certame) na consulta: o acervo é feito de
   atestados e documentos de obra, não do edital que o usuário tem na mão.
+- Se a pergunta trata de mais de um assunto (ex.: "sala limpa ISO 7" E
+  "manutenção predial 5 anos"), devolva UMA consulta por assunto. Nunca junte
+  assuntos diferentes numa consulta só. No máximo 3 consultas.
+- Se a pergunta trata de um assunto só, devolva uma lista com 1 item.
 - Não invente filtros. Os quatro campos de "filtros" são sempre null.
 
 Pergunta do usuário:
+{pergunta}
+"""
+
+# Reescrita de referência (I8 do PRECISÃO.md): roda ANTES de PROMPT_INTERPRETAR
+# quando há histórico de conversa. "E a área disso", "o sistema de gases que vc
+# mencionou antes", "aquilo lá" chegam à interpretação sem antecedente — o
+# retrieval nunca tem chance de achar o trecho certo a partir de um pronome.
+PROMPT_RESOLVER_REFERENCIA = """\
+Reescreva a última pergunta do usuário como uma pergunta autossuficiente,
+resolvendo pronomes e elipses com o que já foi dito na conversa. Não responda
+à pergunta, não acrescente informação nova, não invente contexto. Se a
+pergunta já for autossuficiente, devolva-a sem alterações. Se não houver
+contexto suficiente para resolver a referência, devolva-a sem alterações.
+Responda APENAS com a pergunta reescrita.
+
+Conversa até aqui:
+{historico}
+
+Última pergunta:
 {pergunta}
 """
 

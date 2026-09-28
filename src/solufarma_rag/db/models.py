@@ -137,3 +137,32 @@ class RespostaAgente(BaseModel):
         default_factory=list,
         description="Marcadores [n] citados que não existem no contexto (alucinação de fonte)",
     )
+    trechos_recuperados: int = Field(
+        default=0,
+        description=(
+            "Quantos trechos entraram no contexto do LLM (I10, PRECISÃO.md), antes do "
+            "filtro de citação — normalmente >= len(citacoes), já que nem todo trecho "
+            "recuperado é citado. Vira a linha 'N citadas de M recuperados' no CLI."
+        ),
+    )
+
+
+class ItemPlanilha(BaseModel):
+    """Uma linha de `itens_planilha` — dado relacional, não texto para embedding.
+
+    "Quanto de piso vinílico já fornecemos?" é um SUM, e busca vetorial não
+    soma (ver `solufarma.chunking.extrair_linhas_tabela`). Esta é a forma de
+    consultar essas linhas por SELECT estruturado (I9, PRECISÃO.md) em vez de
+    depender só do retrieval vetorial/léxico sobre o texto corrido da tabela.
+
+    `orgao`/`tipo_documento` vêm do JOIN com `documentos`/`licitacoes` (mesmo
+    padrão de `_SELECT_CHUNK` em `db/repository.py`) — `itens_planilha` em si
+    só guarda `documento_id`, `pagina`, `secao` e `celulas`.
+    """
+
+    documento_id: str | None = None
+    tipo_documento: str = "outro"
+    orgao: str = "—"
+    pagina: int | None = None
+    secao: str = ""
+    celulas: list[str]

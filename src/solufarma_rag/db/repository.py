@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from ..text_utils import normalizar as _normalizar
 from ..text_utils import tokenizar as _tokenizar
-from .models import Chunk
+from .models import Chunk, ItemPlanilha
 
 
 class FiltrosBusca(BaseModel):
@@ -86,6 +86,27 @@ class ChunkRepository(Protocol):
         """Busca léxica (no Supabase: FTS 'portuguese' + unaccent)."""
         ...
 
+    def buscar_itens_planilha(
+        self, termo: str, documento_id: str | None = None, limite: int = 20
+    ) -> list[ItemPlanilha]:
+        """SELECT estruturado sobre `itens_planilha` (I9, PRECISÃO.md).
+
+        `itens_planilha` tem centenas de linhas populadas e, sem este método,
+        nunca é consultada: perguntas de quantitativo dependem só do retrieval
+        vetorial/léxico sobre o texto corrido da tabela, quando um `ilike`
+        exato resolveria. NÃO agrega/soma — o formato desta planilha coloca a
+        descrição numa linha e a quantidade na seguinte, por bitola, então um
+        SUM ingênuo dá número errado com cara de certo. Lista as linhas
+        casadas; agregação fica para quando houver um segundo documento para
+        validar o formato.
+
+        O casamento é só contra `celulas` (a linha em si), não contra `secao`
+        — uma consulta como "gases" só acha a linha se a palavra estiver na
+        própria célula (ex.: descrição do item), não só no rótulo de seção que
+        a envolve. Escreva `termo` com vocabulário que apareceria na CÉLULA.
+        """
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Implementação em memória (testes e desenvolvimento offline)
@@ -122,6 +143,7 @@ class InMemoryChunkRepository:
 
     _registros: dict[str, _RegistroChunk] = field(default_factory=dict)
     documentos_indexados: set[str] = field(default_factory=set)
+    _itens_planilha: list[ItemPlanilha] = field(default_factory=list)
 
     def upsert_chunks(self, chunks: list[Chunk]) -> None:
         for chunk in chunks:
@@ -190,6 +212,20 @@ class InMemoryChunkRepository:
         resultados.sort(key=lambda par: par[1], reverse=True)
         return resultados[:limite]
 
+    def buscar_itens_planilha(
+        self, termo: str, documento_id: str | None = None, limite: int = 20
+    ) -> list[ItemPlanilha]:
+        """Mesma semântica do `ilike` do Supabase: substring, sem acento/caixa."""
+        termo_norm = _normalizar(termo)
+        resultado = []
+        for item in self._itens_planilha:
+            if documento_id and item.documento_id != documento_id:
+                continue
+            if termo_norm and termo_norm not in _normalizar(" ".join(item.celulas)):
+                continue
+            resultado.append(item)
+        return resultado[:limite]
+
     # Auxiliares para testes/inspeção -------------------------------------
 
     def obter_registro(self, chunk_chave: str) -> _RegistroChunk:
@@ -197,6 +233,10 @@ class InMemoryChunkRepository:
 
     def total_chunks(self) -> int:
         return len(self._registros)
+
+    def adicionar_item_planilha(self, item: ItemPlanilha) -> None:
+        """Popula `itens_planilha` sem depender do pipeline de ingestão (testes)."""
+        self._itens_planilha.append(item)
 
 
 # ---------------------------------------------------------------------------
@@ -427,6 +467,45 @@ class SupabaseChunkRepository:
                 params,
             )
             return [(_linha_para_chunk(linha), float(linha[11])) for linha in cur.fetchall()]
+
+    def buscar_itens_planilha(
+        self, termo: str, documento_id: str | None = None, limite: int = 20
+    ) -> list[ItemPlanilha]:
+        """`ilike` sobre `array_to_string(celulas, ' ')` (I9, PRECISÃO.md).
+
+        NÃO EXECUTADO CONTRA O SUPABASE REAL nesta sessão (sem credenciais e
+        fora de escopo — ver PRECISÃO.md I9 e I6). Coberto por teste apenas via
+        `InMemoryChunkRepository`; a execução contra o banco real fica
+        pendente de verificação manual.
+        """
+        params = {"termo": termo, "documento_id": documento_id, "limite": limite}
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                select ip.documento_id, coalesce(d.tipo, 'outro') as tipo,
+                       coalesce(l.orgao, '—') as orgao, ip.pagina,
+                       coalesce(ip.secao, '') as secao, ip.celulas
+                from itens_planilha ip
+                left join documentos d on d.id = ip.documento_id
+                left join licitacoes l on l.id = d.licitacao_id
+                where array_to_string(ip.celulas, ' ') ilike '%%' || %(termo)s || '%%'
+                  and (%(documento_id)s::uuid is null or ip.documento_id = %(documento_id)s::uuid)
+                order by ip.pagina nulls last
+                limit %(limite)s
+                """,
+                params,
+            )
+            return [
+                ItemPlanilha(
+                    documento_id=str(linha[0]) if linha[0] else None,
+                    tipo_documento=linha[1],
+                    orgao=linha[2],
+                    pagina=linha[3],
+                    secao=linha[4],
+                    celulas=list(linha[5]),
+                )
+                for linha in cur.fetchall()
+            ]
 
 
 def criar_conexao(database_url: str | None = None):

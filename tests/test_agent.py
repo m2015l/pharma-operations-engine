@@ -9,15 +9,24 @@ from solufarma_rag.agent.agent import MSG_SEM_RESULTADOS, AgenteLicitacoes
 from solufarma_rag.agent.citations import extrair_citacoes, montar_contexto
 from solufarma_rag.agent.llm import FakeLLM
 from solufarma_rag.db.models import ChunkComScore
-from solufarma_rag.db.repository import InMemoryChunkRepository
+from solufarma_rag.db.repository import InMemoryChunkRepository, ItemPlanilha
 from solufarma_rag.retrieval.hybrid_search import HybridSearcher
 
 
-def _interpretacao(consulta="autoclave", fluxo="consulta_historico", **filtros) -> str:
+def _interpretacao(
+    consulta="autoclave", consultas=None, fluxo="consulta_historico", **filtros
+) -> str:
+    """Monta o JSON de `PROMPT_INTERPRETAR`.
+
+    Desde I5 (PRECISÃO.md) o campo é "consultas" (lista). `consulta=` (singular)
+    continua aceito por conveniência dos testes que só têm um assunto — vira
+    uma lista de 1 item; passe `consultas=[...]` explicitamente para exercitar
+    o caso de múltiplos assuntos.
+    """
     return json.dumps(
         {
             "tipo_fluxo": fluxo,
-            "consulta": consulta,
+            "consultas": consultas if consultas is not None else [consulta],
             "filtros": {
                 "orgao": filtros.get("orgao"),
                 "tipo_documento": filtros.get("tipo_documento"),
@@ -304,3 +313,209 @@ def test_acervo_vazio_responde_que_nao_encontrou(provider):
     resposta = agente.responder("qualquer pergunta")
 
     assert resposta.encontrou_no_acervo is False
+
+
+def test_trechos_recuperados_registra_o_total_do_contexto(repo_indexado, provider):
+    """I10: a linha 'N citadas de M recuperados' do CLI depende deste campo."""
+    agente, _ = _agente(repo_indexado, provider, [_interpretacao(), "Fornecemos autoclave [1]."])
+
+    resposta = agente.responder("já fornecemos autoclave?")
+
+    assert resposta.trechos_recuperados >= len(resposta.citacoes)
+    assert resposta.trechos_recuperados >= 1
+
+
+def test_sem_resultados_trechos_recuperados_e_zero(repo_indexado, provider):
+    agente, _ = _agente(
+        repo_indexado,
+        provider,
+        [_interpretacao(consulta="ressonância magnética", tipo_documento="ata")],
+        max_refinamentos=0,
+    )
+
+    resposta = agente.responder("Já fornecemos ressonância magnética?")
+
+    assert resposta.trechos_recuperados == 0
+
+
+# -- I5: pergunta com múltiplos assuntos vira várias consultas -------------
+
+
+def test_pergunta_com_dois_assuntos_gera_duas_consultas_e_une_sem_duplicar(fazer_chunk):
+    """Turno 4.3 do PRECISÃO.md: um vetor médio de dois assuntos não casa com
+    nenhum. Cada consulta busca separado; a união deduplica por chunk.chave."""
+    chunk_sala_limpa = fazer_chunk(0, "sala limpa ISO 7")
+    chunk_manutencao = fazer_chunk(1, "manutenção predial 5 anos")
+    chunk_repetido = fazer_chunk(0, "sala limpa ISO 7")  # mesma chave de chunk_sala_limpa
+
+    searcher = SearcherStub(
+        [
+            [ChunkComScore(chunk=chunk_sala_limpa, score=1.0)],
+            [
+                ChunkComScore(chunk=chunk_repetido, score=0.9),
+                ChunkComScore(chunk=chunk_manutencao, score=0.8),
+            ],
+        ]
+    )
+    llm = FakeLLM(
+        respostas=[
+            _interpretacao(consultas=["sala limpa ISO 7", "manutenção predial 5 anos"]),
+            "Sala limpa ISO 7 [1] e manutenção predial [2].",
+        ]
+    )
+    agente = AgenteLicitacoes(searcher=searcher, llm=llm)
+
+    resposta = agente.responder("fala de sala limpa ISO 7 e manutenção predial 5 anos?")
+
+    assert searcher.consultas == ["sala limpa ISO 7", "manutenção predial 5 anos"]
+    assert resposta.encontrou_no_acervo is True
+    assert resposta.trechos_recuperados == 2, "chunk repetido não pode contar duas vezes"
+    assert len(resposta.citacoes) == 2
+
+
+def test_interpretacao_limita_a_tres_consultas():
+    """Limite duro no código (agent.py), não só na instrução do prompt."""
+    searcher = SearcherStub([[], [], []])
+    llm = FakeLLM(respostas=[_interpretacao(consultas=["a", "b", "c", "d"])])
+    agente = AgenteLicitacoes(searcher=searcher, llm=llm, max_refinamentos=0)
+
+    agente.responder("pergunta com muitos assuntos")
+
+    assert searcher.consultas == ["a", "b", "c"]
+
+
+# -- I8: reescrita de referência com histórico ------------------------------
+
+
+def test_com_historico_reescreve_a_pergunta_antes_de_interpretar(fazer_chunk):
+    """Turno 1.2 do PRECISÃO.md: "e a área disso" sem histórico não tem
+    antecedente para o interpretador resolver."""
+    searcher = SearcherStub([[ChunkComScore(chunk=fazer_chunk(0), score=1.0)]])
+    llm = FakeLLM(
+        respostas=[
+            "qual a área construída da obra do SENAI CETIQT, somando os pavimentos?",
+            _interpretacao(consulta="área construída total da obra por pavimento"),
+            "A área somada é X [1].",
+        ]
+    )
+    agente = AgenteLicitacoes(searcher=searcher, llm=llm)
+    historico = [
+        {
+            "pergunta": "temos atestado de implantação de laboratório?",
+            "resposta": "Sim, o SENAI CETIQT [1].",
+        }
+    ]
+
+    agente.responder("e a área disso, quantos m2 tinha a obra?", historico=historico)
+
+    assert len(llm.chamadas) == 3, "reescrita + interpretar + responder"
+    prompt_reescrita = llm.chamadas[0]["mensagens"][0]["content"]
+    assert "e a área disso" in prompt_reescrita
+    assert "temos atestado de implantação de laboratório" in prompt_reescrita
+    # A pergunta reescrita (não a original) é o que chega à interpretação.
+    prompt_interpretar = llm.chamadas[1]["mensagens"][0]["content"]
+    assert "SENAI CETIQT" in prompt_interpretar
+
+
+def test_sem_historico_nao_chama_reescrita(repo_indexado, provider):
+    agente, llm = _agente(repo_indexado, provider, [_interpretacao(), "Resposta [1]."])
+
+    agente.responder("já fornecemos autoclave?")
+
+    assert len(llm.chamadas) == 2, "sem histórico, não deveria haver chamada de reescrita"
+
+
+def test_historico_vazio_nao_chama_reescrita(repo_indexado, provider):
+    agente, llm = _agente(repo_indexado, provider, [_interpretacao(), "Resposta [1]."])
+
+    agente.responder("já fornecemos autoclave?", historico=[])
+
+    assert len(llm.chamadas) == 2, "lista vazia é 'sem histórico', não deve acionar reescrita"
+
+
+def test_reescrita_que_devolve_pergunta_intacta_no_llm_e_usada_como_esta(repo_indexado, provider):
+    """Se o LLM não resolver a referência, devolve a pergunta sem alterações —
+    e é essa (não a original com aspas/espaços do LLM) que segue no fluxo."""
+    llm = FakeLLM(
+        respostas=[
+            '"já fornecemos autoclave?"',  # LLM devolve entre aspas
+            _interpretacao(),
+            "Resposta [1].",
+        ]
+    )
+    agente = AgenteLicitacoes(searcher=HybridSearcher(repo=repo_indexado, provider=provider), llm=llm)
+
+    resposta = agente.responder("já fornecemos autoclave?", historico=[{"pergunta": "oi"}])
+
+    assert resposta.encontrou_no_acervo is True
+
+
+# -- I9: pergunta de quantitativo consulta itens_planilha -------------------
+
+
+def test_pergunta_quantitativa_complementa_com_itens_planilha(fazer_chunk):
+    """Turno 2.4 do PRECISÃO.md: a busca vetorial/léxica sozinha errou o
+    número de pontos de gás; itens_planilha tem a linha exata."""
+    repo_itens = InMemoryChunkRepository()
+    repo_itens.adicionar_item_planilha(
+        ItemPlanilha(
+            documento_id="doc-001",
+            tipo_documento="atestado",
+            orgao="SENAI CETIQT",
+            pagina=45,
+            secao="GASES",
+            # `buscar_itens_planilha` casa por ilike sobre as CÉLULAS (não a
+            # seção) — o termo de busca precisa aparecer literalmente na linha,
+            # igual ao comportamento real do SQL (ver repository.py).
+            celulas=["VÁLVULA REGULADORA DE PRESSÃO PARA GASES, 2º ESTÁGIO", "CJ", "144,00"],
+        )
+    )
+    searcher = SearcherStub([[]])  # busca semântica não acha nada
+    llm = FakeLLM(
+        respostas=[
+            _interpretacao(consulta="gases"),
+            "Foram instalados 144 reguladores em parede [1].",
+        ]
+    )
+    agente = AgenteLicitacoes(searcher=searcher, llm=llm, repo_itens=repo_itens, max_refinamentos=0)
+
+    resposta = agente.responder("quantos pontos de consumo de gases foram instalados?")
+
+    assert resposta.encontrou_no_acervo is True
+    assert resposta.trechos_recuperados == 1
+    prompt_resposta = llm.chamadas[-1]["mensagens"][0]["content"]
+    assert "144,00" in prompt_resposta
+    assert len(resposta.citacoes) == 1
+
+
+def test_pergunta_sem_marcador_de_quantidade_nao_consulta_itens_planilha(fazer_chunk):
+    """Fora do gatilho de quantitativo, repo_itens não deveria ser chamado —
+    evita ilike custoso/ruído em toda pergunta que não precisa dele."""
+
+    class RepoEspiao:
+        def __init__(self) -> None:
+            self.chamado = False
+
+        def buscar_itens_planilha(self, termo, documento_id=None, limite=20):
+            self.chamado = True
+            return []
+
+    repo_espiao = RepoEspiao()
+    searcher = SearcherStub([[ChunkComScore(chunk=fazer_chunk(0), score=1.0)]])
+    llm = FakeLLM(respostas=[_interpretacao(), "Resposta [1]."])
+    agente = AgenteLicitacoes(searcher=searcher, llm=llm, repo_itens=repo_espiao)
+
+    agente.responder("já fornecemos autoclave?")
+
+    assert repo_espiao.chamado is False
+
+
+def test_sem_repo_itens_pergunta_quantitativa_nao_quebra(fazer_chunk):
+    """`repo_itens=None` (padrão) é o comportamento de hoje — não pode quebrar."""
+    searcher = SearcherStub([[ChunkComScore(chunk=fazer_chunk(0), score=1.0)]])
+    llm = FakeLLM(respostas=[_interpretacao(), "Resposta [1]."])
+    agente = AgenteLicitacoes(searcher=searcher, llm=llm)
+
+    resposta = agente.responder("quantos pontos de consumo de gases foram instalados?")
+
+    assert resposta.encontrou_no_acervo is True

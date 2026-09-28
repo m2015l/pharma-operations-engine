@@ -23,6 +23,15 @@ from solufarma.modelos import Bloco, Chunk
 RE_SEPARADOR_TABELA = re.compile(r"^\s*\|[\s:\-\|]+\|\s*$")
 RE_HEADING = re.compile(r"^(#{1,6})\s+(.*)")
 RE_MARCA_CONTINUACAO = re.compile(r"<!--\s*\w+\s*-->")
+RE_ENFASE_MARKDOWN = re.compile(r"^\*{1,2}(.+?)\*{1,2}$")
+
+# I7 (PRECISÃO.md): sentinela de nível para as pseudo-seções de tabela — maior
+# que qualquer nível real de heading markdown (1-6), então um heading de
+# verdade sempre estoura a pilha e remove as pseudo-seções acumuladas; e uma
+# nova pseudo-seção substitui a anterior em vez de aninhar (ver
+# _pseudo_heading_tabela / parsear_blocos).
+NIVEL_PSEUDO_SECAO = 900
+MAX_CHARS_PSEUDO_SECAO = 40
 
 
 # --------------------------------------------------------------------------
@@ -76,6 +85,43 @@ def costurar(paginas: list[dict]) -> list[tuple[str, int]]:
 # --------------------------------------------------------------------------
 
 
+def _pseudo_heading_tabela(linha: str) -> str | None:
+    """
+    Detecta linha de TABELA que é, na prática, uma divisão de seção/subseção:
+    só a primeira célula tem conteúdo, e ele está em caixa alta e é curto.
+    Padrão real do documento (`.tmp/acervo_indexado.md`): `| GASES | | |`,
+    `| **HIDRÁULICA** | | |`, `| VÁLVULAS/EQUIPAMENTOS - ( MDO ) | | |`.
+
+    O OCR não emite heading markdown para essas divisões — são linhas de
+    tabela soltas —, então sem este reconhecimento o bloco inteiro herda o
+    heading anterior, que pode ser de uma seção completamente diferente do
+    memorial (PRECISÃO.md P7/I7: o chunk que responde "quantos pontos de gás"
+    ficou rotulado como quadro de distribuição elétrica).
+
+    Limite de 40 caracteres (sugestão do próprio PRECISÃO.md): sem ele, uma
+    descrição de item em caixa alta — comum nesta planilha — também dispararia
+    o gatilho e viraria uma "seção" nova a cada linha.
+    """
+    if not linha.lstrip().startswith("|") or RE_SEPARADOR_TABELA.match(linha):
+        return None
+
+    celulas = [c.strip() for c in linha.strip().strip("|").split("|")]
+    if len(celulas) < 2:
+        return None
+
+    primeira, *resto = celulas
+    if not primeira or any(resto):
+        return None
+
+    enfase = RE_ENFASE_MARKDOWN.match(primeira)
+    texto = enfase.group(1).strip() if enfase else primeira
+    if not texto or len(texto) > MAX_CHARS_PSEUDO_SECAO:
+        return None
+    if not texto.isupper():
+        return None
+    return texto
+
+
 def parsear_blocos(fluxo: list[tuple[str, int]]) -> list[Bloco]:
     """Quebra o fluxo em blocos homogêneos, mantendo a pilha de headings."""
     if not fluxo:
@@ -107,6 +153,20 @@ def parsear_blocos(fluxo: list[tuple[str, int]]) -> list[Bloco]:
                 pilha.pop()
             pilha.append((nivel, titulo))
             tipo_atual, pag_ini, pag_fim = "prosa", pag, pag
+            continue
+
+        pseudo_titulo = _pseudo_heading_tabela(linha)
+        if pseudo_titulo:
+            fechar()
+            # Substitui a pseudo-seção anterior (não aninha): duas divisões
+            # consecutivas de tabela ("GASES" seguido de "HIDRÁULICA") são
+            # irmãs, não uma dentro da outra. Um heading real de verdade
+            # (nível 1-6) sempre estoura esta também, porque NIVEL_PSEUDO_SECAO
+            # é maior que qualquer nível real.
+            while pilha and pilha[-1][0] >= NIVEL_PSEUDO_SECAO:
+                pilha.pop()
+            pilha.append((NIVEL_PSEUDO_SECAO, pseudo_titulo))
+            tipo_atual, pag_ini, pag_fim = "tabela", pag, pag
             continue
 
         novo_tipo = "tabela" if linha.lstrip().startswith("|") else "prosa"

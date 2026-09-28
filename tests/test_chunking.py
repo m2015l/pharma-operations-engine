@@ -105,6 +105,101 @@ def test_separador_de_tabela_nao_vira_item(tabela_dividida):
     assert not any(set("".join(i["celulas"])) <= {"-", ":", " "} for i in itens)
 
 
+# -- I7 (PRECISÃO.md): linha de tabela como divisão de seção ---------------
+#
+# Reproduz o padrão real do documento (.tmp/acervo_indexado.md, por volta das
+# linhas 1948-2007, não versionado — cópia local do texto já indexado):
+#     | GASES | | |
+#     | **HIDRÁULICA** | | |
+# Sem o reconhecimento, o bloco inteiro herdava o heading markdown anterior
+# ("FORNECIMENTO E MONTAGEM DE QUADRO DE DISTRIBUIÇÃO..."), que é de outra
+# seção do memorial — P7 do PRECISÃO.md. Validado aqui por fixture sintética
+# (mesmo padrão dos outros testes deste arquivo, ver nota em conftest.py);
+# não houve reindexação real, e o comportamento com as linhas intermediárias
+# do documento completo (ex.: "TUBULAÇÕES - GASES ESPECIAIS ( MAT + MDO )",
+# que passa dos 40 caracteres e por isso NÃO vira pseudo-seção) não foi
+# reconferido chunk a chunk contra uma nova extração completa — só contra
+# estes trechos.
+
+
+def test_linha_de_tabela_maiuscula_curta_vira_pseudo_secao():
+    paginas = [
+        {
+            "numero": 45,
+            "markdown": (
+                "## FORNECIMENTO E MONTAGEM DE QUADRO DE DISTRIBUIÇÃO\n"
+                "| Descrição | UN. | QUANT. |\n"
+                "|---|---|---|\n"
+                "| QDC-3P-TER | CJ | 1,00 |\n"
+                "| GASES | | |\n"
+                "| TUBO DE AÇO INOX | M | 3.488,56 |\n"
+                "| **HIDRÁULICA** | | |\n"
+                "| REGISTRO DE ESFERA | PÇ | 16,00 |"
+            ),
+        }
+    ]
+    blocos = chunking.parsear_blocos(chunking.costurar(paginas))
+
+    bloco_qdc = next(b for b in blocos if "QDC-3P-TER" in "\n".join(b.linhas))
+    assert bloco_qdc.caminho == ["FORNECIMENTO E MONTAGEM DE QUADRO DE DISTRIBUIÇÃO"]
+
+    bloco_gases = next(b for b in blocos if "TUBO DE AÇO INOX" in "\n".join(b.linhas))
+    assert bloco_gases.caminho == [
+        "FORNECIMENTO E MONTAGEM DE QUADRO DE DISTRIBUIÇÃO",
+        "GASES",
+    ]
+
+    bloco_hidraulica = next(b for b in blocos if "REGISTRO DE ESFERA" in "\n".join(b.linhas))
+    assert bloco_hidraulica.caminho == [
+        "FORNECIMENTO E MONTAGEM DE QUADRO DE DISTRIBUIÇÃO",
+        "HIDRÁULICA",
+    ]
+    # GASES e HIDRÁULICA são irmãs (divisões sucessivas), não aninhadas.
+    assert "GASES" not in bloco_hidraulica.caminho
+
+
+def test_pseudo_secao_nao_vira_item_de_planilha():
+    """A linha-divisor ('GASES') é consumida como heading, não como dado."""
+    paginas = [
+        {
+            "numero": 45,
+            "markdown": "## QUADRO\n| GASES | | |\n| TUBO | M | 10,00 |",
+        }
+    ]
+    blocos = chunking.parsear_blocos(chunking.costurar(paginas))
+    itens = chunking.extrair_linhas_tabela(blocos, "doc")
+
+    assert not any(i["celulas"][0] == "GASES" for i in itens)
+    assert any(i["celulas"][0] == "TUBO" for i in itens)
+
+
+def test_celula_maiuscula_longa_nao_vira_pseudo_secao():
+    """Limite de 40 caracteres (PRECISÃO.md): sem ele, uma descrição de item
+    em caixa alta viraria uma seção nova a cada linha."""
+    linha_longa = "A" * 41
+    paginas = [
+        {
+            "numero": 1,
+            "markdown": f"## SEÇÃO\n| {linha_longa} | | |\n| DADO | X | 1,00 |",
+        }
+    ]
+    blocos = chunking.parsear_blocos(chunking.costurar(paginas))
+    bloco = next(b for b in blocos if "DADO" in "\n".join(b.linhas))
+    assert bloco.caminho == ["SEÇÃO"]
+
+
+def test_celula_minuscula_nao_vira_pseudo_secao():
+    paginas = [
+        {
+            "numero": 1,
+            "markdown": "## SEÇÃO\n| Registros diversos | | |\n| ITEM | X | 1,00 |",
+        }
+    ]
+    blocos = chunking.parsear_blocos(chunking.costurar(paginas))
+    bloco = next(b for b in blocos if "ITEM" in "\n".join(b.linhas))
+    assert bloco.caminho == ["SEÇÃO"]
+
+
 def test_documento_completo_produz_chunks_e_itens(documento_extraido):
     chunks, itens = chunking.chunkar_documento(documento_extraido)
 
