@@ -154,7 +154,9 @@ def main() -> int:
         agente = None
         if not args.so_busca:
             try:
-                agente = AgenteLicitacoes(searcher=searcher, llm=criar_llm(), top_k=args.top_k)
+                agente = AgenteLicitacoes(
+                    searcher=searcher, llm=criar_llm(), top_k=args.top_k, repo_itens=repo
+                )
             except (ImportError, RuntimeError, ValueError) as exc:
                 print(f"\nLLM indisponível ({exc}).\nCaindo para --so-busca.\n", file=sys.stderr)
 
