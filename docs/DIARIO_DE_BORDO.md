@@ -5,6 +5,19 @@
 
 ---
 
+## 2026-09-28 — Voyage destravada; acervo migrado; piso recalibrado (Roger + Claude)
+
+**O que foi feito:**
+- Terceira tentativa de reembeddar com Voyage, alguns minutos depois do cartão cadastrado — **funcionou**. 162 chunks reembeddados (`voyage-4-large-1024`, ~37K tokens);
+- Recalibrado o piso de similaridade contra o `data/golden_set.json` com `tools/avaliar.py --calibrar`: `SIMILARIDADE_MINIMA=0.4472` (folga de 0,012 entre sinal e ruído — estreita, esperado com 1 documento só; recalibrar de novo quando o acervo crescer);
+- Golden set completo rodado com Voyage + piso novo: **recall 11/11 (100%) e 4/4 controles negativos corretos** — melhor que o resultado medido com OpenAI (que tinha 1/4 nos controles por ruído do ramo léxico, contornado pela camada de resposta/I3, não pela recuperação);
+- Reconfirmado ao vivo (chamada paga real) o turno 1.3: resposta continua correta, lidera com "Sim", cita a área certificada (5.655 m²) primeiro. Efeito colateral menor observado: a ordenação diferente da Voyage não trouxe o 3º pavimento desta vez, e a resposta voltou a mencionar um "1º pavimento" que não existe no prédio (mesmo padrão do turno original da auditoria) — não é regressão de código, é a mesma sensibilidade a que documento entra no top-k, já conhecida;
+- `EMBEDDING_PROVIDER=voyage` e `SIMILARIDADE_MINIMA=0.4472` no `.env` (principal e nesta worktree, sincronizados).
+
+**Item 11 do plano fecha de verdade agora** — Voyage em produção, testada, calibrada, não é mais "decisão sem A/B".
+
+---
+
 ## 2026-09-28 — I6 aplicado (folha de rosto da CAT); I9 ligado ao CLI; documentação em PDF (Roger + Claude)
 
 **O que foi feito:**
