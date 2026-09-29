@@ -16,6 +16,7 @@ embedar "QDC-4P-PIL | CJ | 1,00" (vetor sem significado) e embedar o mesmo com
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from solufarma import config
 from solufarma.modelos import Bloco, Chunk
@@ -32,6 +33,53 @@ RE_ENFASE_MARKDOWN = re.compile(r"^\*{1,2}(.+?)\*{1,2}$")
 # _pseudo_heading_tabela / parsear_blocos).
 NIVEL_PSEUDO_SECAO = 900
 MAX_CHARS_PSEUDO_SECAO = 40
+
+# I6/P6 (PRECISÃO.md): rótulos de seção em CAIXA ALTA soltos na prosa da folha
+# de rosto de CAT/atestado ("DADOS DO CONTRATO", "ATIVIDADE TÉCNICA
+# REALIZADA"...), que o OCR não emite como heading markdown. Dois níveis
+# sentinela, ambos acima dos headings reais (1-6) e abaixo da pseudo-seção de
+# tabela (I7, 900):
+#   - PARTE (800): divisão de documento ("ATESTADO DE CAPACIDADE TÉCNICA"),
+#     que abre uma parte nova dentro da CAT;
+#   - SEÇÃO (850): bloco da certidão/atestado ("DADOS DO CONTRATO"). Aninha
+#     sob a PARTE e substitui a seção-irmã anterior.
+# Um heading markdown real sempre estoura as duas.
+NIVEL_ROTULO_PARTE = 800
+NIVEL_ROTULO_SECAO = 850
+MAX_CHARS_ROTULO_SECAO = 60
+
+# Vocabulário FECHADO, casado contra a linha inteira já normalizada (sem
+# acento, caixa alta, espaços colapsados, sem ":" final). Não há padrão
+# genérico de "linha em caixa alta" de propósito: nos 3 documentos do lote de
+# 28/09 (OCR de CATs do CREA-SP/RJ escaneadas) as linhas isoladas em caixa
+# alta são, na maioria, conteúdo — "CELSO C. HOJAI", "GERENTE INDUSTRIAL",
+# "FIOCRUZ", "INSTITUTO BUTANTAN", "RIO DE JANEIRO RJ" — e virariam seção.
+# Os padrões toleram plural/singular, preposição (DO/DA/DOS/DAS) e o erro de
+# OCR mais comum no acervo ("ESCOPO DOS SERVIOS").
+# Ficam de fora de propósito, apesar de parecerem rótulo: "CONTRATANTE",
+# "CONTRATADA" e "RESPONSÁVEL TÉCNICO" soltos em caixa alta são, em minuta de
+# contrato e em atestado, a legenda da ASSINATURA — virariam seção no rodapé.
+# (Quando são seção de verdade, o OCR já emitiu heading: "## 1. CONTRATANTE:".)
+# Também fica de fora "CERTIDÃO DE ACERVO TÉCNICO...": é o título do
+# documento e se repete como cabeçalho de TODA página na CAT do CAU — virar
+# seção faria cada virada de página abrir uma seção vazia de conteúdo.
+_ROTULOS_PARTE = (r"ATESTADO DE CAPACIDADE TECNICA( OPERACIONAL| PROFISSIONAL)?",)
+_ROTULOS_SECAO = (
+    r"DADOS D[OA]S? [A-Z][A-Z /\-]{2,55}",  # DADOS DO CONTRATO / DO PROFISSIONAL / DOS REGISTROS...
+    r"DADOS CONTRATUAIS",
+    r"ATIVIDADES? TECNICAS?( REALIZADAS?)?",
+    r"ENDERECO( D[AO]S? (OBRA|SERVICO|CONTRATANTE)S?(/SERVICOS?)?)?",
+    r"DESCRICAO( D[AO]S? [A-Z][A-Z /\-]{2,40})?",
+    r"INFORMACOES (IMPORTANTES|COMPLEMENTARES)|INFORMACAO COMPLEMENTAR",
+    r"OBSERVACOES( GERAIS)?",
+    r"OBJETO( D[OA] (CONTRATO|SERVICO|OBRA))?",
+    r"ESCOPO( D[OA]S? SERVI[A-Z]*| D[OA]S? (FORNECIMENTO|OBRAS?))?",
+    r"(SERVICOS|OBRAS) EXECUTAD[OA]S",
+)
+# Numeração opcional na frente: "2. DADOS CONTRATUAIS:", "1.0 - OBJETO".
+_PREFIXO_NUMERACAO = r"(\d+(\.\d+)*\.?\s*[-–]?\s*)?"
+RE_ROTULO_PARTE = re.compile(_PREFIXO_NUMERACAO + "(" + "|".join(_ROTULOS_PARTE) + ")")
+RE_ROTULO_SECAO = re.compile(_PREFIXO_NUMERACAO + "(" + "|".join(_ROTULOS_SECAO) + ")")
 
 
 # --------------------------------------------------------------------------
@@ -122,6 +170,60 @@ def _pseudo_heading_tabela(linha: str) -> str | None:
     return texto
 
 
+def _normalizar_rotulo(texto: str) -> str:
+    """Caixa alta, sem acento, espaços colapsados, sem ':' / '-' no fim."""
+    sem_acento = "".join(
+        c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn"
+    )
+    colapsado = re.sub(r"\s+", " ", sem_acento).strip().upper()
+    return colapsado.rstrip(" :-–").strip()
+
+
+def _rotulo_secao_prosa(linha: str) -> tuple[int, str] | None:
+    """
+    Detecta linha de PROSA que é, na prática, um rótulo de seção da folha de
+    rosto de CAT/atestado — o análogo em prosa do `_pseudo_heading_tabela`
+    (I7). Padrão real (CAT 576640 do CAU, `.tmp/acervo_indexado.md`, e os 3
+    documentos do lote de 28/09): linha solta em caixa alta, às vezes com
+    espaço nas pontas, sem heading markdown — ` DADOS DO CONTRATO `,
+    ` ATIVIDADE TÉCNICA REALIZADA `, `ATESTADO DE CAPACIDADE TECNICA`,
+    `ESCOPO DOS SERVIOS` (sic, erro de OCR).
+
+    Sem isto, a folha de rosto inteira vira um bloco sem `caminho_secao`, e o
+    trecho mais forte para licitação (área certificada, contrato, CNPJ) fica
+    num chunk genérico cujo cabeçalho contextual não tem termo temático
+    nenhum — P6: a área de 5.655 m² só aparecia na posição 7 da busca.
+
+    Critérios, TODOS obrigatórios (ver comentário de _ROTULOS_SECAO):
+      1. a linha inteira é o rótulo (fullmatch) — "CONTRATANTE: FULANO" é
+         chave-valor, não seção; só aceita ":"/"-" no fim e numeração na frente;
+      2. está em caixa alta no original (`isupper`);
+      3. até 60 caracteres (o maior rótulo real tem 51);
+      4. casa com o vocabulário fechado de rótulos de CAT/atestado — sem
+         padrão genérico de caixa alta, que dispararia em nome de empresa,
+         cargo e cidade.
+
+    Retorna (nível sentinela, título como está no documento) ou None.
+    """
+    texto = linha.strip()
+    if not texto or texto.startswith(("|", "#")):
+        return None
+
+    enfase = RE_ENFASE_MARKDOWN.match(texto)
+    if enfase:
+        texto = enfase.group(1).strip()
+    if len(texto) > MAX_CHARS_ROTULO_SECAO or not texto.isupper():
+        return None
+
+    normalizado = _normalizar_rotulo(texto)
+    titulo = re.sub(r"\s+", " ", texto).rstrip(" :-–").strip()
+    if RE_ROTULO_PARTE.fullmatch(normalizado):
+        return NIVEL_ROTULO_PARTE, titulo
+    if RE_ROTULO_SECAO.fullmatch(normalizado):
+        return NIVEL_ROTULO_SECAO, titulo
+    return None
+
+
 def parsear_blocos(fluxo: list[tuple[str, int]]) -> list[Bloco]:
     """Quebra o fluxo em blocos homogêneos, mantendo a pilha de headings."""
     if not fluxo:
@@ -167,6 +269,21 @@ def parsear_blocos(fluxo: list[tuple[str, int]]) -> list[Bloco]:
                 pilha.pop()
             pilha.append((NIVEL_PSEUDO_SECAO, pseudo_titulo))
             tipo_atual, pag_ini, pag_fim = "tabela", pag, pag
+            continue
+
+        rotulo = _rotulo_secao_prosa(linha)
+        if rotulo:
+            fechar()
+            # I6: mesmo idioma do I7. O nível sentinela faz a PARTE
+            # ("ATESTADO DE CAPACIDADE TÉCNICA") conter as SEÇÕES que vêm
+            # depois, uma SEÇÃO substituir a irmã anterior, e as duas
+            # derrubarem pseudo-seções de tabela pendentes. Headings markdown
+            # reais (1-6) ficam na pilha como ancestrais.
+            nivel, titulo = rotulo
+            while pilha and pilha[-1][0] >= nivel:
+                pilha.pop()
+            pilha.append((nivel, titulo))
+            tipo_atual, pag_ini, pag_fim = "prosa", pag, pag
             continue
 
         novo_tipo = "tabela" if linha.lstrip().startswith("|") else "prosa"
