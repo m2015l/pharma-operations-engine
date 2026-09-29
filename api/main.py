@@ -194,8 +194,10 @@ async def upload(
 
     Demo: só valida — nada é guardado nem processado (a tela diz isso).
     Real: guarda em data/brutos/ e enfileira o pipeline de `ingestao.py`
-    (triagem → extração → chunks → cadastro → embeddings). A extração de
-    página escaneada (OCR por VLM) e os embeddings SÃO CHAMADAS PAGAS.
+    (triagem → extração → chunks → cadastro → embeddings → classificação).
+    A extração de página escaneada (OCR por VLM), os embeddings e a
+    classificação SÃO CHAMADAS PAGAS; acima de UPLOAD_MAX_PAGINAS_OCR o envio
+    para antes do OCR e espera POST /uploads/{id}/aprovar.
     Acompanhe em GET /uploads/{envio_id}.
     """
     if tipo not in TIPOS_DOCUMENTO:
@@ -249,6 +251,7 @@ def _envio_out(envio: ingestao.Envio) -> EnvioOut:
         titulo=envio.titulo,
         documento_id=envio.documento_id,
         erro=envio.erro,
+        aguardando_aprovacao=envio.aguardando_aprovacao,
     )
 
 
@@ -263,4 +266,18 @@ def upload_status(envio_id: str) -> EnvioOut:
     envio = ingestao.obter(envio_id)
     if envio is None:
         raise HTTPException(404, "Envio não encontrado (a API pode ter sido reiniciada)")
+    return _envio_out(envio)
+
+
+@app.post("/uploads/{envio_id}/aprovar", response_model=EnvioOut, status_code=202)
+def aprovar_upload(envio_id: str) -> EnvioOut:
+    """Libera um envio parado pelo teto de OCR (UPLOAD_MAX_PAGINAS_OCR) — ISTO GASTA.
+
+    O envio volta para a fila e roda do início, agora sem o teto.
+    """
+    envio = ingestao.obter(envio_id)
+    if envio is None:
+        raise HTTPException(404, "Envio não encontrado (a API pode ter sido reiniciada)")
+    if not ingestao.aprovar(envio):
+        raise HTTPException(409, "Este envio não está aguardando aprovação")
     return _envio_out(envio)

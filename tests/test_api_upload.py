@@ -26,7 +26,7 @@ sys.path.insert(0, str(RAIZ / "src"))
 import ingestao
 
 PDF = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
-ORDEM = ["triagem", "extracao", "chunks", "cadastro", "embeddings"]
+ORDEM = ["triagem", "extracao", "chunks", "cadastro", "embeddings", "classificacao"]
 
 
 def _carregar_main(monkeypatch, modo_demo: str):
@@ -82,7 +82,7 @@ def test_modo_real_guarda_o_pdf_e_roda_as_etapas_em_ordem(monkeypatch, chamadas)
 
     status = cliente.get(f"/uploads/{corpo['envio_id']}").json()
     assert status["estado"] == "concluido"
-    assert [e["estado"] for e in status["etapas"]] == ["ok"] * 5
+    assert [e["estado"] for e in status["etapas"]] == ["ok"] * len(ORDEM)
     assert [e["chave"] for e in status["etapas"]] == ORDEM
     assert status["titulo"] == "CAT 123 — Instituto Butantan — Biotério"
     assert status["documento_id"].endswith("0001")
@@ -105,7 +105,7 @@ def test_falha_numa_etapa_para_o_envio_e_mostra_o_erro(monkeypatch, chamadas):
     estados = {e["chave"]: e["estado"] for e in status["etapas"]}
     assert estados == {
         "triagem": "ok", "extracao": "erro", "chunks": "pendente",
-        "cadastro": "pendente", "embeddings": "pendente",
+        "cadastro": "pendente", "embeddings": "pendente", "classificacao": "pendente",
     }
     assert chamadas == ["triagem"]
 
