@@ -96,7 +96,7 @@ function EstadoVazio({ onEscolher }: { onEscolher: (p: string) => void }) {
                 <button
                   type="button"
                   onClick={() => onEscolher(s)}
-                  className="w-full rounded-md border bg-folha px-4 py-3 text-left text-sm transition-colors hover:border-carimbo/50 hover:bg-carimbo-claro/40"
+                  className="w-full rounded-md border bg-folha px-4 py-3 text-left text-sm transition-colors hover:border-teal/50 hover:bg-teal-claro/40"
                 >
                   {s}
                 </button>
@@ -123,7 +123,7 @@ function BlocoTurno({ turno, numero, selecionado, marcadorAtivo, onMarcador, onS
   return (
     <article aria-label={`Pergunta ${numero}`} className="flex flex-col gap-4">
       <div className="flex items-baseline gap-3">
-        <span className="font-mono text-xs text-grafite">{String(numero).padStart(2, "0")}</span>
+        <span className="tabular-nums text-xs text-grafite">{String(numero).padStart(2, "0")}</span>
         <p className="text-[17px] leading-snug font-semibold">{turno.pergunta}</p>
       </div>
 
@@ -213,7 +213,7 @@ function Compositor({
   return (
     <div className="shrink-0 border-t bg-folha px-8 py-4">
       <div className="mx-auto max-w-[760px]">
-        <div className="flex items-end gap-2 rounded-lg border border-input bg-folha p-2 focus-within:border-carimbo/60 focus-within:shadow-[0_0_0_3px_var(--carimbo-claro)]">
+        <div className="flex items-end gap-2 rounded-lg border border-input bg-folha p-2 focus-within:border-teal/60 focus-within:shadow-[0_0_0_3px_var(--teal-claro)]">
           <Textarea
             value={texto}
             onChange={(e) => setTexto(e.target.value)}

@@ -3,43 +3,60 @@
 @import "shadcn/tailwind.css";
 
 /*
-  Direção visual — "acervo técnico":
-  papel de repartição frio, tinta azul-marinho e UMA cor de destaque, o violeta
-  do carimbo de cartório/CREA. O violeta só aparece onde há rastreabilidade:
-  marcadores [n], fichas de fonte e o selo "N citadas de M". Se algo está
-  violeta, dá para chegar ao PDF a partir dali.
+  Direção visual — padrão do sistema Contratos da Solufarma (Bootswatch Flatly
+  com primary #124443). Verde-petróleo para AÇÕES; teal para o que é
+  RASTREÁVEL ou leva a documento (marcadores [n], fichas de fonte, régua,
+  "Ver a fonte", "Abrir PDF"). O teal oficial #44a18c reprova AA como texto
+  pequeno (3,12:1), então texto e fundos de marcador usam --teal-texto.
+  Ver frontend/PLANO_V2.md §2.
 */
 
 :root {
-  --papel: #eef1f4;
-  --folha: #ffffff;
-  --tinta: #15202b;
-  --grafite: #5b6673;
-  --linha: #d9dfe5;
-  --carimbo: #4e3794;
-  --carimbo-claro: #efebf9;
-  --alerta: #9a5a0a;
-  --alerta-claro: #fbf1e1;
+  /* Marca (oficial) */
+  --petroleo: #124443;
+  --petroleo-hover: #0d3332;
+  --teal: #44a18c;
+  --teal-texto: #277160;
+  --teal-claro: #e6f3ef;
 
-  --background: var(--papel);
+  /* Neutros (Flatly) */
+  --fundo: #ecf0f1;
+  --folha: #ffffff;
+  --tinta: #212529;
+  --grafite: #5b6b6e;
+  --linha: #dee2e6;
+  --neutro: #95a5a6;
+  --escuro: #2c3e50;
+
+  /* Status */
+  --ok: #3f7e53;
+  --ok-claro: #e7f4eb;
+  --alerta: #7a5a0a;
+  --alerta-claro: #fff6d9;
+  --erro: #b42318;
+  --erro-claro: #f9e9ea;
+
+  /* shadcn */
+  --background: var(--fundo);
   --foreground: var(--tinta);
   --card: var(--folha);
   --card-foreground: var(--tinta);
   --popover: var(--folha);
   --popover-foreground: var(--tinta);
-  --primary: var(--tinta);
+  --primary: var(--petroleo);
   --primary-foreground: #ffffff;
-  --secondary: #e4e8ec;
+  --secondary: #ffffff;
   --secondary-foreground: var(--tinta);
-  --muted: #e8ecef;
+  --muted: #f4f6f7;
   --muted-foreground: var(--grafite);
-  --accent: var(--carimbo-claro);
-  --accent-foreground: var(--carimbo);
-  --destructive: #b42318;
+  --accent: var(--teal-claro);
+  --accent-foreground: var(--petroleo);
+  --destructive: var(--erro);
   --border: var(--linha);
-  --input: #c9d1d9;
-  --ring: var(--carimbo);
-  --radius: 0.5rem;
+  --input: #ced4da;
+  --ring: var(--teal);
+  --radius: 0.375rem;
+  --sombra-card: 0 1px 2px rgb(18 68 67 / 0.06), 0 1px 3px rgb(0 0 0 / 0.04);
 }
 
 @theme inline {
@@ -62,15 +79,25 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --color-papel: var(--papel);
+  --color-petroleo: var(--petroleo);
+  --color-petroleo-hover: var(--petroleo-hover);
+  --color-teal: var(--teal);
+  --color-teal-texto: var(--teal-texto);
+  --color-teal-claro: var(--teal-claro);
+  --color-fundo: var(--fundo);
   --color-folha: var(--folha);
   --color-tinta: var(--tinta);
   --color-grafite: var(--grafite);
   --color-linha: var(--linha);
-  --color-carimbo: var(--carimbo);
-  --color-carimbo-claro: var(--carimbo-claro);
+  --color-neutro: var(--neutro);
+  --color-escuro: var(--escuro);
+  --color-ok: var(--ok);
+  --color-ok-claro: var(--ok-claro);
   --color-alerta: var(--alerta);
   --color-alerta-claro: var(--alerta-claro);
+  --color-erro: var(--erro);
+  --color-erro-claro: var(--erro-claro);
+  --shadow-card: var(--sombra-card);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -81,12 +108,10 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Fontes: variáveis injetadas pelo next/font no <html>; @theme (não inline)
-   para a referência ser resolvida em tempo de execução. */
+/* Fonte: Lato (a do Flatly), injetada pelo next/font no <html>; @theme (não
+   inline) para a referência ser resolvida em tempo de execução. */
 @theme {
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-source-serif), Georgia, serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-sans: var(--font-lato), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -94,22 +119,22 @@
     @apply border-border outline-ring/50;
   }
   html {
-    background: var(--papel);
+    background: var(--fundo);
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-feature-settings: "tnum" 0;
   }
   :focus-visible {
-    outline: 2px solid var(--carimbo);
+    outline: 2px solid var(--teal);
     outline-offset: 2px;
   }
 }
 
-/* Corpo da resposta do agente: texto de leitura, não de interface. */
+/* Corpo da resposta do agente: texto de leitura, não de interface. A sensação
+   de "documento" vem do card branco, do corpo 16–17 px e da linha de ~70ch. */
 .resposta {
-  font-family: var(--font-serif);
   font-size: 1.0625rem;
+  max-width: 70ch;
   line-height: 1.65;
   color: var(--tinta);
 }
@@ -138,7 +163,7 @@
   color: var(--grafite);
 }
 .resposta strong {
-  font-weight: 650;
+  font-weight: 700;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -104,13 +104,13 @@ export default function PaginaAcervo() {
                       <TableCell>
                         <Badge variant="outline">{rotuloTipo(d.tipo)}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-[13px]">{d.num_paginas ?? "—"}</TableCell>
-                      <TableCell className="text-right font-mono text-[13px]">{d.num_chunks}</TableCell>
-                      <TableCell className="font-mono text-[13px]">{formatarData(d.indexado_em)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-[13px]">{d.num_paginas ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums text-[13px]">{d.num_chunks}</TableCell>
+                      <TableCell className="tabular-nums text-[13px]">{formatarData(d.indexado_em)}</TableCell>
                       <TableCell>
                         <span className="inline-flex items-center gap-1.5 text-[13px]">
                           <span
-                            className={`size-1.5 rounded-full ${d.status === "indexado" ? "bg-carimbo" : d.status === "erro" ? "bg-destructive" : "bg-alerta"}`}
+                            className={`size-1.5 rounded-full ${d.status === "indexado" ? "bg-teal-texto" : d.status === "erro" ? "bg-destructive" : "bg-alerta"}`}
                           />
                           {STATUS[d.status] ?? d.status}
                         </span>
@@ -119,7 +119,7 @@ export default function PaginaAcervo() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-carimbo hover:bg-carimbo-claro hover:text-carimbo"
+                          className="text-teal-texto hover:bg-teal-claro hover:text-teal-texto"
                           onClick={() => setAlvo({ documentoId: d.id, titulo: d.titulo, pagina: 1 })}
                         >
                           <FileText /> Abrir PDF

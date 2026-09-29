@@ -40,7 +40,7 @@ export function TextoResposta({ texto, citacoes, marcadorAtivo, onMarcador }: Pr
               // Marcador sem trecho correspondente = fonte inexistente (alucinação).
               return (
                 <span
-                  className="mx-0.5 rounded-sm bg-alerta-claro px-1 font-mono text-[0.72em] text-alerta line-through"
+                  className="mx-0.5 rounded-sm bg-alerta-claro px-1 tabular-nums text-[0.72em] text-alerta line-through"
                   title="Fonte inexistente: o agente citou um trecho que não foi recuperado"
                 >
                   {n}
@@ -55,10 +55,10 @@ export function TextoResposta({ texto, citacoes, marcadorAtivo, onMarcador }: Pr
                     onClick={() => onMarcador(n)}
                     aria-label={`Fonte ${n}: ${c.orgao}, página ${c.pagina_inicio}`}
                     className={cn(
-                      "relative -top-[0.35em] mx-[0.08em] inline-flex h-[1.35em] min-w-[1.35em] items-center justify-center rounded-[3px] border px-[0.3em] align-baseline font-mono text-[0.62em] font-semibold leading-none transition-colors",
+                      "relative -top-[0.35em] mx-[0.08em] inline-flex h-[1.35em] min-w-[1.35em] items-center justify-center rounded-[3px] border px-[0.3em] align-baseline tabular-nums text-[0.62em] font-semibold leading-none transition-colors",
                       marcadorAtivo === n
-                        ? "border-carimbo bg-carimbo text-white"
-                        : "border-carimbo/45 bg-carimbo-claro text-carimbo hover:border-carimbo hover:bg-carimbo hover:text-white",
+                        ? "border-teal bg-teal-texto text-white"
+                        : "border-teal/45 bg-teal-claro text-teal-texto hover:border-teal hover:bg-teal-texto hover:text-white",
                     )}
                   >
                     {n}

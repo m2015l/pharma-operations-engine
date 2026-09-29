@@ -106,7 +106,7 @@ export function PaginaPdf({ url, paginaInicial }: { url: string; paginaInicial: 
           <Button variant="ghost" size="icon-sm" onClick={() => irPara(atual - 1)} disabled={atual <= 1} aria-label="Página anterior">
             <ChevronLeft />
           </Button>
-          <span className="font-mono text-xs text-grafite">
+          <span className="tabular-nums text-xs text-grafite">
             página <span className="font-semibold text-tinta">{atual}</span> de {total}
           </span>
           <Button variant="ghost" size="icon-sm" onClick={() => irPara(atual + 1)} disabled={atual >= total} aria-label="Próxima página">

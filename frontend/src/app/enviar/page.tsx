@@ -85,15 +85,15 @@ export default function PaginaEnviar() {
               }}
               className={cn(
                 "flex min-h-52 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed bg-folha px-6 py-8 text-center transition-colors",
-                arrastando ? "border-carimbo bg-carimbo-claro/50" : "border-input",
+                arrastando ? "border-teal bg-teal-claro/50" : "border-input",
               )}
             >
               {arquivo ? (
                 <div className="flex w-full max-w-md items-center gap-3 rounded-md border bg-folha px-4 py-3 text-left">
-                  <FileText className="size-5 shrink-0 text-carimbo" />
+                  <FileText className="size-5 shrink-0 text-teal-texto" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{arquivo.name}</div>
-                    <div className="font-mono text-xs text-grafite">{tamanho(arquivo.size)}</div>
+                    <div className="tabular-nums text-xs text-grafite">{tamanho(arquivo.size)}</div>
                   </div>
                   <Button type="button" variant="ghost" size="icon-sm" aria-label="Remover arquivo" onClick={() => setArquivo(null)}>
                     <X />
@@ -150,8 +150,8 @@ export default function PaginaEnviar() {
             {erro && <p className="text-sm text-destructive">{erro}</p>}
 
             {resultado && (
-              <div className="flex items-start gap-3 rounded-md border border-carimbo/30 bg-carimbo-claro/60 px-4 py-3 text-sm">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-carimbo" />
+              <div className="flex items-start gap-3 rounded-md border border-teal/30 bg-teal-claro/60 px-4 py-3 text-sm">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-teal-texto" />
                 <div>
                   <div className="font-semibold">{resultado.arquivo} recebido</div>
                   <p className="mt-0.5 text-grafite">{resultado.mensagem}</p>
@@ -169,7 +169,7 @@ export default function PaginaEnviar() {
 
           <aside className="self-start rounded-lg border bg-folha p-5 text-sm leading-relaxed">
             <div className="mb-2 flex items-center gap-2 font-semibold">
-              <Info className="size-4 text-carimbo" /> O que acontece depois do envio
+              <Info className="size-4 text-teal-texto" /> O que acontece depois do envio
             </div>
             <p className="text-grafite">
               A extração do texto e a indexação rodam em segundo plano e levam alguns minutos por documento —

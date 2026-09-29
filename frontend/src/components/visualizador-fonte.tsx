@@ -45,7 +45,7 @@ export function VisualizadorFonte({ alvo, onFechar }: { alvo: AlvoFonte | null; 
       <DialogContent className="flex h-[90vh] w-[min(1100px,92vw)] max-w-none flex-col gap-3 p-5 sm:max-w-none">
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base">{alvo?.titulo}</DialogTitle>
-          <DialogDescription className="font-mono text-xs">
+          <DialogDescription className="tabular-nums text-xs">
             {alvo?.rotulo ?? `Página ${alvo?.pagina}`}
             {estado.tipo === "pronto" && estado.fonte.expira_em_segundos
               ? ` · link válido por ${Math.round(estado.fonte.expira_em_segundos / 60)} min`

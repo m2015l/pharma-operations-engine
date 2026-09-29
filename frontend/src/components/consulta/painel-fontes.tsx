@@ -66,7 +66,7 @@ export function PainelFontes({ resposta, indicePergunta, marcadorAtivo, onMarcad
                 }}
                 className={cn(
                   "group rounded-md border bg-folha transition-[border-color,box-shadow]",
-                  ativo ? "border-carimbo shadow-[0_0_0_3px_var(--carimbo-claro)]" : "hover:border-carimbo/40",
+                  ativo ? "border-teal shadow-[0_0_0_3px_var(--teal-claro)]" : "hover:border-teal/40",
                 )}
               >
                 <button
@@ -77,8 +77,8 @@ export function PainelFontes({ resposta, indicePergunta, marcadorAtivo, onMarcad
                   <div className="flex items-start gap-3">
                     <span
                       className={cn(
-                        "mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border px-1 font-mono text-[11px] font-semibold",
-                        ativo ? "border-carimbo bg-carimbo text-white" : "border-carimbo/45 bg-carimbo-claro text-carimbo",
+                        "mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border px-1 tabular-nums text-[11px] font-semibold",
+                        ativo ? "border-teal bg-teal-texto text-white" : "border-teal/45 bg-teal-claro text-teal-texto",
                       )}
                     >
                       {c.marcador}
@@ -88,13 +88,13 @@ export function PainelFontes({ resposta, indicePergunta, marcadorAtivo, onMarcad
                         {c.orgao}
                       </div>
                       <div className="mt-0.5 text-sm leading-snug font-semibold">{c.titulo_documento}</div>
-                      <div className="mt-1.5 font-mono text-[11px] leading-relaxed text-grafite">
+                      <div className="mt-1.5 tabular-nums text-[11px] leading-relaxed text-grafite">
                         <span className="font-semibold text-tinta">{paginas(c)}</span>
                         {c.secao ? ` · ${c.secao}` : " · folha de rosto (sem seção)"}
                       </div>
                     </div>
                   </div>
-                  <blockquote className="mt-3 border-l-2 border-carimbo/35 pl-3 font-serif text-[13px] leading-relaxed whitespace-pre-line text-tinta/85">
+                  <blockquote className="mt-3 border-l-2 border-teal/35 pl-3 text-[13px] leading-relaxed whitespace-pre-line text-tinta/85">
                     {limparTrecho(c.trecho)}
                   </blockquote>
                 </button>
@@ -102,7 +102,7 @@ export function PainelFontes({ resposta, indicePergunta, marcadorAtivo, onMarcad
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-carimbo hover:bg-carimbo-claro hover:text-carimbo"
+                    className="text-teal-texto hover:bg-teal-claro hover:text-teal-texto"
                     onClick={() =>
                       onVerFonte({
                         documentoId: c.documento_id,
