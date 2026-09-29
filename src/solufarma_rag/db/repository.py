@@ -113,6 +113,23 @@ class ChunkRepository(Protocol):
 # ---------------------------------------------------------------------------
 
 
+def _validar_lote_documento(documento_id: str, chunks: list[Chunk]) -> set[int]:
+    """Guarda da reindexação: lote não vazio, todo do mesmo documento, sem índice repetido.
+
+    Lote vazio é recusado de propósito — "substituir por nada" apagaria o
+    documento inteiro, e isso nunca é o que uma reindexação quer.
+    """
+    if not chunks:
+        raise ValueError("lote vazio: substituir por nada apagaria todos os chunks do documento")
+    outros = {c.documento_id for c in chunks} - {documento_id}
+    if outros:
+        raise ValueError(f"lote mistura documentos: {sorted(outros)} além de {documento_id}")
+    indices = [c.chunk_index for c in chunks]
+    if len(set(indices)) != len(indices):
+        raise ValueError("lote com chunk_index repetido")
+    return set(indices)
+
+
 def _cosseno(a: list[float], b: list[float]) -> float:
     """Similaridade de cosseno entre dois vetores de mesma dimensão."""
     dot = sum(x * y for x, y in zip(a, b))
@@ -153,6 +170,19 @@ class InMemoryChunkRepository:
             else:
                 # Mantém o embedding antigo: se o hash não mudou, não re-embedda.
                 existente.chunk = chunk
+
+    def substituir_chunks_documento(self, documento_id: str, chunks: list[Chunk]) -> int:
+        """Upsert dos chunks + remoção dos órfãos do MESMO documento. Devolve removidos."""
+        indices = _validar_lote_documento(documento_id, chunks)
+        self.upsert_chunks(chunks)
+        orfaos = [
+            chave
+            for chave, r in self._registros.items()
+            if r.chunk.documento_id == documento_id and r.chunk.chunk_index not in indices
+        ]
+        for chave in orfaos:
+            del self._registros[chave]
+        return len(orfaos)
 
     def listar_pendentes(self) -> list[Chunk]:
         pendentes = [
@@ -316,39 +346,73 @@ class SupabaseChunkRepository:
         comparação `content_hash != embedding_content_hash` em listar_pendentes.
         Assim um reprocessamento de chunking que não mudou o texto (mesma seção,
         mesmo conteúdo) não força re-embedar o documento inteiro.
+
+        NÃO remove chunks antigos: se o chunking novo gerar MENOS chunks, os de
+        `chunk_index` maior sobram órfãos. Para reindexar um documento use
+        `substituir_chunks_documento`.
         """
         if not chunks:
             return
         with self.conn.cursor() as cur:
-            cur.executemany(
-                """
-                insert into doc_chunks (
-                    documento_id, chunk_index, secao, pagina_inicio, pagina_fim,
-                    conteudo, token_count, content_hash
-                ) values (%s, %s, %s, %s, %s, %s, %s, %s)
-                on conflict (documento_id, chunk_index) do update set
-                    secao = excluded.secao,
-                    pagina_inicio = excluded.pagina_inicio,
-                    pagina_fim = excluded.pagina_fim,
-                    conteudo = excluded.conteudo,
-                    token_count = excluded.token_count,
-                    content_hash = excluded.content_hash
-                """,
-                [
-                    (
-                        c.documento_id,
-                        c.chunk_index,
-                        c.secao,
-                        c.pagina_inicio,
-                        c.pagina_fim,
-                        c.conteudo,
-                        c.token_count,
-                        c.content_hash,
-                    )
-                    for c in chunks
-                ],
-            )
+            self._executar_upsert(cur, chunks)
         self.conn.commit()
+
+    def substituir_chunks_documento(self, documento_id: str, chunks: list[Chunk]) -> int:
+        """Reindexação de UM documento: upsert + remoção dos órfãos, numa transação.
+
+        Apaga só linhas de `documento_id` cujo `chunk_index` não está no lote
+        novo. Se qualquer passo falhar, rollback — o documento nunca fica com
+        metade dos chunks. Devolve quantos órfãos foram removidos.
+        """
+        indices = _validar_lote_documento(documento_id, chunks)
+        try:
+            with self.conn.cursor() as cur:
+                self._executar_upsert(cur, chunks)
+                cur.execute(
+                    """
+                    delete from doc_chunks
+                     where documento_id = %s
+                       and not (chunk_index = any(%s))
+                    """,
+                    (documento_id, sorted(indices)),
+                )
+                removidos = cur.rowcount
+        except Exception:
+            self.conn.rollback()
+            raise
+        self.conn.commit()
+        return removidos
+
+    @staticmethod
+    def _executar_upsert(cur, chunks: list[Chunk]) -> None:
+        cur.executemany(
+            """
+            insert into doc_chunks (
+                documento_id, chunk_index, secao, pagina_inicio, pagina_fim,
+                conteudo, token_count, content_hash
+            ) values (%s, %s, %s, %s, %s, %s, %s, %s)
+            on conflict (documento_id, chunk_index) do update set
+                secao = excluded.secao,
+                pagina_inicio = excluded.pagina_inicio,
+                pagina_fim = excluded.pagina_fim,
+                conteudo = excluded.conteudo,
+                token_count = excluded.token_count,
+                content_hash = excluded.content_hash
+            """,
+            [
+                (
+                    c.documento_id,
+                    c.chunk_index,
+                    c.secao,
+                    c.pagina_inicio,
+                    c.pagina_fim,
+                    c.conteudo,
+                    c.token_count,
+                    c.content_hash,
+                )
+                for c in chunks
+            ],
+        )
 
     def listar_pendentes(self) -> list[Chunk]:
         """Sem embedding OU com content_hash diferente do que foi embeddado.

@@ -5,6 +5,7 @@ Uso:
     python tools/generate_embeddings.py                    # provedor do .env, banco real
     python tools/generate_embeddings.py --provedor openai  # força um provedor
     python tools/generate_embeddings.py --reset            # zera e reembedda tudo
+    python tools/generate_embeddings.py --documento-id UUID --sim   # só um documento
 
 CUSTO
 A execução real chama API paga por token. O acervo inteiro projetado (40
@@ -69,7 +70,30 @@ def _zerar_embeddings(conn) -> int:
     return afetadas
 
 
-def main() -> int:
+class RepoRestrito:
+    """Restringe o pipeline incremental a alguns documentos.
+
+    `gerar_embeddings_pendentes` embedda TUDO o que `listar_pendentes` devolve.
+    Com outra sessão inserindo documentos ao mesmo tempo, isso embeddaria (e
+    marcaria como indexados) chunks que não são desta execução. Este invólucro
+    filtra a lista de pendentes por `documento_id` e delega o resto.
+    """
+
+    def __init__(self, repo, documento_ids: set[str]):
+        self._repo = repo
+        self._ids = set(documento_ids)
+
+    def listar_pendentes(self):
+        return [c for c in self._repo.listar_pendentes() if c.documento_id in self._ids]
+
+    def documentos_com_pendencias(self) -> set[str]:
+        return self._repo.documentos_com_pendencias() & self._ids
+
+    def __getattr__(self, nome):
+        return getattr(self._repo, nome)
+
+
+def construir_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dry-run",
@@ -88,7 +112,21 @@ def main() -> int:
         help="Zera os embeddings existentes antes (necessário ao trocar de modelo)",
     )
     parser.add_argument("--sim", action="store_true", help="Não pedir confirmação")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--documento-id",
+        action="append",
+        default=None,
+        metavar="UUID",
+        help="Só embedda chunks destes documentos (repetível). Não combina com --reset",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = construir_parser()
+    args = parser.parse_args(argv)
+    if args.reset and args.documento_id:
+        parser.error("--reset zera o acervo inteiro; não combina com --documento-id")
 
     if args.dry_run:
         repo = InMemoryChunkRepository()
@@ -113,6 +151,9 @@ def main() -> int:
             print(f"--reset: {zeradas} embeddings apagados.")
 
         repo = SupabaseChunkRepository(conn=conn)
+        if args.documento_id:
+            repo = RepoRestrito(repo, set(args.documento_id))
+            print(f"Restrito a {len(args.documento_id)} documento(s).")
         pendentes = repo.listar_pendentes()
         tokens = sum(c.token_count for c in pendentes)
 

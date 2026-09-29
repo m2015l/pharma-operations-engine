@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -48,7 +49,14 @@ for _fluxo in (sys.stdout, sys.stderr):
         _fluxo.reconfigure(encoding="utf-8", errors="replace")
 
 
-DIR_CHUNKS = RAIZ / "data" / "chunks"
+# Mesmas variáveis de ambiente de `solufarma.config`: permitem rodar o CLI de
+# uma worktree lendo o `data/` do repositório principal (que é gitignored).
+DIR_CHUNKS = Path(os.getenv("SOLUFARMA_DIR_CHUNKS", RAIZ / "data" / "chunks"))
+DIR_EXTRAIDOS = Path(os.getenv("SOLUFARMA_DIR_EXTRAIDOS", RAIZ / "data" / "extraidos"))
+
+# Quando o JSON de extração não é encontrado, mantém o comportamento anterior a
+# 29/09 (o pipeline nasceu para o acervo escaneado) — com aviso.
+EXTRACAO_DESCONHECIDA = (True, "vlm")
 
 
 def _carregar(caminho: Path) -> list[dict]:
@@ -57,6 +65,43 @@ def _carregar(caminho: Path) -> list[dict]:
             f"{caminho.name} não encontrado. Rode `tools/chunk_document.py` antes."
         )
     return json.loads(caminho.read_text(encoding="utf-8"))
+
+
+def metodo_extracao(paginas: list[dict]) -> tuple[bool, str] | None:
+    """Deriva `(ocr_aplicado, metodo_extracao)` das rotas das páginas extraídas.
+
+    Cada página do JSON de extração traz `estrategia`: `nativo` (texto do PDF),
+    `vlm` (OCR por modelo de visão) ou `vazia` (foi ao VLM e voltou sem texto —
+    conta como VLM, porque a chamada aconteceu). O resultado:
+
+        todas nativas  -> (False, "nativo")
+        todas VLM      -> (True,  "vlm")
+        mistura        -> (True,  "misto")
+
+    `documentos.metodo_extracao` é `text` sem CHECK (001_schema_inicial.sql),
+    então "misto" é aceito pelo banco. Devolve None se não houver página com
+    rota conhecida (ex.: `pendente`) — quem chama decide o fallback.
+    """
+    rotas = {
+        "vlm" if p.get("estrategia") == "vazia" else p.get("estrategia")
+        for p in paginas
+    } & {"nativo", "vlm"}
+    if not rotas:
+        return None
+    if rotas == {"nativo"}:
+        return False, "nativo"
+    if rotas == {"vlm"}:
+        return True, "vlm"
+    return True, "misto"
+
+
+def detectar_extracao(stem: str, dir_extraidos: Path | None = None) -> tuple[bool, str] | None:
+    """Lê `<dir_extraidos>/<stem>.json` e deriva o método. None se não achar."""
+    caminho = (dir_extraidos or DIR_EXTRAIDOS) / f"{stem}.json"
+    if not caminho.is_file():
+        return None
+    doc = json.loads(caminho.read_text(encoding="utf-8-sig"))
+    return metodo_extracao(doc.get("paginas") or [])
 
 
 class TituloDivergente(ValueError):
@@ -91,7 +136,7 @@ def resolver_titulo(titulo_cli: str | None, chunks_brutos: list[dict]) -> str:
     return titulo_cli.strip()
 
 
-def main() -> int:
+def construir_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("pdf", help="PDF original em data/brutos/")
     p.add_argument("--orgao", required=True, help="Órgão/entidade contratante")
@@ -104,7 +149,11 @@ def main() -> int:
     p.add_argument("--numero-edital", default=None)
     p.add_argument("--data-abertura", default=None, help="AAAA-MM-DD")
     p.add_argument("--dry-run", action="store_true", help="Traduz e valida sem escrever")
-    args = p.parse_args()
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = construir_parser().parse_args(argv)
 
     pdf = Path(args.pdf)
     if not pdf.is_file():
@@ -133,6 +182,16 @@ def main() -> int:
             file=sys.stderr,
         )
 
+    extracao = detectar_extracao(stem)
+    if extracao is None:
+        print(
+            f"AVISO: {DIR_EXTRAIDOS / (stem + '.json')} não encontrado (ou sem rota por "
+            "página). Gravando ocr_aplicado=True, metodo_extracao='vlm' como antes.",
+            file=sys.stderr,
+        )
+        extracao = EXTRACAO_DESCONHECIDA
+    ocr_aplicado, metodo = extracao
+
     data_abertura = date.fromisoformat(args.data_abertura) if args.data_abertura else None
     # O DDL não guarda contagem de páginas em lugar nenhum antes do cadastro;
     # a maior página vista nos chunks é a melhor estimativa disponível aqui.
@@ -141,6 +200,7 @@ def main() -> int:
     print(f"Documento: {stem}")
     print(f"  título: {titulo}")
     print(f"  chunks: {len(chunks_brutos)}   linhas de planilha: {len(itens)}   páginas: {num_paginas}")
+    print(f"  extração: {metodo} (ocr_aplicado={ocr_aplicado})")
 
     if args.dry_run:
         traduzidos = traduzir_chunks(
@@ -180,10 +240,13 @@ def main() -> int:
             numero_edital=args.numero_edital,
             data_abertura=data_abertura,
             num_paginas=num_paginas,
-            ocr_aplicado=True,
-            metodo_extracao="vlm",
+            ocr_aplicado=ocr_aplicado,
+            metodo_extracao=metodo,
         )
-        print(f"   documento_id = {documento_id}" + ("  (já cadastrado)" if ja_existia else ""))
+        print(
+            f"   documento_id = {documento_id}"
+            + ("  (já cadastrado: título e método de extração atualizados)" if ja_existia else "")
+        )
 
         print("\n3. Tradução dos chunks")
         chunks = traduzir_chunks(
@@ -197,9 +260,12 @@ def main() -> int:
 
         print("\n4. Gravação no banco")
         repo = SupabaseChunkRepository(conn=conn)
-        repo.upsert_chunks(chunks)
+        # Reindexação: upsert + remoção dos chunks que o chunking novo não gerou
+        # mais (senão sobram órfãos com chunk_index alto), numa transação só e
+        # restrita a este documento_id.
+        removidos = repo.substituir_chunks_documento(documento_id, chunks)
         pendentes = len(repo.listar_pendentes())
-        print(f"   upsert_chunks: {len(chunks)} chunks")
+        print(f"   upsert_chunks: {len(chunks)} chunks   órfãos removidos: {removidos}")
         print(f"   aguardando embedding: {pendentes}")
 
         if itens:
