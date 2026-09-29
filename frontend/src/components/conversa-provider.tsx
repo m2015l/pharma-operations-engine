@@ -6,6 +6,8 @@ import { api, type Resposta, type Saude } from "@/lib/api";
 export type Turno = {
   id: string;
   pergunta: string;
+  /** ISO 8601; vai para o .docx exportado. */
+  perguntadoEm: string;
   resposta?: Resposta;
   erro?: string;
 };
@@ -51,7 +53,7 @@ export function ConversaProvider({ children }: { children: React.ReactNode }) {
         .slice(-TURNOS_NO_HISTORICO)
         .map((t) => ({ pergunta: t.pergunta, resposta: t.resposta!.texto }));
 
-      setTurnos((ts) => [...ts, { id, pergunta }]);
+      setTurnos((ts) => [...ts, { id, pergunta, perguntadoEm: new Date().toISOString() }]);
       setCarregando(true);
       try {
         const resposta = await api.perguntar(pergunta, historico);

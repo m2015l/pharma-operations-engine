@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowUp, Loader2, RotateCcw, SearchX } from "lucide-react";
+import { AlertTriangle, ArrowUp, FileDown, Loader2, RotateCcw, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useConversa, type Turno } from "@/components/conversa-provider";
@@ -10,6 +10,7 @@ import { SeloRastreio } from "@/components/consulta/selo-rastreio";
 import { TextoResposta } from "@/components/consulta/texto-resposta";
 import { VisualizadorFonte, type AlvoFonte } from "@/components/visualizador-fonte";
 import { api } from "@/lib/api";
+import { exportarDocx, turnosExportaveis } from "@/lib/exportar";
 import { CabecalhoPagina } from "@/components/moldura/cabecalho-pagina";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,14 @@ export default function PaginaConsulta() {
     el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [turnos.length, carregando]);
 
+  const [exportando, setExportando] = useState(false);
+  const exportar = async (lista: Turno[], escopo: "conversa" | "resposta") => {
+    setExportando(true);
+    await exportarDocx(lista, escopo);
+    setExportando(false);
+  };
+  const semRespostas = turnosExportaveis(turnos).length === 0;
+
   const indiceSelecionado = turnos.findIndex((t) => t.id === selecao?.turnoId);
   const turnoSelecionado = indiceSelecionado >= 0 ? turnos[indiceSelecionado] : null;
 
@@ -34,9 +43,20 @@ export default function PaginaConsulta() {
         subtitulo="Toda resposta indica o documento e a página de onde a informação saiu."
         acoes={
           turnos.length > 0 && (
-            <Button variant="outline" onClick={novaConsulta} disabled={carregando} className="h-9 px-3.5">
-              <RotateCcw /> Nova consulta
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => exportar(turnos, "conversa")}
+                disabled={semRespostas || carregando || exportando}
+                className="h-9 px-3.5"
+                title="Baixa a conversa inteira em Word, com as fontes citadas"
+              >
+                {exportando ? <Loader2 className="animate-spin" /> : <FileDown />} Exportar .docx
+              </Button>
+              <Button variant="outline" onClick={novaConsulta} disabled={carregando} className="h-9 px-3.5">
+                <RotateCcw /> Nova consulta
+              </Button>
+            </>
           )
         }
       />
@@ -58,6 +78,8 @@ export default function PaginaConsulta() {
                   marcadorAtivo={selecao?.turnoId === t.id ? selecao.marcador : null}
                   onMarcador={(n) => selecionar(t.id, n)}
                   onSelecionar={() => selecionar(t.id)}
+                  onExportar={() => exportar([t], "resposta")}
+                  exportando={exportando}
                 />
               ))}
             </div>
@@ -123,9 +145,20 @@ type PropsTurno = {
   marcadorAtivo: number | null;
   onMarcador: (n: number) => void;
   onSelecionar: () => void;
+  onExportar: () => void;
+  exportando: boolean;
 };
 
-function BlocoTurno({ turno, numero, selecionado, marcadorAtivo, onMarcador, onSelecionar }: PropsTurno) {
+function BlocoTurno({
+  turno,
+  numero,
+  selecionado,
+  marcadorAtivo,
+  onMarcador,
+  onSelecionar,
+  onExportar,
+  exportando,
+}: PropsTurno) {
   const r = turno.resposta;
   return (
     <article aria-label={`Pergunta ${numero}`} className="flex flex-col gap-3">
@@ -181,13 +214,27 @@ function BlocoTurno({ turno, numero, selecionado, marcadorAtivo, onMarcador, onS
             onMarcador={onMarcador}
           />
 
-          <div className="mt-5 flex items-center justify-between gap-4 border-t pt-3">
+          <div className="mt-5 flex items-center gap-4 border-t pt-3">
             {r.encontrou_no_acervo ? <SeloRastreio resposta={r} /> : <span />}
             {r.modo === "demo" && r.origem && (
-              <span className="truncate text-xs text-grafite" title={r.origem}>
+              <span className="ml-auto truncate text-xs text-grafite" title={r.origem}>
                 Resposta gravada · {resumoOrigem(r.origem)}
               </span>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onExportar();
+              }}
+              disabled={exportando}
+              aria-label="Exportar esta resposta"
+              title="Baixa só esta resposta em Word, com as fontes citadas"
+              className={cn("shrink-0 text-grafite hover:text-tinta", !(r.modo === "demo" && r.origem) && "ml-auto")}
+            >
+              <FileDown /> .docx
+            </Button>
           </div>
         </div>
       )}

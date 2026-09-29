@@ -94,6 +94,25 @@ async function pedir<T>(caminho: string, init?: RequestInit): Promise<T> {
 
 export type TurnoHistorico = { pergunta: string; resposta: string };
 
+export type TurnoExportado = {
+  pergunta: string;
+  perguntado_em: string | null;
+  resposta: Resposta | null;
+  erro: string | null;
+};
+
+export type ExportarDocxCorpo = {
+  escopo: "conversa" | "resposta";
+  gerado_em: string;
+  turnos: TurnoExportado[];
+};
+
+/** Nome sugerido pela API em `Content-Disposition: attachment; filename="..."`. */
+function nomeDoArquivo(r: Response, padrao: string) {
+  const m = r.headers.get("Content-Disposition")?.match(/filename="?([^";]+)"?/i);
+  return m?.[1] ?? padrao;
+}
+
 export const api = {
   saude: () => pedir<Saude>("/saude"),
   sugestoes: () => pedir<string[]>("/sugestoes"),
@@ -105,6 +124,21 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pergunta, historico }),
     }),
+  /** POST /exportar/docx: a API só formata o que já está na tela (custo zero). */
+  exportarDocx: async (corpo: ExportarDocxCorpo): Promise<{ blob: Blob; nome: string }> => {
+    let r: Response;
+    try {
+      r = await fetch("/api/exportar/docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corpo),
+      });
+    } catch {
+      throw new Error("Sem conexão com a API. Confira se ela está rodando na porta 8000.");
+    }
+    if (!r.ok) throw new Error(await lerErro(r));
+    return { blob: await r.blob(), nome: nomeDoArquivo(r, `${corpo.escopo}-solufarma.docx`) };
+  },
   upload: (arquivo: File, orgao: string, tipo: string) => {
     const form = new FormData();
     form.append("arquivo", arquivo);
