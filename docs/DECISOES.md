@@ -289,6 +289,29 @@ falha suave).
 ---
 
 
+## ADR-011 — Reranker Voyage depois da fusão RRF
+
+**Data:** 29/09/26 · **Decisão:** Claude (orquestração), a validar pelo Roger
+
+**Contexto:** com 24 atestados, em 10 de 22 perguntas do golden set um trecho de outro
+documento ficava à frente do certo. O trecho certo estava no pool; faltava ordenar.
+
+**Decisão:** os 15 primeiros resultados da busca híbrida (RRF) passam pelo Voyage
+`rerank-2.5` e são cortados em `top_k`. Configurável por `RERANKER=voyage|nenhum` (padrão
+`voyage`). Se a API falhar, a busca devolve a ordem do RRF e registra aviso, sem derrubar a
+resposta. `rerank-2.5` ganhou do `rerank-3` no golden set (MRR 0,81 × 0,79). Custo:
+cota gratuita de 200M tokens, depois ~US$ 0,0002 por pergunta.
+
+**Resultado medido no banco real:** 5 primeiros 20→21/22, 8 primeiros 21→22/22, controles
+4/4, MRR 0,66→0,81.
+
+**Piso do reranker (`RERANK_MINIMO`):** fica desligado (0). O piso de similaridade já barra
+os 4 controles negativos, e um segundo piso só acrescentaria risco de recusa falsa, que é o
+modo de falha mais grave deste projeto. Reavaliar se aparecer falso positivo na auditoria.
+
+---
+
+
 ## Decisões pendentes
 
 | # | Decisão | Opções em avaliação | Prazo sugerido |
