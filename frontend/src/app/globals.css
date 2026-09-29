@@ -1,0 +1,152 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+  Direção visual — "acervo técnico":
+  papel de repartição frio, tinta azul-marinho e UMA cor de destaque, o violeta
+  do carimbo de cartório/CREA. O violeta só aparece onde há rastreabilidade:
+  marcadores [n], fichas de fonte e o selo "N citadas de M". Se algo está
+  violeta, dá para chegar ao PDF a partir dali.
+*/
+
+:root {
+  --papel: #eef1f4;
+  --folha: #ffffff;
+  --tinta: #15202b;
+  --grafite: #5b6673;
+  --linha: #d9dfe5;
+  --carimbo: #4e3794;
+  --carimbo-claro: #efebf9;
+  --alerta: #9a5a0a;
+  --alerta-claro: #fbf1e1;
+
+  --background: var(--papel);
+  --foreground: var(--tinta);
+  --card: var(--folha);
+  --card-foreground: var(--tinta);
+  --popover: var(--folha);
+  --popover-foreground: var(--tinta);
+  --primary: var(--tinta);
+  --primary-foreground: #ffffff;
+  --secondary: #e4e8ec;
+  --secondary-foreground: var(--tinta);
+  --muted: #e8ecef;
+  --muted-foreground: var(--grafite);
+  --accent: var(--carimbo-claro);
+  --accent-foreground: var(--carimbo);
+  --destructive: #b42318;
+  --border: var(--linha);
+  --input: #c9d1d9;
+  --ring: var(--carimbo);
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-papel: var(--papel);
+  --color-folha: var(--folha);
+  --color-tinta: var(--tinta);
+  --color-grafite: var(--grafite);
+  --color-linha: var(--linha);
+  --color-carimbo: var(--carimbo);
+  --color-carimbo-claro: var(--carimbo-claro);
+  --color-alerta: var(--alerta);
+  --color-alerta-claro: var(--alerta-claro);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Fontes: variáveis injetadas pelo next/font no <html>; @theme (não inline)
+   para a referência ser resolvida em tempo de execução. */
+@theme {
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    background: var(--papel);
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "tnum" 0;
+  }
+  :focus-visible {
+    outline: 2px solid var(--carimbo);
+    outline-offset: 2px;
+  }
+}
+
+/* Corpo da resposta do agente: texto de leitura, não de interface. */
+.resposta {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--tinta);
+}
+.resposta p + p,
+.resposta p + ul,
+.resposta p + ol,
+.resposta ul + p,
+.resposta ol + p {
+  margin-top: 0.85em;
+}
+.resposta ul,
+.resposta ol {
+  padding-left: 1.25em;
+  margin-top: 0.4em;
+}
+.resposta ul {
+  list-style: disc;
+}
+.resposta ol {
+  list-style: decimal;
+}
+.resposta li + li {
+  margin-top: 0.3em;
+}
+.resposta li::marker {
+  color: var(--grafite);
+}
+.resposta strong {
+  font-weight: 650;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

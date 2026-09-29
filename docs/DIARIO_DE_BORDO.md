@@ -2,6 +2,7 @@
 
 > Registro cronológico do trabalho. Cada sessão de trabalho relevante ganha uma entrada no topo (mais recente primeiro).
 > Formato: data, quem trabalhou, o que foi feito, o que aprendemos, próximos passos.
+> **Frontend:** a partir de 29/09 o trabalho de interface é registrado em `docs/DIARIO_DE_BORDO_FRONTEND.md` (o Streamlit foi trocado por um frontend Next.js próprio).
 
 ---
 
@@ -33,7 +34,7 @@
 - Frontend: conceito e protótipo com vídeo demo sendo feitos em sessão paralela, em `frontend_demo/` (não commitado).
 
 **O que falta fazer (por prioridade):**
-1. **Frontend Streamlit** — revisar o conceito/vídeo demo de `frontend_demo/` e partir para a aplicação real (item 18 do plano, maior frente em aberto);
+1. **Frontend** — ~~Streamlit~~ trocado por frontend próprio (Next.js + FastAPI) em 29/09; ver `docs/DIARIO_DE_BORDO_FRONTEND.md` (item 18 do plano, maior frente em aberto);
 2. **Conferir o conteúdo dos 27 documentos restantes antes de indexar** — não confiar no nome do arquivo (item 27). Vale automatizar: extrair órgão/CAT/título do próprio conteúdo em vez do nome — resolve também o item 17;
 3. **Corrigir o `tools/indexar.py`**: `--titulo` só grava em `documentos.titulo`, mas o cabeçalho de cada chunk vem do nome do arquivo no chunking — hoje foi corrigido à mão no banco;
 4. **Recalibrar o piso** a cada lote relevante de documentos (item 12);

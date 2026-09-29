@@ -51,3 +51,8 @@ Thumbs.db
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Frontend: dados reais de CATs (fixtures e vídeo demo) ficam fora do git
+api/fixtures/demo.json
+frontend/demo/*.mp4
+frontend/demo/*.webm
