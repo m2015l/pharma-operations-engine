@@ -6,6 +6,26 @@
 
 ---
 
+## 2026-09-29 (noite) — OCR pago do lote, classificação por IA, golden set novo, frontend v2 (Roger + Claude)
+
+**Decisões do Roger / gerente:** sem tela de login por ora; o acervo é só de atestados/CATs (ADR-009); gastar o crédito disponível.
+
+**OCR (OpenRouter, sessão paralela):** 13 documentos novos indexados, cerca de US$ 4,80. O banco foi para **24 documentos e 862 chunks** (858 com embedding). A sessão parou com `HTTP 403 Key limit exceeded (monthly limit)`: **a chave do OpenRouter tem um teto mensal configurado no painel**, e ele foi atingido (uso total US$ 8,84 de US$ 25 de crédito). Enquanto o Roger não subir esse limite, ficam bloqueados OCR, classificação, auditoria e o modo real do app.
+- Novos: Cristália Obra II (116 chunks), Prédio 70 CTM/Farmanguinhos (130), Butantan infectório 2620120006270 (8), CAR-1023 Câmaras Frias Consórcio MS (122), SJC-02542 envase/liofilização (16), CIPBR 52669/2020 (45), FURP ABC-01916 (50), FIOCRUZ 4305/2010 (6), 12 Pass Through (**Solufarma**, 4), Hipolabor 1420180002485 (14), Delta 216058 (24), Santa Casa 2620110010199 (7), SJC-003369 vacina contra raiva (48);
+- **Ficaram de fora pelo limite:** Butantan hemoderivados (76 pág. de OCR), FIOTEC LAFIQ (63), Cristália 3ª fase (48), **LAQFA/CEMFAR 522936 (37, Solufarma)**, **GACI/Anápolis (137, Solufarma)**, HC-FMUSP (294). Também: BUNKER (OCR antigo ilegível) e SS WHITE (arquivo faltando);
+- **O custo real por página variou muito** da estimativa de US$ 0,016: um documento de 19 páginas custou US$ 2,85. Não usar mais a estimativa fixa como teto;
+- 4 chunks-lixo de tabela no Cristália Obra II (ex. `42 / pç / 33.25`) não recebem embedding. A remoção foi bloqueada pela proteção de recursos compartilhados e aguarda o Roger. A causa no chunker está sendo investigada.
+
+**Classificação e sumarização por IA (item 19):** `tools/classificar_documentos.py`, coluna `documentos.classificacao jsonb` (migração 004, só aditiva), modelo `google/gemini-3.1-flash-lite`, cerca de US$ 0,005 por documento, validação em código contra o texto. Os 11 documentos anteriores estão classificados (US$ 0,10); **os 13 do OCR ficam pendentes** até o limite do OpenRouter voltar. **Correção:** a CAT do SENAI também é da Solufarma.
+
+**Golden set, testes e reindexação:** 22 positivos + 4 controles, gabarito por documento+página; testes de 173 para 257; `indexar.py` deriva `metodo_extracao` por página e reindexa sem deixar órfãos; os 3 de 28/09 foram reindexados com o chunker novo. Com 24 documentos: piso recalibrado para **`SIMILARIDADE_MINIMA=0.433`** (folga de 0,042), recall **21/22 em top-8** (20/22 em top-5), controles **4/4**. Em 10/22 perguntas um trecho de outro documento fica à frente do certo, o que é problema de ordenação: reranker em andamento.
+
+**Frontend v2:** F0 a F7 e F9 prontos (ver `docs/DIARIO_DE_BORDO_FRONTEND.md`): padrão visual do Contratos, "Licitações", logo oficial, export .docx da conversa ou de uma resposta, e upload real ligado ao pipeline.
+
+**Em andamento (sessões paralelas):** reranker Voyage + correção dos chunks-lixo; upload reusando o pipeline do `indexar.py` (embeddings só do documento enviado, teto de páginas de OCR, classificação com falha suave) + filtros da classificação no agente (executante/disciplina).
+
+---
+
 ## 2026-09-29 (tarde) — Hipótese dos nomes confirmada; 7 documentos nativos indexados sem OCR (Roger + Claude)
 
 **Decisões do Roger:** indexar só o que tem texto nativo (sem gastar com OCR agora), testar a hipótese dos nomes, adicionar o passo 0 no workflow, fazer push.
