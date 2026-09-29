@@ -6,6 +6,44 @@
 
 ---
 
+## 2026-09-29 (tarde) — Hipótese dos nomes confirmada; 7 documentos nativos indexados sem OCR (Roger + Claude)
+
+**Decisões do Roger:** indexar só o que tem texto nativo (sem gastar com OCR agora), testar a hipótese dos nomes, adicionar o passo 0 no workflow, fazer push.
+
+**Hipótese dos nomes trocados: confirmada.** Com os 32 PDFs em ordem alfabética, o conteúdo de cada arquivo é o documento que tem o nome do arquivo **anterior**. Bateu por nº de CAT em 18 casos e por órgão/objeto em mais 6, com **0 contradições**. Consequências:
+- o documento "SS WHITE CAT 11686-2010 (injetáveis)" **não está em nenhum arquivo** do lote, e o conteúdo "Ariston" do primeiro arquivo (ordem alfabética) aponta para um arquivo que falta antes dele. Pedir à empresa o arquivo que falta;
+- dá para renomear o lote inteiro de forma determinística. Por segurança os arquivos em `data/` **não foram mexidos**: os indexados foram **copiados** para `data/brutos/` com o nome certo + sufixo `[conteudo real]`.
+
+**Indexados (7 documentos, 102 chunks, custo US$ 0 de OCR; embeddings Voyage ~59K tokens, dentro da cota gratuita):**
+
+| Documento (título pelo conteúdo) | Órgão | Executante | Chunks |
+|---|---|---|---:|
+| Vestiários de produção do prédio 10 do CTM - Farmanguinhos | FIOCRUZ | **Solufarma** | 47 |
+| Câmara Fria para Imunobiológicos (CAT SJC-01975) | Instituto Butantan | TEP | 3 |
+| Trocadores de Calor PW/WFI (CAT SJC-02085) | Instituto Butantan | TEP | 2 |
+| Controle e Instrumentação ISO 7 / Câmara Fria (CAT SJC-03608) | Instituto Butantan | TEP | 11 |
+| Prédio IMAS II - Instalações Elétricas (CAT 2620130007911) | CNPEM | TEP | 28 |
+| Manutenção Predial da Planta Industrial (CAT 2620130009521) | Instituto Terapêutico Delta | TEP | 6 |
+| Manutenção de Ar Condicionado e Água Purificada (CAT 2620140004961) | FURP | TEP | 5 |
+
+- Extração com o VLM **bloqueado por código** (`chamar_vlm` substituído por uma função que levanta erro): 96 páginas, todas nativas, 0 via VLM;
+- **Ficou de fora** o 8º nativo (arquivo "BUTANTAN 0000000238897", conteúdo = "BUNKER SJC-01555"): OCR antigo ilegível, sem contratante identificável;
+- **Banco agora:** 11 documentos, 272 chunks, 0 pendentes de embedding. É o primeiro atestado com a **Solufarma como executante** no acervo (o dos vestiários).
+
+**Golden set (só busca):** recall **11/11**; controles negativos **3/4**. O que "falha" ("este atestado cobre manutenção predial… sala limpa ISO 7?") foi escrito quando o acervo era só o SENAI. Hoje o acervo tem manutenção predial e ISO 7 de verdade, então o controle perdeu a validade. Não é regressão: rever o golden set junto com a recalibração do piso (item 12).
+
+**Workflow:** `workflows/indexacao.md` ganhou o "Passo 0: triagem pelo conteúdo" (autorizado pelo Roger).
+
+**Observação:** `tools/indexar.py` grava `ocr_aplicado=True, metodo_extracao="vlm"` fixo, o que está errado para esses 7 documentos (foram nativos). Menor, mas vale corrigir quando mexer no CLI.
+
+**Próximos passos:**
+1. Pedir à Solufarma o arquivo que falta (SS WHITE 11686-2010) e confirmar a leitura dos nomes;
+2. OCR dos parciais quando houver orçamento: 8 documentos precisam de só 1 página de OCR cada (~US$ 0,02 cada), o resto está concentrado em HIPOLABOR/HC USP/Butantan 2620120006270;
+3. Rever os controles negativos do golden set e recalibrar o piso;
+4. Os 3 documentos de 28/09 foram chunkados com o chunker antigo; reindexá-los com a heurística nova é barato (só embeddings), exceto o SENAI (patch manual do I6).
+
+---
+
 ## 2026-09-29 — Folha de rosto generalizada em código; título pelo conteúdo; triagem dos 32 PDFs (Roger + Claude)
 
 **Como foi feito:** duas sessões paralelas em worktrees (branches `worktree-agent-a441020e4488a086a` e `worktree-agent-a61e0e7f71a529ec4`), mescladas em `main` pelo orquestrador. Nenhuma chamada paga, nada escrito no Supabase, nada reindexado. **173 testes passando** (eram 114).

@@ -78,6 +78,37 @@ de propósito, para a ingestão não travar esperando cadastro.
 
 ## 5. Ordem de execução
 
+### Passo 0: triagem pelo conteúdo, antes de tudo (desde 29/09)
+
+**Nunca confie no nome do arquivo.** No lote do Drive de 28/09, 19 de 32 PDFs tinham o nome
+trocado. A troca era sistemática: com os arquivos em ordem alfabética, o conteúdo de cada um é
+o documento que tem o nome do arquivo **anterior** (18 casos bateram pelo nº da CAT, 0
+contradições). Um documento do lote (SS WHITE 11686-2010) não estava em arquivo nenhum.
+
+1. `uv run python tools/triar_documentos.py` → `.tmp/triagem_documentos.{md,json}`. Não custa
+   nada (só regex): nº CAT, contratante, **executante** (TEP × Solufarma), texto nativo × precisa
+   OCR, nome bate × trocado, duplicatas, custo estimado de OCR;
+2. Confira no texto o órgão e o objeto de cada documento que vai entrar. Se o nome estiver
+   errado, **copie** (não renomeie nem mova) o PDF para `data/brutos/` com o nome certo. O
+   nome vira o `storage_path` no Storage, então ele precisa estar correto;
+3. Documento com OCR antigo ilegível e sem contratante identificável fica de fora: indexar
+   lixo piora a busca dos outros;
+4. Gere os chunks com o título tirado do conteúdo:
+   `tools/chunk_document.py data/extraidos/<stem>.json --titulo "..."`. O `indexar.py` usa
+   esse título e **recusa** um `--titulo` diferente;
+5. `tools/indexar.py data/brutos/<stem>.pdf --tipo atestado --orgao "<órgão do conteúdo>"`.
+
+**Para extrair sem risco de custo** (só páginas nativas), substitua
+`solufarma.extracao.chamar_vlm` por uma função que levanta erro antes de chamar
+`extracao.processar`. Se alguma página cair na rota VLM, a execução para em vez de cobrar.
+Exemplo usado em 29/09: `.tmp/lote_nativo/extrair_sem_vlm.py`.
+
+Depois de cada lote relevante: rode `tools/avaliar.py --provedor voyage`. Os controles
+negativos do golden set foram escritos para um acervo de 1 documento e precisam ser revistos
+conforme o acervo cresce. Recalibre o piso com `--calibrar`.
+
+### Pipeline
+
 ```
 extrair  →  chunks  →  [cadastrar documento]  →  [traduzir chunks]  →  upsert  →  embeddings
                              ↑ falta              ↑ falta
