@@ -107,6 +107,13 @@ Depois de cada lote relevante: rode `tools/avaliar.py --provedor voyage`. Os con
 negativos do golden set foram escritos para um acervo de 1 documento e precisam ser revistos
 conforme o acervo cresce. Recalibre o piso com `--calibrar`.
 
+**Reindexar um documento que já está no banco** (ex.: depois de mudar o chunker): refaça os
+chunks com o mesmo `--titulo` e rode o `indexar.py` de novo. Ele atualiza título e método de
+extração do documento e remove, numa transação, os `chunk_index` antigos que sumiram (sem
+órfãos). Depois, `generate_embeddings.py --documento-id <uuid>` embedda só aquele documento, sem
+pegar chunks pendentes de outra sessão. **Não reindexe a CAT do SENAI 576640**: ela tem o patch
+manual do I6.
+
 ### Pipeline
 
 ```
