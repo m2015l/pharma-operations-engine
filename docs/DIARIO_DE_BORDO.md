@@ -28,7 +28,7 @@
 
 - Extração com o VLM **bloqueado por código** (`chamar_vlm` substituído por uma função que levanta erro): 96 páginas, todas nativas, 0 via VLM;
 - **Ficou de fora** o 8º nativo (arquivo "BUTANTAN 0000000238897", conteúdo = "BUNKER SJC-01555"): OCR antigo ilegível, sem contratante identificável;
-- **Banco agora:** 11 documentos, 272 chunks, 0 pendentes de embedding. É o primeiro atestado com a **Solufarma como executante** no acervo (o dos vestiários).
+- **Banco agora:** 11 documentos, 272 chunks, 0 pendentes de embedding. ~~É o primeiro atestado com a Solufarma como executante~~ **Correção (classificação por IA, 29/09):** a CAT do SENAI 576640, indexada desde agosto, também é da Solufarma ("Empresa contratada: SOLUFARMA DO BRASIL ENGENHARIA LTDA - ME", CNPJ 07.746.677/0001-12). Então são 2 da Solufarma no acervo (SENAI e vestiários) e 9 da TEP.
 
 **Golden set (só busca):** recall **11/11**; controles negativos **3/4**. O que "falha" ("este atestado cobre manutenção predial… sala limpa ISO 7?") foi escrito quando o acervo era só o SENAI. Hoje o acervo tem manutenção predial e ISO 7 de verdade, então o controle perdeu a validade. Não é regressão: rever o golden set junto com a recalibração do piso (item 12).
 
