@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Lato } from "next/font/google";
-import { BarraLateral } from "@/components/barra-lateral";
 import { ConversaProvider } from "@/components/conversa-provider";
+import { Cabecalho } from "@/components/moldura/cabecalho";
+import { Rodape } from "@/components/moldura/rodape";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -24,9 +25,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="h-full">
         <TooltipProvider delayDuration={200}>
           <ConversaProvider>
-            <div className="flex h-dvh min-w-[1024px] overflow-hidden">
-              <BarraLateral />
-              <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+            <div className="flex h-dvh min-w-[1024px] flex-col overflow-hidden">
+              <Cabecalho />
+              <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+              <Rodape />
             </div>
           </ConversaProvider>
         </TooltipProvider>

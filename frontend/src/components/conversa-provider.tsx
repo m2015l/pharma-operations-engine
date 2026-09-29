@@ -16,7 +16,8 @@ type Ctx = {
   turnos: Turno[];
   carregando: boolean;
   selecao: Selecao | null;
-  saude: Saude | null;
+  /** undefined = ainda verificando; null = a API não respondeu. */
+  saude: Saude | null | undefined;
   perguntar: (pergunta: string) => Promise<void>;
   selecionar: (turnoId: string, marcador?: number | null) => void;
   novaConsulta: () => void;
@@ -36,7 +37,7 @@ export function ConversaProvider({ children }: { children: React.ReactNode }) {
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [selecao, setSelecao] = useState<Selecao | null>(null);
-  const [saude, setSaude] = useState<Saude | null>(null);
+  const [saude, setSaude] = useState<Saude | null | undefined>(undefined);
 
   useEffect(() => {
     api.saude().then(setSaude).catch(() => setSaude(null));
