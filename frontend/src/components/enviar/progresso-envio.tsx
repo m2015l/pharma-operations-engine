@@ -16,9 +16,11 @@ function IconeEtapa({ estado }: { estado: EtapaEnvio["estado"] }) {
   return <Circle className="size-4 text-linha" aria-hidden />;
 }
 
-/** Um envio real e as cinco etapas do pipeline, como a API relata em GET /uploads/{id}. */
-export function ProgressoEnvio({ envio }: { envio: Envio }) {
-  const e = ESTADO_ENVIO[envio.estado];
+const AGUARDANDO = { rotulo: "Aguardando aprovação", badge: "bg-alerta-claro text-alerta" };
+
+/** Um envio real e as etapas do pipeline, como a API relata em GET /uploads/{id}. */
+export function ProgressoEnvio({ envio, onAprovar }: { envio: Envio; onAprovar?: (id: string) => void }) {
+  const e = envio.aguardando_aprovacao ? AGUARDANDO : ESTADO_ENVIO[envio.estado];
   const hora = new Date(envio.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   return (
     <li className="px-5 py-4">
@@ -47,6 +49,20 @@ export function ProgressoEnvio({ envio }: { envio: Envio }) {
           </li>
         ))}
       </ol>
+      {envio.aguardando_aprovacao && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md bg-alerta-claro px-3 py-2 text-sm">
+          <span className="text-alerta">{envio.erro ?? "Este documento precisa de OCR pago acima do teto por envio."}</span>
+          {onAprovar && (
+            <button
+              type="button"
+              onClick={() => onAprovar(envio.id)}
+              className="shrink-0 rounded-md bg-petroleo px-3 py-1.5 font-bold text-white hover:bg-petroleo-hover"
+            >
+              Aprovar OCR
+            </button>
+          )}
+        </div>
+      )}
     </li>
   );
 }

@@ -263,6 +263,32 @@ meio de um processo; o que a empresa quer consultar é o **resultado final da ob
 ---
 
 
+## ADR-010 — Classificação dos atestados por IA e filtros no agente
+
+**Data:** 29/09/26 · **Decisão:** Claude (orquestração), a validar pelo Roger
+
+**Decisão:**
+1. Cada documento ganha `documentos.classificacao jsonb` (migração 004, só aditiva) com
+   vocabulário fechado: tipo, contratante, executante e grupo (solufarma/tep/consorcio/outra),
+   disciplinas, tipo de instalação, ISO, período, valor, local. Cada campo é **validado em
+   código contra o texto** (página existe, trecho de evidência confere, dígitos do valor
+   aparecem). O que não confere é descartado, nunca inventado;
+2. Modelo barato e configurável (`CLASSIFICACAO_MODELO`, hoje `google/gemini-3.1-flash-lite`,
+   ~US$ 0,005/documento), com teto de custo por execução medido pelo `usage.cost` real;
+3. O agente só aplica filtro de classificação (executante, disciplina) quando o usuário
+   **pede a restrição explicitamente**. Sem filtro, documento não classificado continua na
+   busca; com filtro, fica fora e isso vai para o log;
+4. Em pergunta de comprovação de capacidade técnica, a resposta lista o executante de cada
+   atestado citado, **montado em código a partir do banco** (não depende do modelo), com a
+   TEP marcada como só consulta interna (pendência 26).
+
+**Consequência:** enquanto houver documento sem classificação, os filtros deixam parte do
+acervo de fora. Classificar todo documento novo faz parte da ingestão (etapa do upload, com
+falha suave).
+
+---
+
+
 ## Decisões pendentes
 
 | # | Decisão | Opções em avaliação | Prazo sugerido |

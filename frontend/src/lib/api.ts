@@ -77,6 +77,8 @@ export type Envio = {
   titulo: string | null;
   documento_id: string | null;
   erro: string | null;
+  /** O envio parou antes do OCR porque passou do teto de páginas; libere com `aprovarEnvio`. */
+  aguardando_aprovacao?: boolean;
 };
 
 export const TIPOS_DOCUMENTO = [
@@ -163,6 +165,8 @@ export const api = {
   },
   envios: () => pedir<Envio[]>("/uploads"),
   envio: (id: string) => pedir<Envio>(`/uploads/${id}`),
+  /** Libera o OCR de um envio que passou do teto de páginas (é aqui que o custo começa). */
+  aprovarEnvio: (id: string) => pedir<Envio>(`/uploads/${id}/aprovar`, { method: "POST" }),
   upload: (arquivo: File, orgao: string, tipo: string) => {
     const form = new FormData();
     form.append("arquivo", arquivo);

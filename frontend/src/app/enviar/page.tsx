@@ -43,6 +43,13 @@ export default function PaginaEnviar() {
     if (saude?.modo === "real") atualizarEnvios();
   }, [saude, atualizarEnvios]);
 
+  const aprovar = useCallback(
+    (id: string) => {
+      api.aprovarEnvio(id).then(atualizarEnvios).catch((err: Error) => setErro(err.message));
+    },
+    [atualizarEnvios],
+  );
+
   const emAndamento = envios.some((e) => e.estado === "na_fila" || e.estado === "processando");
   useEffect(() => {
     if (!emAndamento) return;
@@ -241,7 +248,7 @@ export default function PaginaEnviar() {
             <h2 className="border-b px-5 py-4 text-base font-bold">Envios desde que a API foi iniciada</h2>
             <ul className="divide-y">
               {envios.map((e) => (
-                <ProgressoEnvio key={e.id} envio={e} />
+                <ProgressoEnvio key={e.id} envio={e} onAprovar={aprovar} />
               ))}
             </ul>
           </section>
