@@ -1,92 +1,257 @@
 [
   {
     "pergunta": "Qual a área certificada de execução de obra e de reforma de edificação nesta CAT?",
-    "esperado_paginas": [1, 2],
+    "esperado_paginas": [
+      1,
+      2
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "area",
     "fonte_verificacao": "PRECISÃO.md turno 1.3/1.4/I6 — 'ATIVIDADE TÉCNICA REALIZADA': 5655.00 m² de execução de obra e 5655.00 m² de reforma de edificação, .tmp/acervo_indexado.md linha 62-63 (chunk 1-2, p.1-2)"
   },
   {
     "pergunta": "Quem é o contratante, qual o CNPJ dele e qual a vigência do contrato?",
-    "esperado_paginas": [1, 4],
+    "esperado_paginas": [
+      1,
+      4
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "contrato",
     "fonte_verificacao": "PRECISÃO.md turno 3.3/3.4 — contratante SENAI CETIQT e CNPJ 03.851.105/0001-42 em p.1-2 (chunk 2-3); vigência 07/02/2019 a 06/02/2020 em p.4 (chunk 7, seção 2.6 Vigência contratual)"
   },
   {
     "pergunta": "Qual a área construída total da obra, somando todos os pavimentos?",
-    "esperado_paginas": [4, 6],
+    "esperado_paginas": [
+      4,
+      6
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "area",
     "fonte_verificacao": "PRECISÃO.md turno 1.2/1.4 — tabelas de área por pavimento: 2º p.4-5 (chunk 10), 3º p.5 (chunk 11), 4º p.5-6 (chunk 13), 5º p.6 (chunk 15). Não existe 1º pavimento no acervo."
   },
   {
     "pergunta": "Quais as quantidades de piso vinílico aplicadas (P01, P02, P03)?",
-    "esperado_paginas": [35, 36],
+    "esperado_paginas": [
+      35,
+      36
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "quantitativo",
     "fonte_verificacao": "PRECISÃO.md turno 2.1 — P01 206,92 m², P02 1.278,26 m², P03 2.210,18 m², planilha REVESTIMENTOS > PISO, p.35 (chunk 99)"
   },
   {
     "pergunta": "Quantos pontos de consumo (postos de utilização) de gases especiais foram instalados?",
-    "esperado_paginas": [45],
+    "esperado_paginas": [
+      45
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "quantitativo",
     "fonte_verificacao": "PRECISÃO.md turno 2.4/P7 — 144 reguladores 2º estágio em parede + 167 em totem = 311 postos, mais 28 de 1º estágio; chunk 132, p.45-50, rotulado (errado) como seção de quadro elétrico"
   },
   {
     "pergunta": "Qual foi o prazo total de execução da obra, com os aditivos?",
-    "esperado_paginas": [3],
+    "esperado_paginas": [
+      3
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "prazo",
     "fonte_verificacao": "PRECISÃO.md turno 2.3 — 180 dias (contrato) + 30 (2º aditivo) + 60 (3º aditivo) = 270 dias, seção 2.4 do atestado, p.3 (chunk 6)"
   },
   {
     "pergunta": "Qual o valor global ajustado do contrato após os termos aditivos?",
-    "esperado_paginas": [3],
+    "esperado_paginas": [
+      3
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "contrato",
     "fonte_verificacao": "PRECISÃO.md turno 3.5 — R$ 12.994.398,92 (valor original R$ 9.120.045,54), seção 2.3.c, p.3 (chunk 6)"
   },
   {
     "pergunta": "Qual o número da CAT e do RRT deste atestado?",
-    "esperado_paginas": [1],
+    "esperado_paginas": [
+      1
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "identificacao",
     "fonte_verificacao": "PRECISÃO.md turno 3.2 — CAT nº 576640, RRT 8014430 SIMPLES de 13/03/2019, folha de rosto p.1 (chunk 1)"
   },
   {
     "pergunta": "O atestado menciona porta padrão para sala limpa?",
-    "esperado_paginas": [11],
+    "esperado_paginas": [
+      11
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "sala_limpa",
     "fonte_verificacao": "PRECISÃO.md turno 4.3 — seção A.6.1 'Portas padrão sala limpa', p.11 (chunk 36). Recusa falsa registrada na auditoria: o agente negou existir essa nomenclatura."
   },
   {
     "pergunta": "Quantas luminárias de sala limpa foram instaladas?",
-    "esperado_paginas": [43],
+    "esperado_paginas": [
+      43
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "sala_limpa",
     "fonte_verificacao": "'LUMINÁRIA RETANGULAR SALA LIMPA DE EMBUTIR COM LED REF.: LPT-400 46W' — 121 PÇ, planilha LUMINOTECNIA, p.43 (chunk 125). Mesmo padrão do turno 4.3, segundo trecho que a auditoria não chegou a citar."
   },
   {
     "pergunta": "Quem assinou como responsável técnico pela obra e quais os registros profissionais?",
-    "esperado_paginas": [1],
+    "esperado_paginas": [
+      1
+    ],
+    "documento_id": "7dac2d66-0e1d-41ff-b46f-dde1db6aca26",
+    "documento": "SENAI CETIQT CAT 576640 Implant. laboratório ISI",
     "categoria": "identificacao",
     "fonte_verificacao": "PRECISÃO.md turno 3.1 — profissional ILZA MARIA COPPIO SATTELMAYER, arquiteta, CAU/RNP, folha de rosto p.1 (chunk 1)"
   },
   {
-    "pergunta": "Temos atestado de obra hospitalar ou com gases medicinais?",
-    "esperado_paginas": [],
-    "categoria": "controle_negativo",
-    "fonte_verificacao": "PRECISÃO.md turno 4.1 — recusa correta confirmada: 'hospital' e 'medicinal' não aparecem em nenhum dos 161 trechos (grep confirmado em .tmp/acervo_indexado.md)"
+    "pergunta": "Qual a capacidade do gerador de vapor puro apirogênico instalado para a Ariston?",
+    "esperado_paginas": [
+      2
+    ],
+    "documento_id": "3bdff192-ca54-466d-bbdf-48ea38678f90",
+    "documento": "Instalação de Sistema de Geração de Vapor Puro (Ariston Indústrias Químicas e Farmacêuticas)",
+    "categoria": "capacidade",
+    "fonte_verificacao": "820 kg/h, atestado da Ariston p.2 (chunk 2, seção ATESTADO DE CAPACIDADE TECNICA) — conferido lendo o chunk no banco em 29/09 (tarde)"
   },
   {
-    "pergunta": "Temos algum atestado daquela obra de 2021 para o governo do estado?",
-    "esperado_paginas": [],
-    "categoria": "controle_negativo",
-    "fonte_verificacao": "PRECISÃO.md turno 4.2 — recusa correta confirmada: acervo tem um único documento (CAT 576640, 2019-2020), '2021' e 'governo do estado' não aparecem no texto"
+    "pergunta": "Quantos metros quadrados de divisórias e de forro de sala limpa foram montados no biotério de animais infectados do Butantan?",
+    "esperado_paginas": [
+      2,
+      3
+    ],
+    "documento_id": "960cb6cf-e052-4b65-91ed-29a61edf4a2c",
+    "documento": "Adequação Biotério de Animais Infectados (Instituto Butantan)",
+    "categoria": "quantitativo",
+    "fonte_verificacao": "888 m² de divisórias sanitárias e 1.120 m² de forro autoportante, itens 1.1 e 1.2 do escopo, p.2-3 (chunk 3) — conferido lendo o chunk no banco em 29/09 (tarde)"
   },
   {
-    "pergunta": "Este atestado cobre manutenção predial por 5 anos com certificação ISO 14644 / sala limpa ISO 7?",
-    "esperado_paginas": [],
-    "categoria": "controle_negativo",
-    "fonte_verificacao": "PRECISÃO.md turno 4.3 — recusa correta parcial: 'manutenção predial' e 'ISO 14644'/'ISO 7' não aparecem no acervo (só a nomenclatura genérica 'sala limpa' existe, ver casos separados acima)"
+    "pergunta": "Qual a temperatura de operação e a capacidade da cabine de criogenia com nitrogênio líquido da Bio-Manguinhos?",
+    "esperado_paginas": [
+      1,
+      3
+    ],
+    "documento_id": "f7cb98d8-94db-44ae-8b4d-61347db4e647",
+    "documento": "Cabine de Criogenia - Instituto de Tecnologia em Imunobiológicos / Bio-Manguinhos (FIOCRUZ)",
+    "categoria": "capacidade",
+    "fonte_verificacao": "-160 °C (CAT CREA-RJ p.1) e 1.900 litros / 4,085 m², sala 65A ISO 8 (atestado p.2) — conferido lendo o chunk no banco em 29/09 (tarde)"
+  },
+  {
+    "pergunta": "Qual a capacidade de refrigeração dos compressores da câmara fria para imunobiológicos do Butantan?",
+    "esperado_paginas": [
+      2,
+      3
+    ],
+    "documento_id": "f51da78a-267e-484c-93d2-fee91f62985f",
+    "documento": "Câmara Fria para Imunobiológicos - envase de liofilizados (CAT SJC-01975)",
+    "categoria": "capacidade",
+    "fonte_verificacao": "compressores Bitzer de 18.000 kcal/h, câmara a +2 °C de 6,0x4,5x3,5 m, ISO 7, atestado p.2 (chunk 2) — conferido lendo o chunk no banco em 29/09 (tarde)"
+  },
+  {
+    "pergunta": "Qual a vazão dos trocadores de calor instalados para os tanques de água PW e WFI da planta de vacina contra influenza?",
+    "esperado_paginas": [
+      2,
+      3
+    ],
+    "documento_id": "4cafc82f-193e-4a81-adf7-62b66ba35a9a",
+    "documento": "Trocadores de Calor dos Tanques de Água PW e WFI (CAT SJC-02085)",
+    "categoria": "capacidade",
+    "fonte_verificacao": "4.500 L/h (tanque WFI) e 6.000 L/h (tanque PW), casco-tubo em skid, atestado p.2 (chunk 2) — conferido lendo o chunk no banco em 29/09 (tarde)"
+  },
+  {
+    "pergunta": "Quantos pontos de controle e instrumentação foram executados para o ar condicionado ISO 7 e a câmara fria do Butantan?",
+    "esperado_paginas": [
+      1
+    ],
+    "documento_id": "602c96da-21bf-4c96-80b5-7d9d6fe3aff2",
+    "documento": "Controle e Instrumentação - Ar Condicionado ISO 7 e Câmara Fria (CAT SJC-03608)",
+    "categoria": "quantitativo",
+    "fonte_verificacao": "185 pontos com protocolo aberto, valor R$ 1.590.000,00, CAT p.1 (chunk 1) — conferido lendo o chunk no banco em 29/09 (tarde)"
+  },
+  {
+    "pergunta": "Qual a área construída e o valor contratual do Prédio IMAS II do CNPEM?",
+    "esperado_paginas": [
+      1,
+      2
+    ],
+    "documento_id": "1d0a6f18-61ce-4722-b39e-4f04a85ccd74",
+    "documento": "Construção do Prédio IMAS II - Instalações Elétricas (CAT 2620130007911)",
+    "categoria": "area",
+    "fonte_verificacao": "1.541,70 m², R$ 4.530.602,78, CAT p.1 (chunks 1-2) e atestado p.2 (chunk 3) — conferido lendo o chunk no banco em 29/09 (tarde)"
+  },
+  {
+    "pergunta": "Qual a capacidade da central de água gelada e da subestação elétrica mantidas na planta do Instituto Terapêutico Delta em Indaiatuba?",
+    "esperado_paginas": [
+      2,
+      4
+    ],
+    "documento_id": "810b7bc9-739c-41c6-8ae9-ff6b291cb9c2",
+    "documento": "Manutenção Predial da Planta Industrial (CAT 2620130009521)",
+    "categoria": "capacidade",
+    "fonte_verificacao": "água gelada 500 TR, subestação 5,0 MVA + gerador 4,90 MVA, planta de 10.701 m², atestado p.2-4 (chunks 3-4) — conferido lendo o chunk no banco em 29/09 (tarde)"
+  },
+  {
+    "pergunta": "Quantos chillers e qual a capacidade total em TR do sistema de ar condicionado mantido na FURP de Américo Brasiliense?",
+    "esperado_paginas": [
+      2,
+      4
+    ],
+    "documento_id": "4498e2f2-8bc1-4ed1-82a8-d0d3e5defa6b",
+    "documento": "Manutenção de Ar Condicionado e Água Purificada (CAT 2620140004961)",
+    "categoria": "quantitativo",
+    "fonte_verificacao": "06 chillers Hitachi parafuso, total 1.320 TR; 29 AHUs, atestado p.2-4 (chunk 3) — conferido lendo o chunk no banco em 29/09 (tarde)"
+  },
+  {
+    "pergunta": "Qual a área total e o valor contratual da reforma dos vestiários de produção do prédio 10 do CTM em Farmanguinhos?",
+    "esperado_paginas": [
+      1
+    ],
+    "documento_id": "ad5559a2-eb7b-4bcc-b278-3778966ccf21",
+    "documento": "Vestiários de produção do prédio 10 do CTM - Farmanguinhos (FIOCRUZ) - executado pela Solufarma",
+    "categoria": "area",
+    "fonte_verificacao": "560,80 m², R$ 6.239.086,87, contrato 65/2021, atestado p.1 (chunk 2; o chunk cobre p.1-14) — conferido lendo o chunk no banco em 29/09 (tarde)"
+  },
+  {
+    "pergunta": "Temos atestado em que a própria Solufarma do Brasil Engenharia aparece como executante da obra?",
+    "esperado_paginas": [
+      1
+    ],
+    "documento_id": "ad5559a2-eb7b-4bcc-b278-3778966ccf21",
+    "documento": "Vestiários de produção do prédio 10 do CTM - Farmanguinhos (FIOCRUZ) - executado pela Solufarma",
+    "categoria": "executante",
+    "fonte_verificacao": "único atestado do acervo com a Solufarma (CNPJ 07.746.677/0001-12) como executante; os demais são da TEP. Atestado p.1 (chunk 1) — conferido lendo o chunk no banco em 29/09 (tarde)"
   },
   {
     "pergunta": "Qual a capacidade da usina nuclear mencionada neste projeto?",
     "esperado_paginas": [],
     "categoria": "controle_negativo",
-    "fonte_verificacao": "Controle negativo clássico (citado no docstring de tools/avaliar.py) — assunto sem relação nenhuma com o acervo, serve para testar que o piso de similaridade não solta ruído por desespero"
+    "fonte_verificacao": "Controle negativo clássico (citado no docstring de tools/avaliar.py) — assunto sem relação nenhuma com o acervo, serve para testar que o piso de similaridade não solta ruído por desespero. Revisto em 29/09: 'nuclear' com 0 ocorrência em doc_chunks (ILIKE, 11 documentos, 29/09) e 0 no texto embutido dos 29 PDFs do lote de 28/09 (pymupdf) — deve continuar válido quando o resto do lote for indexado"
+  },
+  {
+    "pergunta": "Temos atestado de construção de barragem ou de contenção de encosta?",
+    "esperado_paginas": [],
+    "categoria": "controle_negativo",
+    "fonte_verificacao": "'barragem' com 0 ocorrência em doc_chunks (ILIKE, 11 documentos, 29/09) e 0 no texto embutido dos 29 PDFs do lote de 28/09 (pymupdf) — deve continuar válido quando o resto do lote for indexado"
+  },
+  {
+    "pergunta": "Temos experiência em obra de ferrovia ou de estação de trem?",
+    "esperado_paginas": [],
+    "categoria": "controle_negativo",
+    "fonte_verificacao": "'ferrovi' com 0 ocorrência em doc_chunks (ILIKE, 11 documentos, 29/09) e 0 no texto embutido dos 29 PDFs do lote de 28/09 (pymupdf) — deve continuar válido quando o resto do lote for indexado"
+  },
+  {
+    "pergunta": "Temos atestado de dragagem ou de obra portuária marítima?",
+    "esperado_paginas": [],
+    "categoria": "controle_negativo",
+    "fonte_verificacao": "'dragagem' e 'portuári' com 0 ocorrência em doc_chunks (ILIKE, 11 documentos, 29/09) e 0 no texto embutido dos 29 PDFs do lote de 28/09 (pymupdf) — deve continuar válido quando o resto do lote for indexado"
   }
 ]

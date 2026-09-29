@@ -20,6 +20,10 @@ sabidamente contém a resposta? Página, e não chunk, porque o chunking pode
 mudar sem invalidar o golden set — amarrar o gabarito a um chunk_index tornaria
 o conjunto descartável a cada reajuste do chunker.
 
+Com vários documentos no acervo, o caso traz também `documento_id` (UUID de
+`documentos`) e só casa trecho daquele documento; `documento` é o título, só
+para leitura humana. Caso sem `documento_id` casa só por página (formato antigo).
+
 O controle negativo (`esperado_paginas: []`) é tão importante quanto o resto:
 mede se o piso de relevância está segurando. Um modelo que acerta tudo mas
 também "acha" resposta para usina nuclear não está pronto.
@@ -68,25 +72,42 @@ def _paginas_cobertas(chunk) -> set[int]:
     return set(range(chunk.pagina_inicio, chunk.pagina_fim + 1))
 
 
-def _acertou(resultados, esperado: list[int]) -> bool:
-    """Algum trecho recuperado veio de uma página esperada?"""
+def _faixa(esperado: list[int]) -> set[int]:
+    """`[a, b]` é faixa inclusiva; qualquer outro tamanho é lista de páginas."""
+    return set(range(esperado[0], esperado[-1] + 1)) if len(esperado) == 2 else set(esperado)
+
+
+def _casa(chunk, esperado: list[int], documento_id: str | None = None) -> bool:
+    """O chunk veio de uma página esperada — e do documento esperado, se informado.
+
+    Com um documento só no acervo, página bastava. Com vários, "página 1" casa
+    com a folha de rosto de qualquer CAT, e o recall sai inflado. Por isso o
+    caso pode trazer `documento_id`; sem ele (formato antigo), casa só página.
+    """
+    if documento_id is not None and chunk.documento_id != documento_id:
+        return False
+    return bool(_paginas_cobertas(chunk) & _faixa(esperado))
+
+
+def _acertou(resultados, esperado: list[int], documento_id: str | None = None) -> bool:
+    """Algum trecho recuperado veio de uma página (e documento) esperada?"""
     if not esperado:
         # Controle negativo: acertar é NÃO recuperar nada.
         return not resultados
-    faixa = set(range(esperado[0], esperado[-1] + 1)) if len(esperado) == 2 else set(esperado)
-    return any(_paginas_cobertas(r.chunk) & faixa for r in resultados)
+    return any(_casa(r.chunk, esperado, documento_id) for r in resultados)
 
 
 def avaliar(buscar, casos: list[dict], top_k: int) -> dict:
     linhas = []
     for caso in casos:
         resultados = buscar(caso["pergunta"], top_k)
-        ok = _acertou(resultados, caso["esperado_paginas"])
+        ok = _acertou(resultados, caso["esperado_paginas"], caso.get("documento_id"))
         paginas = sorted({p for r in resultados for p in _paginas_cobertas(r.chunk)})
         linhas.append(
             {
                 "pergunta": caso["pergunta"],
                 "esperado": caso["esperado_paginas"],
+                "documento": caso.get("documento"),
                 "recuperou_paginas": paginas,
                 "n_resultados": len(resultados),
                 "melhor_score": round(resultados[0].score, 5) if resultados else 0.0,
@@ -170,13 +191,9 @@ def calibrar(repo, provider, casos: list[dict], pool: int) -> None:
             print(f"      melhor score (a barrar): {teto:.4f}")
             continue
 
-        faixa = set(range(esperado[0], esperado[-1] + 1)) if len(esperado) == 2 else set(esperado)
-        melhor_sinal = next(
-            (s for c, s in brutos if _paginas_cobertas(c) & faixa), None
-        )
-        melhor_distrator = next(
-            (s for c, s in brutos if not (_paginas_cobertas(c) & faixa)), None
-        )
+        doc_id = caso.get("documento_id")
+        melhor_sinal = next((s for c, s in brutos if _casa(c, esperado, doc_id)), None)
+        melhor_distrator = next((s for c, s in brutos if not _casa(c, esperado, doc_id)), None)
         if melhor_sinal is not None:
             sinais.append((melhor_sinal, caso["pergunta"]))
         if melhor_distrator is not None:
@@ -248,7 +265,8 @@ def imprimir(rotulo: str, r: dict) -> None:
         marca = "ok  " if linha["acertou"] else "FALHA"
         tipo = " (controle negativo)" if linha["negativo"] else ""
         print(f"\n[{marca}] {linha['pergunta']}{tipo}")
-        print(f"        esperado : páginas {linha['esperado'] or '— nenhuma —'}")
+        doc = f"  ({linha['documento']})" if linha.get("documento") else ""
+        print(f"        esperado : páginas {linha['esperado'] or '— nenhuma —'}{doc}")
         print(f"        recuperou: páginas {linha['recuperou_paginas'] or '— nada —'}")
         print(f"        {linha['n_resultados']} trechos, melhor score {linha['melhor_score']}")
 
@@ -257,7 +275,7 @@ def imprimir(rotulo: str, r: dict) -> None:
     print(f"Controles   : {r['negativos_ok']}/{r['negativos_total']} corretos")
 
 
-def main() -> int:
+def construir_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--provedor", default=None, help="voyage | openai | fake")
     p.add_argument("--top-k", type=int, default=5)
@@ -269,7 +287,11 @@ def main() -> int:
     )
     p.add_argument("--salvar", action="store_true", help="Grava o resultado para --comparar")
     p.add_argument("--comparar", action="store_true", help="Confronta as execuções salvas")
-    args = p.parse_args()
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = construir_parser().parse_args(argv)
 
     DIR_RESULTADOS.mkdir(parents=True, exist_ok=True)
 
