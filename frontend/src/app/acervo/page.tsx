@@ -38,7 +38,7 @@ export default function PaginaAcervo() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex h-14 shrink-0 items-center justify-between border-b bg-folha px-8">
-        <h1 className="text-[15px] font-semibold">Acervo</h1>
+        <h1 className="text-[15px] font-bold">Acervo</h1>
         <Button variant="outline" size="sm" asChild>
           <Link href="/enviar">
             <FileUp /> Enviar documento
@@ -49,7 +49,7 @@ export default function PaginaAcervo() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[1100px] px-8 py-8">
           <div className="mb-6">
-            <h2 className="text-[22px] font-semibold tracking-tight">Documentos indexados</h2>
+            <h2 className="text-[22px] font-bold tracking-tight">Documentos indexados</h2>
             <p className="mt-1 text-sm text-grafite">
               {docs
                 ? `${docs.length} ${docs.length === 1 ? "documento" : "documentos"} · ${totalTrechos.toLocaleString("pt-BR")} trechos pesquisáveis. Só o que está aqui entra nas respostas.`
@@ -96,7 +96,7 @@ export default function PaginaAcervo() {
                   {docs?.map((d) => (
                     <TableRow key={d.id}>
                       <TableCell className="py-3.5 pl-5 whitespace-normal">
-                        <div className="text-[11px] font-semibold tracking-[0.08em] text-grafite uppercase">
+                        <div className="text-[11px] font-bold tracking-[0.08em] text-grafite uppercase">
                           {d.orgao}
                         </div>
                         <div className="mt-0.5 font-medium">{d.titulo}</div>

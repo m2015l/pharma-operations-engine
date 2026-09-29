@@ -59,14 +59,14 @@ export default function PaginaEnviar() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex h-14 shrink-0 items-center border-b bg-folha px-8">
-        <h1 className="text-[15px] font-semibold">Enviar documento</h1>
+        <h1 className="text-[15px] font-bold">Enviar documento</h1>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto grid max-w-[1100px] grid-cols-[1fr_320px] gap-10 px-8 py-8">
           <form onSubmit={enviar} className="flex flex-col gap-6">
             <div>
-              <h2 className="text-[22px] font-semibold tracking-tight">Novo documento para o acervo</h2>
+              <h2 className="text-[22px] font-bold tracking-tight">Novo documento para o acervo</h2>
               <p className="mt-1 text-sm text-grafite">
                 Atestados, CATs, editais e atas em PDF, de até {LIMITE_MB} MB.
               </p>
@@ -103,7 +103,7 @@ export default function PaginaEnviar() {
                 <>
                   <UploadCloud className="size-8 text-grafite" aria-hidden />
                   <div className="text-sm">
-                    <span className="font-semibold">Arraste o PDF para cá</span> ou
+                    <span className="font-bold">Arraste o PDF para cá</span> ou
                   </div>
                   <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
                     Escolher arquivo
@@ -153,7 +153,7 @@ export default function PaginaEnviar() {
               <div className="flex items-start gap-3 rounded-md border border-teal/30 bg-teal-claro/60 px-4 py-3 text-sm">
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-teal-texto" />
                 <div>
-                  <div className="font-semibold">{resultado.arquivo} recebido</div>
+                  <div className="font-bold">{resultado.arquivo} recebido</div>
                   <p className="mt-0.5 text-grafite">{resultado.mensagem}</p>
                 </div>
               </div>
@@ -168,7 +168,7 @@ export default function PaginaEnviar() {
           </form>
 
           <aside className="self-start rounded-lg border bg-folha p-5 text-sm leading-relaxed">
-            <div className="mb-2 flex items-center gap-2 font-semibold">
+            <div className="mb-2 flex items-center gap-2 font-bold">
               <Info className="size-4 text-teal-texto" /> O que acontece depois do envio
             </div>
             <p className="text-grafite">

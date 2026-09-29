@@ -18,15 +18,15 @@ export function SeloRastreio({ resposta }: { resposta: Resposta }) {
           <span
             key={n}
             className={
-              citados.has(n) ? "h-3 w-[5px] rounded-[1px] bg-teal-texto" : "h-2 w-[5px] rounded-[1px] bg-linha"
+              citados.has(n) ? "h-3 w-[5px] rounded-[1px] bg-teal" : "h-2 w-[5px] rounded-[1px] bg-linha"
             }
           />
         ))}
       </div>
       <span>
-        <span className="tabular-nums font-semibold text-tinta">{citacoes.length}</span>{" "}
+        <span className="font-bold text-tinta tabular-nums">{citacoes.length}</span>{" "}
         {citacoes.length === 1 ? "citada" : "citadas"} de{" "}
-        <span className="tabular-nums font-semibold text-tinta">{total}</span>{" "}
+        <span className="font-bold text-tinta tabular-nums">{total}</span>{" "}
         {total === 1 ? "trecho recuperado" : "trechos recuperados"}
       </span>
     </div>

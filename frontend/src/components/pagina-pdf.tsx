@@ -107,7 +107,7 @@ export function PaginaPdf({ url, paginaInicial }: { url: string; paginaInicial: 
             <ChevronLeft />
           </Button>
           <span className="tabular-nums text-xs text-grafite">
-            página <span className="font-semibold text-tinta">{atual}</span> de {total}
+            página <span className="font-bold text-tinta">{atual}</span> de {total}
           </span>
           <Button variant="ghost" size="icon-sm" onClick={() => irPara(atual + 1)} disabled={atual >= total} aria-label="Próxima página">
             <ChevronRight />

@@ -89,7 +89,7 @@ function MensagemSemPdf({ titulo, texto }: { titulo: string; texto: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-10 text-center">
       <FileWarning className="size-6 text-grafite" />
-      <div className="font-semibold">{titulo}</div>
+      <div className="font-bold">{titulo}</div>
       <p className="max-w-md text-sm text-grafite">{texto}</p>
     </div>
   );

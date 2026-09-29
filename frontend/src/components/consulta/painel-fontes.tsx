@@ -33,10 +33,15 @@ export function PainelFontes({ resposta, indicePergunta, marcadorAtivo, onMarcad
   }, [marcadorAtivo, resposta]);
 
   return (
-    <aside aria-label="Fontes da resposta" className="flex w-[400px] shrink-0 flex-col border-l bg-folha">
+    <aside
+      aria-label="Fontes da resposta"
+      className="flex min-h-0 flex-col overflow-hidden rounded-md bg-folha shadow-card"
+    >
       <div className="border-b px-5 py-4">
-        <h2 className="text-sm font-semibold">Fontes</h2>
-        <p className="mt-0.5 text-xs text-grafite">
+        <h2 className="text-base font-bold">
+          Fontes{resposta && indicePergunta != null ? ` · resposta ${indicePergunta}` : ""}
+        </h2>
+        <p className="mt-0.5 text-[13px] text-grafite">
           {resposta && indicePergunta != null
             ? `Trechos citados na resposta ${indicePergunta}`
             : "Os trechos citados aparecem aqui."}
@@ -45,9 +50,8 @@ export function PainelFontes({ resposta, indicePergunta, marcadorAtivo, onMarcad
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {!resposta && (
-          <p className="px-1 text-sm leading-relaxed text-grafite">
-            Cada afirmação da resposta traz um marcador numerado. Clique nele para ver de qual documento e
-            página a informação saiu.
+          <p className="px-1 pt-1 text-[15px] leading-relaxed text-grafite">
+            Clique num marcador [n] para ver aqui de onde a informação saiu.
           </p>
         )}
         {resposta && resposta.citacoes.length === 0 && (
@@ -66,7 +70,7 @@ export function PainelFontes({ resposta, indicePergunta, marcadorAtivo, onMarcad
                 }}
                 className={cn(
                   "group rounded-md border bg-folha transition-[border-color,box-shadow]",
-                  ativo ? "border-teal shadow-[0_0_0_3px_var(--teal-claro)]" : "hover:border-teal/40",
+                  ativo ? "border-teal shadow-[0_0_0_3px_var(--teal-claro)]" : "hover:border-teal",
                 )}
               >
                 <button
@@ -77,32 +81,32 @@ export function PainelFontes({ resposta, indicePergunta, marcadorAtivo, onMarcad
                   <div className="flex items-start gap-3">
                     <span
                       className={cn(
-                        "mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border px-1 tabular-nums text-[11px] font-semibold",
-                        ativo ? "border-teal bg-teal-texto text-white" : "border-teal/45 bg-teal-claro text-teal-texto",
+                        "mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border px-1 text-xs font-bold tabular-nums",
+                        ativo ? "border-teal-texto bg-teal-texto text-white" : "border-teal bg-teal-claro text-teal-texto",
                       )}
                     >
                       {c.marcador}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-semibold tracking-[0.08em] text-grafite uppercase">
+                      <div className="text-[11px] font-bold tracking-[0.08em] text-grafite uppercase">
                         {c.orgao}
                       </div>
-                      <div className="mt-0.5 text-sm leading-snug font-semibold">{c.titulo_documento}</div>
-                      <div className="mt-1.5 tabular-nums text-[11px] leading-relaxed text-grafite">
-                        <span className="font-semibold text-tinta">{paginas(c)}</span>
+                      <div className="mt-0.5 text-sm leading-snug font-bold">{c.titulo_documento}</div>
+                      <div className="mt-1.5 text-xs leading-relaxed text-grafite tabular-nums">
+                        <span className="font-bold text-tinta">{paginas(c)}</span>
                         {c.secao ? ` · ${c.secao}` : " · folha de rosto (sem seção)"}
                       </div>
                     </div>
                   </div>
-                  <blockquote className="mt-3 border-l-2 border-teal/35 pl-3 text-[13px] leading-relaxed whitespace-pre-line text-tinta/85">
+                  <blockquote className="mt-3 border-l-2 border-teal pl-3 text-[13px] leading-relaxed whitespace-pre-line text-tinta">
                     {limparTrecho(c.trecho)}
                   </blockquote>
                 </button>
-                <div className="flex justify-end border-t border-dashed px-3 py-2">
+                <div className="flex justify-end border-t px-3 py-2">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-teal-texto hover:bg-teal-claro hover:text-teal-texto"
+                    className="font-bold text-teal-texto hover:bg-teal-claro hover:text-teal-texto hover:underline"
                     onClick={() =>
                       onVerFonte({
                         documentoId: c.documento_id,
