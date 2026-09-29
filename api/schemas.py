@@ -73,12 +73,35 @@ class FonteOut(BaseModel):
 
 
 class UploadOut(BaseModel):
-    status: str
+    status: str = Field(description="'simulado' (modo demo) ou 'na_fila' (modo real)")
     arquivo: str
     tamanho_bytes: int
     orgao: str
     tipo: str
     mensagem: str
+    envio_id: str | None = Field(default=None, description="Para acompanhar em GET /uploads/{id}")
+
+
+class EtapaOut(BaseModel):
+    chave: str
+    rotulo: str
+    estado: Literal["pendente", "andamento", "ok", "erro"]
+    detalhe: str | None = None
+
+
+class EnvioOut(BaseModel):
+    """Progresso de um upload real: triagem → extração → chunks → cadastro → embeddings."""
+
+    id: str
+    arquivo: str
+    orgao: str
+    tipo: str
+    criado_em: datetime
+    estado: Literal["na_fila", "processando", "concluido", "erro"]
+    etapas: list[EtapaOut]
+    titulo: str | None = None
+    documento_id: str | None = None
+    erro: str | None = None
 
 
 class SaudeOut(BaseModel):

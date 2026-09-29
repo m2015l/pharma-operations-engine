@@ -55,6 +55,28 @@ export type UploadResultado = {
   orgao: string;
   tipo: string;
   mensagem: string;
+  /** Só no modo real: acompanhar em GET /uploads/{id}. */
+  envio_id: string | null;
+};
+
+export type EtapaEnvio = {
+  chave: string;
+  rotulo: string;
+  estado: "pendente" | "andamento" | "ok" | "erro";
+  detalhe: string | null;
+};
+
+export type Envio = {
+  id: string;
+  arquivo: string;
+  orgao: string;
+  tipo: string;
+  criado_em: string;
+  estado: "na_fila" | "processando" | "concluido" | "erro";
+  etapas: EtapaEnvio[];
+  titulo: string | null;
+  documento_id: string | null;
+  erro: string | null;
 };
 
 export const TIPOS_DOCUMENTO = [
@@ -139,6 +161,8 @@ export const api = {
     if (!r.ok) throw new Error(await lerErro(r));
     return { blob: await r.blob(), nome: nomeDoArquivo(r, `${corpo.escopo}-solufarma.docx`) };
   },
+  envios: () => pedir<Envio[]>("/uploads"),
+  envio: (id: string) => pedir<Envio>(`/uploads/${id}`),
   upload: (arquivo: File, orgao: string, tipo: string) => {
     const form = new FormData();
     form.append("arquivo", arquivo);

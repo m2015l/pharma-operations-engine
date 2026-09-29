@@ -1,19 +1,23 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, FileText, Info, Loader2, UploadCloud, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, FileText, Info, Loader2, UploadCloud, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CabecalhoPagina } from "@/components/moldura/cabecalho-pagina";
-import { api, type UploadResultado } from "@/lib/api";
+import { useConversa } from "@/components/conversa-provider";
+import { ProgressoEnvio } from "@/components/enviar/progresso-envio";
+import { api, type Envio, type UploadResultado } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const LIMITE_MB = 50;
 // O acervo é só de resultado final: atestados de capacidade técnica e CATs
 // (decisão do Roger com o gerente, 29/09). Editais e atas não entram.
 const TIPO = "atestado";
+// Intervalo de consulta ao progresso enquanto houver envio em andamento.
+const POLL_MS = 2000;
 
 function tamanho(bytes: number) {
   return bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
@@ -27,6 +31,24 @@ export default function PaginaEnviar() {
   const [erro, setErro] = useState<string | null>(null);
   const [resultado, setResultado] = useState<UploadResultado | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { saude } = useConversa();
+  const demo = saude?.modo === "demo";
+  const [envios, setEnvios] = useState<Envio[]>([]);
+
+  const atualizarEnvios = useCallback(() => {
+    api.envios().then(setEnvios).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (saude?.modo === "real") atualizarEnvios();
+  }, [saude, atualizarEnvios]);
+
+  const emAndamento = envios.some((e) => e.estado === "na_fila" || e.estado === "processando");
+  useEffect(() => {
+    if (!emAndamento) return;
+    const id = setInterval(atualizarEnvios, POLL_MS);
+    return () => clearInterval(id);
+  }, [emAndamento, atualizarEnvios]);
 
   const escolher = (f: File | undefined) => {
     setErro(null);
@@ -49,7 +71,9 @@ export default function PaginaEnviar() {
     setEnviando(true);
     setErro(null);
     try {
-      setResultado(await api.upload(arquivo, orgao.trim(), TIPO));
+      const r = await api.upload(arquivo, orgao.trim(), TIPO);
+      setResultado(r);
+      if (r.envio_id) atualizarEnvios();
       setArquivo(null);
       setOrgao("");
       if (inputRef.current) inputRef.current.value = "";
@@ -152,7 +176,16 @@ export default function PaginaEnviar() {
 
             {erro && <p className="rounded-md bg-erro-claro px-4 py-3 text-sm text-erro">{erro}</p>}
 
-            {resultado && (
+            {resultado && resultado.status === "simulado" && (
+              <div className="flex items-start gap-3 rounded-md bg-alerta-claro px-4 py-3 text-sm text-alerta">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <div>
+                  <div className="font-bold">{resultado.arquivo} recebido · simulação</div>
+                  <p className="mt-0.5">{resultado.mensagem}</p>
+                </div>
+              </div>
+            )}
+            {resultado && resultado.status !== "simulado" && (
               <div className="flex items-start gap-3 rounded-md border border-teal bg-teal-claro px-4 py-3 text-sm">
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-teal-texto" />
                 <div>
@@ -172,21 +205,47 @@ export default function PaginaEnviar() {
             </Button>
           </form>
 
-          <aside className="rounded-md bg-folha p-5 text-sm leading-relaxed shadow-card">
-            <div className="mb-2 flex items-center gap-2 font-bold">
-              <Info className="size-4 text-teal-texto" /> O que acontece depois do envio
+          <aside className="flex flex-col gap-5">
+            <div className="rounded-md bg-folha p-5 text-sm leading-relaxed shadow-card">
+              <div className="mb-2 flex items-center gap-2 font-bold">
+                <Info className="size-4 text-teal-texto" /> O que acontece depois do envio
+              </div>
+              {demo ? (
+                <p className="text-grafite">
+                  <span className="font-bold text-alerta">Modo demonstração:</span> o envio é{" "}
+                  <span className="font-bold text-tinta">simulado</span>. O arquivo é validado, mas nada é
+                  guardado nem processado, e o acervo não muda.
+                </p>
+              ) : (
+                <>
+                  <p className="text-grafite">
+                    O PDF é guardado e a indexação roda em segundo plano, em cinco etapas: triagem pelo
+                    conteúdo, extração do texto, divisão em trechos, cadastro no acervo e indexação para busca.
+                  </p>
+                  <p className="mt-3 text-grafite">
+                    Leva alguns minutos por documento, mais se o PDF for escaneado: páginas sem texto passam
+                    por OCR, que é cobrado.
+                  </p>
+                </>
+              )}
+              <p className="mt-3 text-grafite">
+                Um documento só aparece nas respostas depois que a situação dele no{" "}
+                <span className="font-bold text-tinta">Acervo</span> estiver como{" "}
+                <span className="font-bold text-tinta">Indexado</span>.
+              </p>
             </div>
-            <p className="text-grafite">
-              Nesta versão o arquivo é <span className="font-bold text-tinta">validado, mas ainda não é
-              indexado</span>: ele não é guardado nem entra nas respostas. A indexação é feita pela equipe.
-            </p>
-            <p className="mt-3 text-grafite">
-              Um documento só aparece nas respostas depois que a situação dele no{" "}
-              <span className="font-bold text-tinta">Acervo</span> estiver como{" "}
-              <span className="font-bold text-tinta">Indexado</span>.
-            </p>
           </aside>
         </div>
+        {envios.length > 0 && (
+          <section className="mt-5 overflow-hidden rounded-md bg-folha shadow-card" aria-label="Envios recentes">
+            <h2 className="border-b px-5 py-4 text-base font-bold">Envios desde que a API foi iniciada</h2>
+            <ul className="divide-y">
+              {envios.map((e) => (
+                <ProgressoEnvio key={e.id} envio={e} />
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   );

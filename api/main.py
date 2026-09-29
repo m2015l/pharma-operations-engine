@@ -31,9 +31,11 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
 import exportar_docx
+import ingestao
 import mock  # noqa: UP026 — é o api/mock.py local (modo demo), não o pacote "mock"
 from schemas import (
     DocumentoOut,
+    EnvioOut,
     ExportarDocxIn,
     FonteOut,
     PerguntaIn,
@@ -186,15 +188,15 @@ def exportar_docx_rota(corpo: ExportarDocxIn) -> Response:
 async def upload(
     arquivo: Annotated[UploadFile, File(description="PDF do documento")],
     orgao: Annotated[str, Form(min_length=2, max_length=200)],
-    tipo: Annotated[str, Form()],
+    tipo: Annotated[str, Form()] = "atestado",
 ) -> UploadOut:
-    """STUB — valida o arquivo e devolve 202, mas NÃO guarda nem indexa nada.
+    """Recebe um PDF para o acervo (atestados de capacidade técnica e CATs).
 
-    A ingestão real é o pipeline multi-etapa de `workflows/indexacao.md`
-    (upload_documento → extract_text → chunk_document → cadastro →
-    generate_embeddings), com OCR pago e conferência humana do conteúdo — o
-    lote de 28/09 mostrou que o nome do arquivo não basta para catalogar.
-    Ligar isto a uma fila de processamento é a próxima etapa.
+    Demo: só valida — nada é guardado nem processado (a tela diz isso).
+    Real: guarda em data/brutos/ e enfileira o pipeline de `ingestao.py`
+    (triagem → extração → chunks → cadastro → embeddings). A extração de
+    página escaneada (OCR por VLM) e os embeddings SÃO CHAMADAS PAGAS.
+    Acompanhe em GET /uploads/{envio_id}.
     """
     if tipo not in TIPOS_DOCUMENTO:
         raise HTTPException(422, f"tipo deve ser um de {', '.join(TIPOS_DOCUMENTO)}")
@@ -203,14 +205,62 @@ async def upload(
         raise HTTPException(413, "O arquivo passa de 50 MB, o limite do bucket")
     if not conteudo.startswith(b"%PDF"):
         raise HTTPException(415, "O arquivo não é um PDF")
+    nome = arquivo.filename or "documento.pdf"
+
+    if MODO_DEMO:
+        return UploadOut(
+            status="simulado",
+            arquivo=nome,
+            tamanho_bytes=len(conteudo),
+            orgao=orgao,
+            tipo=tipo,
+            mensagem=(
+                "Modo demonstração: o arquivo foi validado, mas nada foi guardado nem "
+                "processado. Com a API em modo real, o envio dispara a indexação."
+            ),
+        )
+
+    caminho = ingestao.guardar(conteudo, nome)
+    envio = ingestao.criar_envio(caminho, nome, orgao.strip(), tipo)
+    ingestao.enfileirar(envio)
     return UploadOut(
-        status="recebido_stub",
-        arquivo=arquivo.filename or "documento.pdf",
+        status="na_fila",
+        arquivo=nome,
         tamanho_bytes=len(conteudo),
         orgao=orgao,
         tipo=tipo,
-        mensagem=(
-            "Arquivo validado. A indexação automática ainda não está ligada: nesta versão "
-            "o documento não é guardado nem processado."
-        ),
+        envio_id=envio.id,
+        mensagem="Arquivo guardado. A indexação roda em segundo plano; acompanhe as etapas abaixo.",
     )
+
+
+def _envio_out(envio: ingestao.Envio) -> EnvioOut:
+    return EnvioOut(
+        id=envio.id,
+        arquivo=envio.arquivo,
+        orgao=envio.orgao,
+        tipo=envio.tipo,
+        criado_em=envio.criado_em,
+        estado=envio.estado,
+        etapas=[
+            {"chave": e.chave, "rotulo": e.rotulo, "estado": e.estado, "detalhe": e.detalhe}
+            for e in envio.etapas
+        ],
+        titulo=envio.titulo,
+        documento_id=envio.documento_id,
+        erro=envio.erro,
+    )
+
+
+@app.get("/uploads", response_model=list[EnvioOut])
+def uploads() -> list[EnvioOut]:
+    """Envios desde que a API subiu (mais recente primeiro). Vazio no modo demo."""
+    return [_envio_out(e) for e in ingestao.recentes()]
+
+
+@app.get("/uploads/{envio_id}", response_model=EnvioOut)
+def upload_status(envio_id: str) -> EnvioOut:
+    envio = ingestao.obter(envio_id)
+    if envio is None:
+        raise HTTPException(404, "Envio não encontrado (a API pode ter sido reiniciada)")
+    return _envio_out(envio)
