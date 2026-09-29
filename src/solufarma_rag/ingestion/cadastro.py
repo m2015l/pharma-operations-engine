@@ -75,7 +75,8 @@ def cadastrar_documento(
     """Cadastra o documento e devolve `(documento_id, ja_existia)`.
 
     `ja_existia` deixa o CLI dizer se reaproveitou um cadastro anterior, em vez
-    de o usuário achar que gravou algo novo quando não gravou.
+    de o usuário achar que gravou algo novo quando não gravou. Quando já existia,
+    `titulo`, `ocr_aplicado` e `metodo_extracao` são atualizados (reindexação).
     """
     if tipo not in TIPOS_VALIDOS:
         raise ValueError(f"tipo deve ser um de {TIPOS_VALIDOS}, recebido: {tipo!r}")
@@ -86,7 +87,22 @@ def cadastrar_documento(
         cur.execute("select id from documentos where hash_sha256 = %s", (hash_sha256,))
         linha = cur.fetchone()
         if linha is not None:
-            return str(linha[0]), True
+            # Reindexação do mesmo arquivo: o título e o método de extração podem
+            # ter mudado (título tirado do conteúdo em 29/09; método derivado das
+            # rotas por página). Atualizar aqui mantém `documentos.titulo` igual
+            # ao cabeçalho dos chunks que vão ser regravados — a divergência entre
+            # os dois foi o bug de 28/09. Órgão/licitação NÃO são tocados.
+            documento_id = str(linha[0])
+            cur.execute(
+                """
+                update documentos
+                   set titulo = %s, ocr_aplicado = %s, metodo_extracao = %s
+                 where id = %s
+                """,
+                (titulo, ocr_aplicado, metodo_extracao, documento_id),
+            )
+            conn.commit()
+            return documento_id, True
 
         licitacao_id = _achar_ou_criar_licitacao(cur, orgao, numero_edital, data_abertura)
         cur.execute(

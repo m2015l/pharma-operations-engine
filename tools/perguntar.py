@@ -116,7 +116,7 @@ def _mostrar_resposta(agente: AgenteLicitacoes, pergunta: str, historico: list[d
     return resposta
 
 
-def main() -> int:
+def construir_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("pergunta", nargs="?", help="A pergunta. Sem isto, entra em modo interativo")
     p.add_argument("--orgao", default=None, help="Filtra por órgão")
@@ -124,7 +124,17 @@ def main() -> int:
     p.add_argument("--top-k", type=int, default=8, help="Trechos no contexto (padrão 8)")
     p.add_argument("--so-busca", action="store_true", help="Só o retrieval, sem chamar o LLM")
     p.add_argument("--provedor", default=None, help="voyage | openai | fake")
-    args = p.parse_args()
+    return p
+
+
+def montar_filtros(orgao: str | None, tipo: str | None) -> FiltrosBusca:
+    """Só os filtros informados — campo vazio não pode virar filtro que zera a busca."""
+    brutos = {k: v for k, v in (("orgao", orgao), ("tipo_documento", tipo)) if v}
+    return FiltrosBusca.model_validate(brutos)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = construir_parser().parse_args(argv)
 
     try:
         provider = criar_provedor(args.provedor)
@@ -132,8 +142,7 @@ def main() -> int:
         print(f"\n{exc}\n", file=sys.stderr)
         return 1
 
-    filtros_brutos = {k: v for k, v in (("orgao", args.orgao), ("tipo_documento", args.tipo)) if v}
-    filtros = FiltrosBusca.model_validate(filtros_brutos)
+    filtros = montar_filtros(args.orgao, args.tipo)
 
     conn = criar_conexao()
     try:
