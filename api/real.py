@@ -17,7 +17,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from schemas import CitacaoOut, DocumentoOut, RespostaOut, Turno  # noqa: E402
+from schemas import CitacaoOut, DocumentoOut, RespostaOut, Turno
 
 BUCKET = "documentos"
 VALIDADE_URL_S = 600
@@ -79,7 +79,7 @@ def documento(doc_id: str) -> dict | None:
 
 
 def responder(pergunta: str, historico: list[Turno]) -> RespostaOut:
-    conn, agente = _pecas()
+    _, agente = _pecas()
     titulos = {d.id: d.titulo for d in documentos()}
     hist = [t.model_dump() for t in historico] or None
     with _LOCK:
@@ -106,6 +106,7 @@ def url_assinada(storage_path: str) -> str:
     A chave de serviço fica só aqui no servidor; o navegador só vê a URL assinada.
     """
     import httpx
+
     from solufarma_rag.config import get_settings
 
     cfg = get_settings()

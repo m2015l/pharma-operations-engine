@@ -30,9 +30,10 @@ from fastapi.responses import FileResponse
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-import mock  # noqa: E402
-from schemas import DocumentoOut, FonteOut, PerguntaIn, RespostaOut, SaudeOut, UploadOut  # noqa: E402
-from solufarma_rag.db.models import TIPOS_DOCUMENTO  # noqa: E402
+import mock  # noqa: UP026 — é o api/mock.py local (modo demo), não o pacote "mock"
+from schemas import DocumentoOut, FonteOut, PerguntaIn, RespostaOut, SaudeOut, UploadOut
+
+from solufarma_rag.db.models import TIPOS_DOCUMENTO
 
 MODO_DEMO = os.getenv("MODO_DEMO", "1").strip().lower() not in ("0", "false", "nao", "não", "")
 # Latência artificial do modo demo, para a tela de "consultando o acervo" ser vista.
@@ -81,7 +82,7 @@ def perguntar(corpo: PerguntaIn) -> RespostaOut:
         return mock.responder(corpo.pergunta, historico)
     try:
         return backend.responder(corpo.pergunta, historico)
-    except Exception as exc:  # noqa: BLE001 — a tela precisa de uma mensagem, não de um 500 cru
+    except Exception as exc:  # a tela precisa de uma mensagem, não de um 500 cru
         raise HTTPException(502, f"O agente não conseguiu responder: {exc}") from exc
 
 
@@ -116,7 +117,7 @@ def fonte(doc_id: str) -> FonteOut:
 
     try:
         url = backend.url_assinada(doc["storage_path"])
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # erro do Storage vira 502 com mensagem
         raise HTTPException(502, f"Não foi possível gerar o link do PDF: {exc}") from exc
     return FonteOut(
         documento_id=doc_id, titulo=doc["titulo"], url=url, disponivel=True,
