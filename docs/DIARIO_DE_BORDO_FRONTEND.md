@@ -6,6 +6,56 @@
 
 ---
 
+## 2026-09-29 — Frontend v2 executado (F0–F7 + F9 upload real) (Roger + Claude)
+
+**Contexto:** execução do `frontend/PLANO_V2.md` com as respostas do Roger (seção 8): módulo **Licitações**, logo oficial `frontend/acesso/Logo.png`, .docx da conversa inteira com trecho citado (até ~400 caracteres), sem autor, e login (F8) fora. Durante a sessão veio uma decisão nova do Roger com o gerente: **o acervo é só de resultado final, atestados de capacidade técnica e CATs**; editais e atas não entram. Os textos da interface foram ajustados para isso.
+
+**Resultado em uma linha:** o assistente tem o visual do sistema Contratos, exporta a conversa (ou uma resposta) para Word e o envio de PDF, no modo real, dispara a indexação em segundo plano com progresso na tela.
+
+### O que foi entregue (um commit por fatia na `main`, sem push)
+
+| Fatia | Resumo |
+|---|---|
+| F0 · Tokens e fonte | Paleta do §2.4 (petróleo `#124443`, teal `#44a18c`, teal-texto `#277160`, fundo Flatly `#ecf0f1`), Lato 300/400/700; saem Archivo, Source Serif e Plex Mono. O lint passou a ignorar o `public/pdf.worker.min.mjs` (código de terceiro que gerava 6 erros) |
+| F1 · Moldura | Header branco com o logo oficial, divisor, "Licitações", selo "Demonstração" (tooltip) ou "Sem conexão com a API", navegação em botões outline com o ativo preenchido e borda de 2 px; rodapé discreto. `barra-lateral.tsx` apagada |
+| F2 · Consulta | Mestre-detalhe: título grande, card da conversa com o compositor dentro, card de fontes, rolagem própria em cada um. Exemplos em lista estilo Obras, marcadores e fichas em teal, "Nada encontrado" como badge escuro |
+| F3 · Acervo | Legenda de situação, busca por título/órgão (sem acento) e filtro por tipo no cliente, badges pílula, "Abrir PDF" em teal |
+| F4 · Enviar | Breadcrumb, card de formulário, botão em largura total, texto honesto. Sem seletor de tipo: todo envio é `atestado` |
+| Ruff | Os 10 avisos de `ruff check api/` zerados. `import mock` ficou com `# noqa: UP026` (é o `api/mock.py` local) |
+| F5 · API .docx | `api/exportar_docx.py` + `POST /exportar/docx`: A4, Lato 11 pt, cabeçalho com logo e "Licitações", rodapé com o aviso e "p. X/Y", markdown mínimo, `[n]` em teal, marcador inválido riscado, tabela das fontes com trecho. Sem autor nos metadados. 413 acima de 5 MB. Abre no Word sem reparo |
+| F6 · Botões | "Exportar .docx" no header da Consulta e ".docx" em cada resposta; download por blob com o nome da API; toast |
+| F7 · Ativos | `icon.png` recortado do símbolo "S" do logo; título "Licitações · Solufarma" |
+| F9 · Upload real | `api/ingestao.py` orquestra o pipeline existente (triagem → extração → chunks com o título da triagem → cadastro/upsert → embeddings), um envio por vez, numa thread. `GET /uploads` e `GET /uploads/{id}` relatam as etapas; a tela Enviar consulta a cada 2 s. No modo demo o envio é simulado e a tela diz isso |
+
+**Testes:** `tests/test_exportar_docx.py` (7) e `tests/test_api_upload.py` (8), todos sem rede e sem custo; as etapas do upload são mockadas. Comando: `UV_LINK_MODE=copy uv run --extra dev --with-requirements api/requirements.txt pytest -q tests/test_api_* tests/test_exportar_*`.
+
+**Screenshots e .docx de exemplo:** `.tmp/frontend_v2/` (10 telas, `consulta-solufarma-*.docx` e `resposta-solufarma-*.docx`). A tela 10 mostra o progresso do modo real com as rotas `/api/*` simuladas no Playwright. O modo real **não** foi executado.
+
+### O que aprendemos
+
+- **A Lato do Google Fonts tem `tabular-nums`**: "111" e "000" medem igual. A Plex Mono pôde sair de vez.
+- **Com Lato só em 400/700, `font-semibold` vira 700 sintetizado.** Trocamos por `font-bold` nas telas.
+- **O python-docx grava "python-docx" como autor.** O gerador zera `author` e `last_modified_by`.
+- **`import main` num teste pode pegar outro módulo `main` do ambiente.** Os testes carregam `api/main.py` por caminho (`importlib`).
+- **`scrollIntoView` rola também os ancestrais com `overflow: hidden`.** Na Consulta, a rolagem agora é só do card da conversa.
+
+### Limitações e pontos para validar
+
+- **O upload real roda o OCR (VLM) e os embeddings, e os dois são pagos.** A etapa de triagem mostra a estimativa de custo, mas não pede confirmação antes de seguir. Validar se deve haver confirmação ou um teto de páginas.
+- **A etapa de embeddings chama `gerar_embeddings_pendentes`, que processa todos os chunks pendentes do banco**, não só os do documento enviado. Se houver chunks pendentes de outro documento, eles também são embeddados (e cobrados) nesse envio. Para isolar, falta em `src/` um filtro por `documento_id`, e esse ponto de extensão não foi mexido.
+- **O estado dos envios vive em memória:** se a API reiniciar, a lista some da tela, mas o documento continua no Storage e no banco. Se o título não for achado no conteúdo, a triagem usa "órgão — nome do arquivo" e avisa para conferir.
+- O PDF enviado vai para `data/brutos/` com o nome sanitizado; se já existir um arquivo diferente com o mesmo nome, ganha um sufixo com o hash.
+- O favicon foi ampliado de 91 px e fica um pouco suave. Um SVG do símbolo resolveria.
+- O `frontend/acesso/` (capturas do Contratos) continua fora do git, porque tem dados internos do cliente.
+
+### Próximos passos
+
+1. **Roger:** validar as decisões acima, principalmente a confirmação de custo antes do OCR no upload real.
+2. **Primeiro teste do upload real:** um único atestado nativo, com `MODO_DEMO=0`.
+3. **Regravar o vídeo demo** (`frontend/demo/gravar_demo.py` já está com o cursor teal e os seletores conferidos) e atualizar a "Direção visual" do `frontend/CONCEITO.md`.
+
+---
+
 ## 2026-09-29 — Plano da v2: padrão visual da Solufarma + exportação .docx (Roger + Claude)
 
 **Contexto:** o cliente pediu duas coisas:

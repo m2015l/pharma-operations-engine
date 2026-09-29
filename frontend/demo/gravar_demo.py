@@ -29,7 +29,7 @@ CURSOR_JS = """
 window.addEventListener('DOMContentLoaded', () => {
   const c = document.createElement('div');
   c.style.cssText = 'position:fixed;left:0;top:0;width:18px;height:18px;margin:-9px 0 0 -9px;' +
-    'border-radius:50%;background:rgba(78,55,148,.35);border:2px solid #4e3794;' +
+    'border-radius:50%;background:rgba(68,161,140,.35);border:2px solid #124443;' +
     'pointer-events:none;z-index:2147483647;transition:transform .12s';
   document.body.appendChild(c);
   document.addEventListener('mousemove', e => { c.style.left = e.clientX + 'px'; c.style.top = e.clientY + 'px'; }, true);
@@ -125,6 +125,7 @@ def main() -> None:
         mover_e_clicar(page, page.get_by_role("link", name="Enviar documento").first)
         page.wait_for_selector("text=Novo documento para o acervo")
         page.wait_for_timeout(1500)
+        # No modo demo o envio é simulado (a tela avisa); nada é guardado nem indexado.
         pdf = tmp_video / "atestado-exemplo.pdf"
         pdf.write_bytes(PDF_EXEMPLO)
         page.locator("input[type=file]").set_input_files(str(pdf))
