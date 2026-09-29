@@ -7,6 +7,9 @@ já devolve, acrescentando o que a tela precisa e o agente não carrega
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -81,3 +84,21 @@ class UploadOut(BaseModel):
 class SaudeOut(BaseModel):
     modo: str
     documentos: int
+
+
+class TurnoExportado(BaseModel):
+    """Um turno da conversa como o navegador tem: pergunta + o `RespostaOut` que /perguntar devolveu."""
+
+    pergunta: str = Field(min_length=1, max_length=2000)
+    perguntado_em: datetime | None = None
+    resposta: RespostaOut | None = None
+    erro: str | None = None
+
+
+class ExportarDocxIn(BaseModel):
+    """Corpo de POST /exportar/docx. A API só formata: nenhuma chamada ao LLM."""
+
+    escopo: Literal["conversa", "resposta"] = "conversa"
+    gerado_em: datetime = Field(description="Com fuso; vem do navegador")
+    usuario: str | None = Field(default=None, description="Reservado para o login; não sai no documento")
+    turnos: list[TurnoExportado] = Field(min_length=1, max_length=100)

@@ -23,15 +23,24 @@ import time
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
+import exportar_docx
 import mock  # noqa: UP026 — é o api/mock.py local (modo demo), não o pacote "mock"
-from schemas import DocumentoOut, FonteOut, PerguntaIn, RespostaOut, SaudeOut, UploadOut
+from schemas import (
+    DocumentoOut,
+    ExportarDocxIn,
+    FonteOut,
+    PerguntaIn,
+    RespostaOut,
+    SaudeOut,
+    UploadOut,
+)
 
 from solufarma_rag.db.models import TIPOS_DOCUMENTO
 
@@ -41,6 +50,9 @@ LATENCIA_DEMO_S = float(os.getenv("MODO_DEMO_LATENCIA", "1.4"))
 # Prefixo público pelo qual o navegador chega à API (o Next faz proxy de /api/* → :8000).
 PREFIXO_PUBLICO = os.getenv("API_PREFIXO_PUBLICO", "/api")
 LIMITE_UPLOAD = 50 * 1024 * 1024  # espelha file_size_limit de migrations/002_storage.sql
+# Uma conversa de 100 turnos com todas as citações fica bem abaixo disto.
+LIMITE_EXPORTAR = 5 * 1024 * 1024
+MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 if not MODO_DEMO:
     import real as backend
@@ -59,6 +71,19 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def limitar_exportacao(request: Request, call_next):
+    """413 antes de ler o corpo: /exportar/docx não precisa de mais de ~5 MB."""
+    if request.url.path == "/exportar/docx":
+        try:
+            tamanho = int(request.headers.get("content-length") or 0)
+        except ValueError:
+            tamanho = 0
+        if tamanho > LIMITE_EXPORTAR:
+            return JSONResponse({"detail": "Conversa grande demais para exportar (limite de 5 MB)."}, 413)
+    return await call_next(request)
 
 
 @app.get("/saude", response_model=SaudeOut)
@@ -138,6 +163,22 @@ def pdf_demo(doc_id: str) -> FileResponse:
     return FileResponse(
         caminho, media_type="application/pdf",
         headers={"Content-Disposition": "inline"},
+    )
+
+
+@app.post(
+    "/exportar/docx",
+    response_class=Response,
+    responses={200: {"content": {MIME_DOCX: {}}, "description": "Documento Word"}},
+)
+def exportar_docx_rota(corpo: ExportarDocxIn) -> Response:
+    """Conversa (ou uma resposta) em .docx. Só formata o que chegou: zero chamada ao LLM."""
+    conteudo = exportar_docx.gerar(corpo)
+    nome = exportar_docx.nome_arquivo(corpo)
+    return Response(
+        conteudo,
+        media_type=MIME_DOCX,
+        headers={"Content-Disposition": f'attachment; filename="{nome}"'},
     )
 
 
