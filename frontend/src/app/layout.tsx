@@ -12,8 +12,8 @@ import "./globals.css";
 const lato = Lato({ variable: "--font-lato", subsets: ["latin"], weight: ["300", "400", "700"] });
 
 export const metadata: Metadata = {
-  title: "Solufarma · Acervo técnico",
-  description: "Consulta ao acervo técnico de licitações da Solufarma Engenharia",
+  title: "Licitações · Solufarma",
+  description: "Consulta ao acervo de atestados de capacidade técnica e CATs da Solufarma Engenharia",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
