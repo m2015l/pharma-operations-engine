@@ -6,6 +6,49 @@
 
 ---
 
+## 2026-09-29 — Plano da v2: padrão visual da Solufarma + exportação .docx (Roger + Claude)
+
+**Contexto:** o cliente pediu duas coisas:
+1. **Exportar as respostas para Word.** Roger sugeriu exportar a conversa inteira.
+2. **Seguir o visual do sistema interno "Contratos"** da Solufarma, com as 4 capturas em `frontend/acesso/` e a paleta oficial `#124443` (verde-petróleo), `#44a18c` (teal) e `#ffffff`.
+
+Nesta sessão só **estruturamos**, sem mudar código: o resultado é a especificação `frontend/PLANO_V2.md`.
+
+**Resultado em uma linha:** o `frontend/PLANO_V2.md` está pronto para um dev executar em 8 fatias pequenas (F0–F8), com tokens, esboços de tela, contrato da exportação e perguntas abertas.
+
+### O que decidimos (proposta)
+
+- **.docx no backend**, com `python-docx` numa rota `POST /exportar/docx`:
+  - O navegador manda os turnos que já tem, com o `RespostaOut` inteiro, e a API só formata. Não há chamada ao LLM, então é custo zero também no modo real.
+  - Os motivos: é testável com pytest sobre `demo.json`, não pesa no bundle, é consistente com o resto do projeto em Python e vira `GET /conversas/{id}/docx` quando o histórico for persistido.
+  - Dá para exportar a conversa inteira (botão no header da Consulta) ou uma resposta isolada (botão em cada resposta). O nome do arquivo segue o padrão `consulta-solufarma-AAAA-MM-DD-HHMM.docx`.
+- **A barra lateral vira header branco** no padrão Contratos:
+  - logo, divisor e nome do módulo à esquerda; navegação em botões *outline* à direita, com o item ativo preenchido em `#124443`; borda inferior de 2 px `#124443`;
+  - fundo da página `#ecf0f1`, título grande, cards brancos e o rodapé discreto;
+  - a Consulta vira mestre-detalhe, como a tela Obras.
+- **As decisões de design 1 e 2 foram revogadas** (violeta, fundo azul-acinzentado, Archivo, Source Serif e Plex Mono). Entra **Lato** em tudo.
+  - A regra da cor de destaque sobrevive com o **teal**, que marca só o que leva a documento.
+  - A régua (3), o pdf.js (4) e o formato desktop claro (5) ficam.
+  - O texto da tela de upload (7) vai ser corrigido na fatia F4.
+
+### Achados
+
+- **O Contratos usa Bootstrap 5 com o tema Bootswatch Flatly**, com o *primary* trocado por `#124443`. Os tons auxiliares batem exatamente com os da Flatly (`#ecf0f1`, `#18bc9c`, `#2c3e50`, `#95a5a6`), e a Flatly usa Lato. Falta confirmar com quem mantém o Contratos.
+- **Contraste:**
+  - branco sobre `#124443` dá 10,86:1 e passa em AA e AAA;
+  - branco sobre `#44a18c` dá **3,12:1** e **reprova no AA para texto pequeno**;
+  - o `#18bc9c` dos badges do Contratos dá 2,41:1.
+  - Solução: o teal oficial fica para bordas, traços e foco, e o texto teal usa `#277160` (5,81:1).
+- **Não temos o logo em boa resolução.** O header vai usar um logo em texto até chegar o SVG.
+
+### Próximos passos
+
+1. **Roger:** responder às perguntas abertas da seção 8 do `PLANO_V2.md`. São elas: o nome do módulo (sugestão "Licitações"), o logo e a fonte, a base de usuários do login (a mesma do Contratos ou Supabase Auth), o trecho no .docx, o autor no .docx e o texto do aviso.
+2. **Executar as fatias F0 a F6**, que não dependem das respostas. Depois vem a F7 (ativos) e a F8 (login, bloqueada pela pergunta 3).
+3. Quando a v2 entrar, atualizar a "Direção visual" do `frontend/CONCEITO.md`, que fica obsoleta, e regravar o vídeo demo.
+
+---
+
 ## 2026-09-29 — Primeira versão do frontend profissional + vídeo demo (Roger + Claude)
 
 **Contexto:** o plano original (proposta e ADR-003) previa um protótipo em **Streamlit**. Roger decidiu trocar por um frontend de verdade: *"Não precisa ser um protótipo em streamlit, vamos fazer algo mais profissional desenvolvendo um frontend mesmo"*. O trabalho foi feito numa sessão paralela (agente em segundo plano), que escreveu só em `api/` e `frontend/` e não commitou nada.

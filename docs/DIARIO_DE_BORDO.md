@@ -6,6 +6,38 @@
 
 ---
 
+## 2026-09-29 — Folha de rosto generalizada em código; título pelo conteúdo; triagem dos 32 PDFs (Roger + Claude)
+
+**Como foi feito:** duas sessões paralelas em worktrees (branches `worktree-agent-a441020e4488a086a` e `worktree-agent-a61e0e7f71a529ec4`), mescladas em `main` pelo orquestrador. Nenhuma chamada paga, nada escrito no Supabase, nada reindexado. **173 testes passando** (eram 114).
+
+**O que entrou:**
+- **Item 28 — heurística I6/P6 em código** (`src/solufarma/chunking.py::_rotulo_secao_prosa`): linha de prosa vira seção se for o rótulo inteiro, em caixa alta, ≤ 60 caracteres e casar com uma **lista fechada** (DADOS DO…, ATIVIDADE TÉCNICA REALIZADA, ENDEREÇO DA OBRA/SERVIÇO, DESCRIÇÃO, OBSERVAÇÕES, OBJETO, ESCOPO DOS SERVIÇOS…). Lista fechada e não "qualquer caixa alta" porque, nas CATs, quase toda linha solta em caixa alta é nome, cargo ou cidade. CONTRATANTE/CONTRATADA/RESPONSÁVEL TÉCNICO ficaram de fora de propósito (são legenda de assinatura). Na CAT do SENAI dispara exatamente nos 7 rótulos do patch manual do I6 e em nenhuma outra das 2.591 linhas; nos 3 documentos novos, chunks sem seção ganharam seção e faixas de página mais precisas;
+- **Título do documento não vem mais do nome do arquivo:** `chunkar_documento(doc, titulo=None)`; `tools/chunk_document.py --titulo`; `tools/indexar.py` usa o título gravado nos chunks e **recusa** (saída 2) um `--titulo` divergente, mostrando o comando para refazer os chunks (grátis). Fecha o bug de 28/09;
+- **Triagem pelo conteúdo** — `tools/triar_documentos.py` (lógica em `src/solufarma/triagem.py`), só regex, sem LLM: tipo, nº CAT, contratante/CNPJ, **executante**, responsável técnico, objeto, nativo vs. precisa OCR, nome do arquivo bate ou não, duplicatas. Saída em `.tmp/triagem_documentos.{json,md}`.
+
+**Resultado da triagem (32 PDFs: 29 soltos em `data/` + 3 de `data/brutos/`):**
+- Texto: 11 nativos, 18 mistos, 3 totalmente escaneados (FURP 2620140004961, LAQFA 522936, SANTA CASA). Em 28 o "texto" é OCR antigo embutido, com bastante ruído;
+- Nome do arquivo vs. conteúdo: **19 trocados**, 4 batem (fraco — só o órgão), 7 inconclusivos, 2 sem texto. Os 3 já conferidos em 28/09 foram confirmados pela ferramenta;
+- **A troca parece sistemática:** o conteúdo de um arquivo costuma ser o documento com o nome de *outro* arquivo do lote (ex. arquivo SS WHITE = CAT 576640 do SENAI; arquivo SENAI = CAT da Santa Casa). Hipótese não testada: dá para corrigir por mapeamento;
+- Executante: TEP 21, **Solufarma 5**, consórcio com TEP 2, outra 1, não encontrado 3;
+- **Revisar descarte de 28/09:** o arquivo "BUTANTAN SJC-02542" contém a CAT SJC-02085 (trocadores de calor) e o arquivo "SJC-02085" contém outra CAT (câmara fria) — aparentemente não era duplicata. O arquivo "SS WHITE" é muito provavelmente o SENAI já indexado (mesma chave de autenticação);
+- **OCR estimado:** 768 páginas, ~US$ 12 a 18 (estimativa, não medição). Concentrado em HIPOLABOR (294 p.), HC USP (137), Butantan 2620120006270 (76), FURP (63), SS WHITE (58), DELTA 216058 (48). O `.env` ainda está com o preço promocional que acabou em 31/08.
+
+**Limitações conhecidas:**
+- A lista de rótulos foi calibrada com 4 CATs; editais e atas nunca passaram por ela. Rótulos em caixa mista não disparam; "OBJETO"/"OBSERVAÇÕES" soltos no meio de edital podem abrir subseção indevida;
+- CATs antigas do CREA-SP: nº da CAT e às vezes o contratante saem ilegíveis (órgão inferido, marcado com "(?)");
+- **Não reindexar a CAT do SENAI** com o código novo sem cuidado: ela já tem o patch manual do I6.
+- `ruff check .` acusa 10 erros em `api/` (vindos do commit do frontend, não de hoje). **Não usar `--fix` às cegas:** ele trocaria `import mock` (módulo local `api/mock.py`) por `unittest.mock`.
+
+**Próximos passos:**
+1. Decidir se indexa o lote e quanto gastar com OCR (quais documentos entram primeiro — os 11 nativos custam só embeddings);
+2. Testar a hipótese do mapeamento de nomes trocados e renomear pelo conteúdo;
+3. Rever o descarte do SJC-02542;
+4. Adicionar "passo 0 — triagem" em `workflows/indexacao.md` e `workflows/ingestao_documento.md` (aguardando ok do Roger para editar workflow);
+5. Recalibrar o piso e reauditar depois de indexar (itens 12 e 25).
+
+---
+
 ## 2026-09-28 — RESUMO DO DIA e ponto de partida para a próxima sessão (Roger + Claude)
 
 > Entrada-índice: resume o dia inteiro em uma página. Os detalhes de cada etapa estão nas entradas de 28/09 logo abaixo (da mais recente para a mais antiga).
