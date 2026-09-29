@@ -92,6 +92,15 @@ def main_chunks(argv: list[str] | None = None) -> int:
         help="JSONs de extração ou diretórios (padrão: data/extraidos/)",
     )
     ap.add_argument("--saida", type=Path, default=None, help="padrão: data/chunks/")
+    ap.add_argument(
+        "--titulo",
+        default=None,
+        help=(
+            "título do documento, gravado no cabeçalho de cada chunk (o que aparece "
+            "na citação). Padrão: nome do arquivo — NÃO confiável para o lote do "
+            "Drive. Exige um único JSON de entrada."
+        ),
+    )
     args = ap.parse_args(argv)
 
     # Chunking não faz chamada paga — não exige credencial nenhuma.
@@ -106,13 +115,20 @@ def main_chunks(argv: list[str] | None = None) -> int:
     if not jsons:
         print(f"Nenhum JSON de extração em {entradas}. Rode a extração antes.", file=sys.stderr)
         return 1
+    if args.titulo and len(jsons) != 1:
+        # Um título para vários documentos gravaria o mesmo cabeçalho em todos.
+        print(
+            f"--titulo exige exatamente 1 JSON de entrada (recebeu {len(jsons)}).",
+            file=sys.stderr,
+        )
+        return 2
 
     for caminho in jsons:
         # utf-8-sig, não utf-8: o time trabalha no Windows, e várias ferramentas
         # gravam JSON com BOM. `utf-8` puro estoura com "Expecting value: line 1
         # column 1" — erro que não parece de encoding. `utf-8-sig` lê os dois.
         doc = json.loads(caminho.read_text(encoding="utf-8-sig"))
-        chunks, itens = chunking.chunkar_documento(doc)
+        chunks, itens = chunking.chunkar_documento(doc, titulo=args.titulo)
 
         (saida / f"{caminho.stem}_chunks.json").write_text(
             json.dumps([asdict(c) for c in chunks], ensure_ascii=False, indent=2),
@@ -136,6 +152,8 @@ def main_chunks(argv: list[str] | None = None) -> int:
             f"{pct_tamanho:.0f}% da prosa cortada por tamanho"
         )
         print(f"  + {len(itens)} linhas de planilha para a tabela relacional")
+        if chunks:
+            print(f"  título no cabeçalho dos chunks: {chunks[0].documento!r}")
 
     return 0
 
