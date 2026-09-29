@@ -394,11 +394,11 @@ Cada fatia é um PR pequeno na `main`. A ordem importa: F1 destrava F2–F4, e F
 
 ---
 
-## 8. Perguntas abertas para o Roger
+## 8. Respostas do Roger (29/09)
 
-1. **Nome do módulo no header:** "**Licitações**" (paralelo a "Contratos", minha sugestão), "Acervo técnico" ou "Consulta ao acervo"? O nome vai também para o `<title>`, o rodapé e o .docx.
-2. **Logo e fonte:** a Solufarma consegue mandar o logo em SVG (ou PNG grande, com fundo transparente) e confirmar que o Contratos usa Lato e Bootswatch Flatly? Se quem mantém o Contratos puder mandar o arquivo de variáveis SCSS, melhor ainda.
-3. **Login:** usar **a mesma base de usuários do Contratos** (mesmo CPF e PIN, e o usuário não decora nada novo; precisamos saber onde ela vive e se tem API) ou uma **base própria no Supabase Auth**? Com a base própria, o CPF + PIN não é nativo e exigiria um fluxo customizado por cima do Auth. Isso bloqueia a F8.
-4. **Trecho citado no .docx:** incluir o trecho literal de cada fonte (proposta: sim, até ~400 caracteres, porque é o que permite conferir sem abrir o PDF) ou só a referência (órgão, documento, seção, página)?
-5. **Nome de quem exportou no documento:** só faz sentido com login. Até lá, sai sem autor. Pode ser?
-6. **Aviso de rodapé do .docx:** o texto proposto é "Resposta gerada por IA a partir do acervo da Solufarma. Confira sempre no documento original antes de usar." O jurídico ou a Diva querem outro texto?
+1. **Nome do módulo: "Licitações".** Vale para o header, o `<title>` ("Licitações · Solufarma"), o rodapé e o .docx.
+2. **Logo:** o arquivo oficial está em `frontend/acesso/Logo.png` (PNG, verde-petróleo, "SOLUFARMA" com "ENGENHARIA" embaixo). Com ele, a F7 deixa de estar bloqueada e o logo em texto da F1 pode ser pulado. Também serve de fonte para o `api/assets/logo.png` do .docx (F5). A fonte continua deduzida (Lato/Flatly), sem confirmação formal.
+3. **Login: fora desta rodada.** O Roger vai confirmar com o gerente se deve existir tela de login; se sim, construímos depois. A F8 fica suspensa, não só bloqueada.
+4. **Trecho citado no .docx: sim**, incluir um pedaço do trecho de cada fonte (até ~400 caracteres) para dar precisão e permitir conferir sem abrir o PDF.
+5. **Autor no .docx: não.** O documento sai sem autor.
+6. **Aviso de rodapé: aprovado como proposto:** "Resposta gerada por IA a partir do acervo da Solufarma. Confira sempre no documento original antes de usar."
