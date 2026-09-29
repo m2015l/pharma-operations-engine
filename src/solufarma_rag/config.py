@@ -99,6 +99,19 @@ class Settings:
         default_factory=lambda: float(os.getenv("SIMILARIDADE_MINIMA", "0.15"))
     )
 
+    # Reranker depois do RRF (retrieval/reranker.py): voyage | nenhum.
+    # O padrão vale para quem não tem a variável no .env; o valor foi decidido
+    # pela medição contra o golden set (tools/avaliar.py --comparar-rerank).
+    reranker: str = field(default_factory=lambda: os.getenv("RERANKER", "voyage"))
+    reranker_modelo: str = field(
+        default_factory=lambda: os.getenv("RERANKER_MODELO", "rerank-2.5")
+    )
+    # Piso do score do reranker (0–1). 0 = desligado. Calibrar com
+    # `tools/avaliar.py --calibrar-rerank`, nunca no chute.
+    rerank_minimo: float = field(
+        default_factory=lambda: float(os.getenv("RERANK_MINIMO", "0"))
+    )
+
 
 def get_settings() -> Settings:
     """Retorna as configurações, carregando o `.env` na primeira chamada."""

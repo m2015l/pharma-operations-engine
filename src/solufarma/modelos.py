@@ -71,6 +71,10 @@ class Bloco:
     caminho: list[str]
     pag_ini: int
     pag_fim: int
+    # Página de cada linha (paralelo a `linhas`). Um bloco longo atravessa
+    # dezenas de páginas; sem isto, todo chunk dele citaria a página do início
+    # do bloco. Vazio = sem informação, vale pag_ini/pag_fim do bloco.
+    paginas_linhas: list[int] = field(default_factory=list)
 
 
 @dataclass

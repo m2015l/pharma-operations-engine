@@ -247,6 +247,9 @@ def _piso_de_similaridade_fixo(monkeypatch):
     que os testes usam. Fixá-lo aqui mantém os testes medindo o CÓDIGO.
     """
     monkeypatch.setenv("SIMILARIDADE_MINIMA", "0.15")
+    # Mesmo motivo para o reranker: a suíte roda offline e não pode chamar a
+    # Voyage só porque o `.env` da máquina diz RERANKER=voyage.
+    monkeypatch.setenv("RERANKER", "nenhum")
 
 
 @pytest.fixture

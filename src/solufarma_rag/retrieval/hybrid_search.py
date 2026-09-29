@@ -7,11 +7,12 @@ Design (docs/ARQUITETURA.md §5.1):
 - Filtros por metadados (órgão, tipo, período) são aplicados ANTES do ranking;
 - Reciprocal Rank Fusion (RRF, k=60) combina os dois rankings — mesma fórmula
   da função RPC `busca_hibrida` (db/migrations/rascunho_busca_hibrida.sql);
-- Top-k inicial generoso (20) seguido de corte/rerank para 5–8 chunks finais.
+- Os `CANDIDATOS_RERANK` primeiros do RRF vão para o reranker (Voyage rerank,
+  retrieval/reranker.py), que reordena por relevância real; corta em top_k.
 
 Contra o Supabase real, este módulo passará a chamar a RPC; contra o
-repositório em memória, executa a mesma semântica localmente. O reranker
-(fase 1: LLM-as-reranker com Haiku) é um hook injetável opcional.
+repositório em memória, executa a mesma semântica localmente. O reranker é
+injetável; o padrão vem do `.env` (RERANKER=voyage|nenhum).
 """
 
 from __future__ import annotations
@@ -27,6 +28,10 @@ from ..ingestion.embeddings import EmbeddingProvider, embeddar_consulta
 RRF_K = 60  # constante clássica do RRF; igual à usada no SQL
 CANDIDATOS_PADRAO = 20
 TOP_K_PADRAO = 8
+# Quantos trechos do topo do RRF o reranker lê. Medido em 29/09 (golden set,
+# 22 perguntas): 10–15 dá MRR@8 0,81; 25 cai para 0,78 (mais distratores).
+# O sinal esteve no top-10 do RRF em 22/22. ~4,5k tokens por pergunta.
+CANDIDATOS_RERANK = 15
 
 # Piso de relevância da busca vetorial (similaridade de cosseno).
 #
@@ -53,9 +58,15 @@ def _piso_padrao() -> float:
     return get_settings().similaridade_minima
 
 # Reranker opcional: recebe (consulta, candidatos) e devolve os candidatos
-# reordenados. Fase 1 do MVP: LLM-as-reranker com Haiku (a implementar quando
-# houver chave de API); sem reranker, vale a ordem do RRF.
+# reordenados (pode também descartar os que ficam abaixo do próprio piso).
+# Sem reranker, vale a ordem do RRF.
 Reranker = Callable[[str, list[ChunkComScore]], list[ChunkComScore]]
+
+
+def _reranker_padrao() -> Reranker | None:
+    from .reranker import criar_reranker
+
+    return criar_reranker()
 
 
 class Searcher(Protocol):
@@ -95,7 +106,8 @@ class HybridSearcher:
     repo: ChunkRepository
     provider: EmbeddingProvider
     candidatos: int = CANDIDATOS_PADRAO
-    reranker: Reranker | None = None
+    reranker: Reranker | None = field(default_factory=_reranker_padrao)
+    candidatos_rerank: int = CANDIDATOS_RERANK
     similaridade_minima: float = field(default_factory=_piso_padrao)
 
     def buscar(
@@ -126,6 +138,6 @@ class HybridSearcher:
             [chunk for chunk, _ in vetorial],
             [chunk for chunk, _ in lexica],
         )
-        if self.reranker is not None:
-            fundidos = self.reranker(consulta, fundidos)
+        if self.reranker is not None and fundidos:
+            fundidos = self.reranker(consulta, fundidos[: max(self.candidatos_rerank, top_k)])
         return fundidos[:top_k]

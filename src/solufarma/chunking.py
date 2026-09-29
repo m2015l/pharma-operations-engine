@@ -81,6 +81,51 @@ _PREFIXO_NUMERACAO = r"(\d+(\.\d+)*\.?\s*[-–]?\s*)?"
 RE_ROTULO_PARTE = re.compile(_PREFIXO_NUMERACAO + "(" + "|".join(_ROTULOS_PARTE) + ")")
 RE_ROTULO_SECAO = re.compile(_PREFIXO_NUMERACAO + "(" + "|".join(_ROTULOS_SECAO) + ")")
 
+# Títulos que são DADO, não seção (Cristália Obra II, 29/09): em memorial de
+# cabos o "#" é o símbolo de bitola — "# 1,0 mm²   1", "# 70mm²  VBC-Y4",
+# "# 115" — e o RE_HEADING os lia como heading markdown. Cada um abria uma
+# "seção" nova, o chunk seguinte herdava o rótulo absurdo e o resto numérico
+# entre dois deles ("50 \nm \n42.5") virava chunk próprio, pequeno demais até
+# para receber embedding.
+_UNIDADES = (
+    "mm", "mm²", "mm2", "cm", "m", "m²", "m2", "m³", "m3", "kg", "kv", "kva", "kw",
+    "hp", "cv", "tr", "pç", "pc", "pcs", "un", "und", "vb", "br", "cj", "sh", "ml", "l",
+)
+RE_NUMERO_COM_UNIDADE = re.compile(
+    r"^\d+([.,]\d+)?\s*(" + "|".join(re.escape(u) for u in _UNIDADES) + r")(?![A-Za-zÀ-ÿ])",
+    re.IGNORECASE,
+)
+RE_PALAVRA = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]+")
+
+# Resto de chunk sem nenhuma palavra de verdade ("50 \nm \n42.5", "42 \npç \n33.25")
+# é continuação numérica do chunk anterior, não conteúdo próprio.
+MAX_CHARS_RESIDUO = 80
+RE_RODAPE_PAGINA = re.compile(r"p[áa]gina\s+\d+\s+de\s+\d+", re.IGNORECASE)
+
+
+def _titulo_e_dado(titulo: str) -> bool:
+    """O "título" é célula numérica/unidade, e não nome de seção?
+
+    Verdadeiro quando começa com número colado a unidade ("35 mm²", "70mm² VBC")
+    ou quando não sobra nenhuma palavra de 3+ letras além de unidades ("115",
+    "1,5 mm² +SH  2"). Um título de seção real sempre tem ao menos uma palavra.
+    """
+    texto = titulo.strip().strip("*").strip()
+    if not texto or RE_NUMERO_COM_UNIDADE.match(texto):
+        return True
+    palavras = [
+        p for p in RE_PALAVRA.findall(texto) if len(p) >= 3 and p.lower() not in _UNIDADES
+    ]
+    return not palavras
+
+
+def _e_residuo(texto: str) -> bool:
+    """Trecho curto sem nenhuma palavra de 4+ letras (fora rodapé de página)."""
+    if len(texto) > MAX_CHARS_RESIDUO:
+        return False
+    sem_rodape = RE_RODAPE_PAGINA.sub(" ", texto)
+    return not any(len(p) >= 4 for p in RE_PALAVRA.findall(sem_rodape))
+
 
 # --------------------------------------------------------------------------
 # 1. Costura entre páginas — antes de qualquer corte
@@ -165,7 +210,7 @@ def _pseudo_heading_tabela(linha: str) -> str | None:
     texto = enfase.group(1).strip() if enfase else primeira
     if not texto or len(texto) > MAX_CHARS_PSEUDO_SECAO:
         return None
-    if not texto.isupper():
+    if not texto.isupper() or _titulo_e_dado(texto):
         return None
     return texto
 
@@ -232,6 +277,7 @@ def parsear_blocos(fluxo: list[tuple[str, int]]) -> list[Bloco]:
     blocos: list[Bloco] = []
     pilha: list[tuple[int, str]] = []  # (nível do heading, título)
     buffer: list[str] = []
+    buffer_pags: list[int] = []  # página de cada linha do buffer
     tipo_atual = "prosa"
     pag_ini = fluxo[0][1]
     pag_fim = pag_ini  # última página com conteúdo REALMENTE no buffer
@@ -240,13 +286,18 @@ def parsear_blocos(fluxo: list[tuple[str, int]]) -> list[Bloco]:
         return [titulo for _, titulo in pilha]
 
     def fechar() -> None:
-        nonlocal buffer
+        nonlocal buffer, buffer_pags
         if any(linha.strip() for linha in buffer):
-            blocos.append(Bloco(tipo_atual, buffer, caminho(), pag_ini, pag_fim))
-        buffer = []
+            blocos.append(
+                Bloco(tipo_atual, buffer, caminho(), pag_ini, pag_fim, buffer_pags)
+            )
+        buffer, buffer_pags = [], []
 
     for linha, pag in fluxo:
         heading = RE_HEADING.match(linha)
+        if heading and _titulo_e_dado(heading.group(2)):
+            # "# 1,0 mm²" é bitola de cabo, não heading: segue como conteúdo.
+            heading = None
 
         if heading:
             fechar()
@@ -293,6 +344,7 @@ def parsear_blocos(fluxo: list[tuple[str, int]]) -> list[Bloco]:
         if not buffer:
             pag_ini = pag
         buffer.append(linha)
+        buffer_pags.append(pag)
         if linha.strip():
             pag_fim = pag
 
@@ -368,13 +420,49 @@ def _partir_prosa(texto: str) -> list[tuple[str, bool]]:
     return pedacos
 
 
+class _LocalizadorPaginas:
+    """Acha as páginas de cada pedaço de um bloco longo.
+
+    Compara sem espaço em branco nenhum: `_partir_prosa` refaz as junções
+    (parágrafos com "\\n\\n", frases com " ", overlap), então o pedaço não é
+    substring literal do bloco — mas é, tirando os espaços. Os pedaços saem em
+    ordem, e o cursor só avança pelo INÍCIO de cada um (o overlap faz o próximo
+    começar antes do fim do anterior). Não achou: cai na faixa do bloco inteiro.
+    """
+
+    def __init__(self, bloco: Bloco):
+        self.bloco = bloco
+        chars: list[str] = []
+        pags: list[int] = []
+        if len(bloco.paginas_linhas) == len(bloco.linhas):
+            for linha, pag in zip(bloco.linhas, bloco.paginas_linhas):
+                for ch in linha:
+                    if not ch.isspace():
+                        chars.append(ch)
+                        pags.append(pag)
+        self.texto = "".join(chars)
+        self.pags = pags
+        self.cursor = 0
+
+    def paginas(self, pedaco: str) -> tuple[int, int]:
+        compacto = "".join(pedaco.split())
+        pos = self.texto.find(compacto[:60], self.cursor) if compacto and self.pags else -1
+        if pos < 0:
+            return self.bloco.pag_ini, self.bloco.pag_fim
+        self.cursor = pos + 1
+        fim = min(pos + len(compacto), len(self.pags)) - 1
+        return self.pags[pos], self.pags[fim]
+
+
 def chunk_prosa(bloco: Bloco, doc_titulo: str, doc_id: str, seq: list[int]) -> list[Chunk]:
     texto = "\n".join(bloco.linhas).strip()
     saida: list[Chunk] = []
+    localizador = _LocalizadorPaginas(bloco)
 
     for pedaco, por_tamanho in _partir_prosa(texto):
         seq[0] += 1
-        cab = cabecalho_contextual(doc_titulo, bloco.caminho, bloco.pag_ini)
+        pag_ini, pag_fim = localizador.paginas(pedaco)
+        cab = cabecalho_contextual(doc_titulo, bloco.caminho, pag_ini)
         saida.append(
             Chunk(
                 id=f"{doc_id}#c{seq[0]:04d}",
@@ -382,8 +470,8 @@ def chunk_prosa(bloco: Bloco, doc_titulo: str, doc_id: str, seq: list[int]) -> l
                 texto_puro=pedaco,
                 tipo="prosa",
                 caminho_secao=bloco.caminho,
-                pagina_inicio=bloco.pag_ini,
-                pagina_fim=bloco.pag_fim,
+                pagina_inicio=pag_ini,
+                pagina_fim=pag_fim,
                 n_chars=len(pedaco),
                 documento=doc_titulo,
                 cortado_por_tamanho=por_tamanho,
@@ -506,14 +594,29 @@ def extrair_linhas_tabela(blocos: list[Bloco], doc_id: str) -> list[dict]:
 
 
 def _fundir_residuos(chunks: list[Chunk]) -> list[Chunk]:
-    """Funde chunks curtos com o anterior do mesmo tipo e mesma seção."""
+    """Funde chunks curtos com o anterior.
+
+    Duas regras:
+      - curto (< MIN_CHARS) do mesmo tipo e mesma seção: funde, como sempre;
+      - RESÍDUO (curto e sem nenhuma palavra, ver `_e_residuo`): funde com o
+        anterior mesmo com seção diferente. É sobra numérica de tabela/lista
+        ("50 
+m 
+42.5") e sozinho não tem sinal nem para o embedding — o
+        indexador descarta, e o número some do acervo. Sem anterior, descarta.
+    """
     fundidos: list[Chunk] = []
     for c in chunks:
-        pode_fundir = (
-            fundidos
-            and c.n_chars < config.MIN_CHARS
-            and fundidos[-1].tipo == c.tipo
-            and fundidos[-1].caminho_secao == c.caminho_secao
+        residuo = _e_residuo(c.texto_puro)
+        if residuo and not fundidos:
+            continue
+        pode_fundir = fundidos and (
+            residuo
+            or (
+                c.n_chars < config.MIN_CHARS
+                and fundidos[-1].tipo == c.tipo
+                and fundidos[-1].caminho_secao == c.caminho_secao
+            )
         )
         if pode_fundir:
             anterior = fundidos[-1]
