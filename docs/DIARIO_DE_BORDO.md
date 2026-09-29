@@ -18,7 +18,7 @@
 - O padrão "folha de rosto sem heading" (que motivou o I6) se repetiu nos 3 documentos novos — agora são 4 documentos com o mesmo padrão, não mais 1. Vale reconsiderar generalizar a heurística em `src/solufarma/chunking.py` em vez de seguir corrigindo caso a caso.
 
 **Pendências:**
-- TEP vs. Solufarma — aguardando confirmação do Roger antes de mexer em qualquer coisa relacionada a esses 3 documentos;
+- **TEP vs. Solufarma — decisão do Roger (28/09): tratar por ora como uso apenas de consulta interna**, não como base para comprovação formal de capacidade técnica em proposta. Premissa assumida, não confirmação definitiva — se o time decidir usar esses atestados (ou os que vierem depois com o mesmo padrão) numa submissão real, a decisão muda e o cadastro/system prompt precisam de um campo explícito de vínculo empresarial antes disso acontecer. Nenhum dado foi alterado com base nessa premissa;
 - Verificar os nomes de arquivo dos outros 27 documentos da pasta `data/` antes de indexar qualquer um — não é seguro assumir que o nome bate com o conteúdo;
 - Generalizar I6/P6 (folha de rosto sem heading) em código, agora com evidência de 4 documentos;
 - Captura de log da reescrita do I8 (hoje só foi possível inferir pelo resultado final, não pela pergunta reescrita literal) — melhoria pra próxima auditoria.
