@@ -81,6 +81,12 @@ class Chunk(BaseModel):
     conteudo: str = Field(min_length=1)
     token_count: int = Field(ge=1)
     content_hash: str = Field(description="SHA-256 do conteúdo — base da indexação incremental")
+    # Da classificação por IA do documento (documentos.classificacao, migração
+    # 004) — só leitura, vem no JOIN da busca. None = documento não classificado.
+    executante: str | None = None
+    executante_grupo: str | None = Field(
+        default=None, description="solufarma | tep | consorcio | outra"
+    )
 
     @property
     def chave(self) -> str:
@@ -116,6 +122,10 @@ class Citacao(BaseModel):
     pagina_inicio: int
     pagina_fim: int
     trecho: str = Field(description="Início do conteúdo do chunk citado (para exibição)")
+    executante: str | None = None
+    executante_grupo: str | None = Field(
+        default=None, description="Da classificação do documento; None = não classificado"
+    )
 
 
 class RespostaAgente(BaseModel):
