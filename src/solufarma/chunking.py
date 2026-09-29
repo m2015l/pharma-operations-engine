@@ -409,16 +409,26 @@ def _fundir_residuos(chunks: list[Chunk]) -> list[Chunk]:
     return fundidos
 
 
-def chunkar_documento(doc: dict) -> tuple[list[Chunk], list[dict]]:
+def titulo_padrao(doc: dict) -> str:
+    """Título derivado do nome do arquivo — só o último recurso."""
+    from pathlib import Path
+
+    return Path(doc["arquivo"]).stem.replace("_", " ")
+
+
+def chunkar_documento(doc: dict, titulo: str | None = None) -> tuple[list[Chunk], list[dict]]:
     """
     Recebe o dict do JSON de extração. Retorna (chunks, itens_de_planilha).
 
     Separado do I/O para os testes poderem exercitar a lógica com um dict
     sintético, sem tocar em disco.
-    """
-    from pathlib import Path
 
-    doc_titulo = Path(doc["arquivo"]).stem.replace("_", " ")
+    O título vai para o cabeçalho contextual de CADA chunk (é o que aparece
+    na citação). Precedência: `titulo` explícito > `doc["titulo"]` > nome do
+    arquivo. O nome do arquivo é só fallback: em 28/09 os PDFs do Drive
+    vieram com nome trocado em relação ao conteúdo (4 de 4 conferidos).
+    """
+    doc_titulo = (titulo or doc.get("titulo") or "").strip() or titulo_padrao(doc)
     doc_id = doc["hash_documento"]
 
     fluxo = costurar(doc["paginas"])

@@ -59,12 +59,48 @@ def _carregar(caminho: Path) -> list[dict]:
     return json.loads(caminho.read_text(encoding="utf-8"))
 
 
+class TituloDivergente(ValueError):
+    """O --titulo pedido não é o que está gravado no cabeçalho dos chunks."""
+
+
+def resolver_titulo(titulo_cli: str | None, chunks_brutos: list[dict]) -> str:
+    """
+    Decide o título do cadastro a partir dos chunks já gerados.
+
+    O cabeçalho contextual (o que aparece na citação) é gravado no CHUNKING,
+    não aqui. Se o `--titulo` daqui divergir do que está nos chunks, o banco
+    fica com `documentos.titulo` certo e as citações erradas — o bug de 28/09.
+    Por isso: sem `--titulo`, herda o dos chunks; com `--titulo` divergente,
+    recusa e manda re-chunkar (chunking é grátis e determinístico).
+    """
+    titulos = {(c.get("documento") or "").strip() for c in chunks_brutos} - {""}
+    if len(titulos) > 1:
+        raise TituloDivergente(f"chunks com títulos diferentes entre si: {sorted(titulos)}")
+    titulo_chunks = titulos.pop() if titulos else None
+    if titulo_cli is None:
+        if titulo_chunks is None:
+            raise TituloDivergente("chunks sem campo 'documento'; passe --titulo e re-chunke")
+        return titulo_chunks
+    if titulo_chunks is not None and titulo_cli.strip() != titulo_chunks:
+        raise TituloDivergente(
+            f"--titulo {titulo_cli.strip()!r} diverge do título embutido nos chunks "
+            f"{titulo_chunks!r}. Re-gere os chunks com o título certo:\n"
+            "  uv run python tools/chunk_document.py <json de extração> "
+            f'--titulo "{titulo_cli.strip()}"'
+        )
+    return titulo_cli.strip()
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("pdf", help="PDF original em data/brutos/")
     p.add_argument("--orgao", required=True, help="Órgão/entidade contratante")
     p.add_argument("--tipo", default="edital", help="edital | ata | resultado | anexo | ... | outro")
-    p.add_argument("--titulo", default=None, help="Padrão: nome do arquivo sem extensão")
+    p.add_argument(
+        "--titulo",
+        default=None,
+        help="Padrão: o título já gravado nos chunks. Se divergir deles, a indexação é recusada.",
+    )
     p.add_argument("--numero-edital", default=None)
     p.add_argument("--data-abertura", default=None, help="AAAA-MM-DD")
     p.add_argument("--dry-run", action="store_true", help="Traduz e valida sem escrever")
@@ -85,12 +121,25 @@ def main() -> int:
     caminho_itens = DIR_CHUNKS / f"{stem}_itens.json"
     itens = _carregar(caminho_itens) if caminho_itens.is_file() else []
 
+    try:
+        titulo = resolver_titulo(args.titulo, chunks_brutos)
+    except TituloDivergente as exc:
+        print(f"ERRO: {exc}", file=sys.stderr)
+        return 2
+    if titulo == stem.replace("_", " "):
+        print(
+            "AVISO: o título é o nome do arquivo. Os PDFs do Drive vieram com nome trocado "
+            "(28/09) — confira o conteúdo (tools/triar_documentos.py) antes de indexar.",
+            file=sys.stderr,
+        )
+
     data_abertura = date.fromisoformat(args.data_abertura) if args.data_abertura else None
     # O DDL não guarda contagem de páginas em lugar nenhum antes do cadastro;
     # a maior página vista nos chunks é a melhor estimativa disponível aqui.
     num_paginas = max((int(c.get("pagina_fim") or 0) for c in chunks_brutos), default=None)
 
     print(f"Documento: {stem}")
+    print(f"  título: {titulo}")
     print(f"  chunks: {len(chunks_brutos)}   linhas de planilha: {len(itens)}   páginas: {num_paginas}")
 
     if args.dry_run:
@@ -125,7 +174,7 @@ def main() -> int:
             conn,
             storage_path=storage_path,
             hash_sha256=hash_sha256,
-            titulo=args.titulo or stem,
+            titulo=titulo,
             tipo=args.tipo,
             orgao=args.orgao,
             numero_edital=args.numero_edital,
