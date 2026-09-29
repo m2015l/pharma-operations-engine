@@ -137,11 +137,16 @@ def enviar(client, url: str, chave: str, caminho: Path) -> tuple[str, str]:
     return storage_path, hash_sha256
 
 
-def main() -> int:
+def construir_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("arquivos", nargs="*", help="PDFs a subir (aceita glob do shell)")
     parser.add_argument("--listar", action="store_true", help="Só lista o que já está no bucket")
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = construir_parser()
+    args = parser.parse_args(argv)
 
     if not args.arquivos and not args.listar:
         parser.error("informe ao menos um arquivo, ou use --listar")
