@@ -110,7 +110,23 @@ class OpenRouterLLM:
 
     URL_BASE = "https://openrouter.ai/api/v1"
 
-    def __init__(self, model: str | None = None) -> None:
+    def __init__(
+        self,
+        model: str | None = None,
+        *,
+        json_mode: bool = False,
+        temperatura: float | None = None,
+    ) -> None:
+        """`json_mode` e `temperatura` servem a usos fora do agente (ex.: a
+        classificação de documentos, que quer JSON e saída estável). O agente
+        não passa nenhum dos dois e continua com o comportamento de antes.
+
+        Depois de cada chamada, `ultimo_uso` guarda tokens e o custo real em
+        US$ devolvido pelo OpenRouter (`usage.cost`), quando disponível.
+        """
+        self._json_mode = json_mode
+        self._temperatura = temperatura
+        self.ultimo_uso: dict = {}
         try:
             from openai import OpenAI
         except ImportError as exc:  # pragma: no cover - caminho de produção
@@ -136,11 +152,26 @@ class OpenRouterLLM:
     def completar(
         self, system: str, mensagens: list[dict], max_tokens: int = 4096
     ) -> str:  # pragma: no cover - exige chave de API
+        extras: dict = {}
+        if self._json_mode:
+            extras["response_format"] = {"type": "json_object"}
+        if self._temperatura is not None:
+            extras["temperature"] = self._temperatura
         resposta = self._client.chat.completions.create(
             model=self._model,
             max_tokens=max_tokens,
             messages=[{"role": "system", "content": system}, *mensagens],
+            # Pede ao OpenRouter o custo real da chamada em `usage.cost`.
+            extra_body={"usage": {"include": True}},
+            **extras,
         )
+        uso = resposta.usage
+        self.ultimo_uso = {
+            "modelo": self._model,
+            "tokens_entrada": getattr(uso, "prompt_tokens", None),
+            "tokens_saida": getattr(uso, "completion_tokens", None),
+            "custo_usd": getattr(uso, "cost", None),
+        }
         return resposta.choices[0].message.content or ""
 
 
