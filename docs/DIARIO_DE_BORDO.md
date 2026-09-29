@@ -5,6 +5,46 @@
 
 ---
 
+## 2026-09-28 — RESUMO DO DIA e ponto de partida para a próxima sessão (Roger + Claude)
+
+> Entrada-índice: resume o dia inteiro em uma página. Os detalhes de cada etapa estão nas entradas de 28/09 logo abaixo (da mais recente para a mais antiga).
+
+**Resultado do dia em uma linha:** o RAG saiu de nota 3/5 (auditoria de 17/08) para **4,5/5** (auditoria do lote 2), com as 10 correções do `PRECISÃO.md` aplicadas, embeddings migrados para Voyage, e 3 documentos novos indexados — mas o lote de 31 documentos do Drive se mostrou **não confiável nos nomes de arquivo**.
+
+**O que foi feito, em ordem:**
+1. **Infra destravada** — Supabase estava pausado por inatividade (reativado); dois bugs de `.env` corrigidos (`EMBEDDING_MODEL` com slug do OpenRouter e `EMBEDDING_BASE_URL` apontando pro OpenRouter);
+2. **I1–I4** (filtros que zeravam a busca, refinamento sem filtro, linguagem "não está nos trechos recuperados", `top_k` 5→8) — aplicadas em sessão paralela e **verificadas ao vivo com chamada paga**: as duas recusas falsas mais graves de agosto (turnos 1.3 e 3.3) agora respondem certo;
+3. **Golden set criado** (`data/golden_set.json`, 15 casos, versionado como exceção no `.gitignore`);
+4. **I5, I7–I10** (multi-assunto, seção herdada em planilha, memória de conversa, consulta a `itens_planilha`, formato da resposta) — em outra sessão paralela; **I9 estava implementada mas não ligada ao CLI** — corrigido;
+5. **I6** aplicado como patch pontual de dados na folha de rosto da CAT do SENAI (`tools/i6_reindexar_folha_rosto_cat576640.py`, já executado — não rodar de novo): a área certificada de 5.655 m² passou da posição 7 para a posição 1 na busca;
+6. **Voyage em produção** (`voyage-4-large-1024`) após o cartão ser cadastrado; piso recalibrado para `SIMILARIDADE_MINIMA=0.4472`; golden set: **11/11 recall + 4/4 controles negativos**;
+7. **Merge e push** de tudo em `main` (commit `4d36a38` publicado no GitHub); 114 testes passando, ruff limpo;
+8. **PDF de documentação para a empresa**: `data/relatorios/Melhoria_RAG_Solufarma_2026-09-28.pdf` (fica fora do git, `data/` é ignorado);
+9. **3 documentos novos indexados** (de 31 enviados): Ariston (vapor puro), Instituto Butantan (biotério), FIOCRUZ/Bio-Manguinhos (cabine de criogenia). **4 de 4 arquivos conferidos tinham o nome trocado em relação ao conteúdo** — metadados corrigidos no banco pelo conteúdo real;
+10. **Auditoria do lote 2** (agente interrogador cego + agente orquestrador): **4,5/5** — 6 sem problema, 1 leve, 0 médias/graves. Relatório em `docs/auditorias/2026-09-28_lote2_novos_documentos.md`. Memória de conversa (I8) confirmada ao vivo pela primeira vez;
+11. **Decisão TEP vs. Solufarma**: os 3 atestados novos são da TEP, não da Solufarma — tratado por ora como uso só de consulta (premissa, não confirmação).
+
+**Estado em que as coisas ficaram (importante para amanhã):**
+- **3 commits locais NÃO publicados** (`adaa38b`, `deaa652`, `154a6e2` + este registro) — Roger pediu para deixar local por enquanto. Publicar com `git push origin main` quando decidir;
+- `.env`: `EMBEDDING_PROVIDER=voyage`, `SIMILARIDADE_MINIMA=0.4472`, `OPENAI_API_KEY` preenchida (fallback), `EMBEDDING_BASE_URL` vazio;
+- Banco: 4 documentos, 170 chunks, todos com embedding Voyage;
+- `data/brutos/`: os 3 PDFs já indexados (ainda com o nome de arquivo errado no disco — só o banco foi corrigido); `data/`: 29 PDFs soltos (27 nunca processados + o SENAI já indexado + `BUTANTAN CAT SJC-02542`, que é duplicata do SJC-02085 e foi descartado);
+- Duas worktrees de sessões paralelas continuam em `.claude/worktrees/` (branches `worktree-i5-i10` e `worktree-agent-adfdac112a4b14635`) — já mescladas, podem ser removidas;
+- Frontend: conceito e protótipo com vídeo demo sendo feitos em sessão paralela, em `frontend_demo/` (não commitado).
+
+**O que falta fazer (por prioridade):**
+1. **Frontend Streamlit** — revisar o conceito/vídeo demo de `frontend_demo/` e partir para a aplicação real (item 18 do plano, maior frente em aberto);
+2. **Conferir o conteúdo dos 27 documentos restantes antes de indexar** — não confiar no nome do arquivo (item 27). Vale automatizar: extrair órgão/CAT/título do próprio conteúdo em vez do nome — resolve também o item 17;
+3. **Corrigir o `tools/indexar.py`**: `--titulo` só grava em `documentos.titulo`, mas o cabeçalho de cada chunk vem do nome do arquivo no chunking — hoje foi corrigido à mão no banco;
+4. **Recalibrar o piso** a cada lote relevante de documentos (item 12);
+5. **Reauditoria completa dos 20 turnos** de agosto para ter a nota comparável (item 25);
+6. **Generalizar o padrão "folha de rosto sem heading" (I6/P6) em código** (item 28);
+7. **TEP vs. Solufarma** — confirmar com a empresa se esses atestados podem ser usados como comprovação de capacidade técnica (item 26);
+8. Débito técnico: port ADR-007 (item 14), testes dos CLIs novos (item 20);
+9. Fora do RAG, mas do contrato: **classificação e sumarização via IA** (item 19, não iniciado) e **critérios de decisão da Solufarma** (item 5, aguardando cliente desde agosto).
+
+---
+
 ## 2026-09-28 — 3 documentos novos indexados; nota 4,5/5 na auditoria; achado grave nos nomes de arquivo do Drive (Roger + Claude)
 
 **O que foi feito:**
