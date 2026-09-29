@@ -295,6 +295,30 @@ def criar_provedor(nome: str | None = None) -> EmbeddingProvider:
     )
 
 
+class RepoRestrito:
+    """Restringe o pipeline incremental a alguns documentos.
+
+    `gerar_embeddings_pendentes` embedda TUDO o que `listar_pendentes` devolve.
+    Com outra sessão inserindo documentos ao mesmo tempo, isso embeddaria (e
+    marcaria como indexados) chunks que não são desta execução. Este invólucro
+    filtra a lista de pendentes por `documento_id` e delega o resto. Usado pelo
+    `tools/generate_embeddings.py --documento-id` e pelo upload da API.
+    """
+
+    def __init__(self, repo, documento_ids: set[str]):
+        self._repo = repo
+        self._ids = set(documento_ids)
+
+    def listar_pendentes(self):
+        return [c for c in self._repo.listar_pendentes() if c.documento_id in self._ids]
+
+    def documentos_com_pendencias(self) -> set[str]:
+        return self._repo.documentos_com_pendencias() & self._ids
+
+    def __getattr__(self, nome):
+        return getattr(self._repo, nome)
+
+
 class RelatorioEmbeddings(BaseModel):
     """Resultado de uma execução do pipeline (log/custo — SOP passo 5)."""
 

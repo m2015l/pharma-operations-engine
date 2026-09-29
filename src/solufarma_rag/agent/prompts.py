@@ -5,6 +5,8 @@ factual referencia [n], onde [n] mapeia para um trecho recuperado do acervo.
 Resposta sem fonte rastreável é bug, não feature incompleta.
 """
 
+from solufarma.classificacao import DISCIPLINAS
+
 SYSTEM_AGENTE = """\
 Você é o assistente de licitações da Solufarma. Você responde perguntas sobre o
 acervo histórico de licitações (editais, atas, resultados) e analisa novos
@@ -39,6 +41,11 @@ ESTILO:
 # tem o tipo "atestado", fora do enum, e qualquer filtro preenchido zera a
 # busca). Usa saída JSON estrita para parsing determinístico.
 #
+# EXCEÇÃO: "executante_grupo" e "disciplinas" filtram pela classificação por IA
+# de cada documento (migração 004) e SÃO preenchidos — mas só quando o usuário
+# pede a restrição explicitamente. O código (agent.py) descarta valor fora do
+# vocabulário de `solufarma.classificacao`.
+#
 # "consultas" (plural, I5 do PRECISÃO.md): pergunta com mais de um assunto
 # ("sala limpa ISO 7" + "manutenção predial") vira uma consulta por assunto —
 # um vetor médio dos dois não casa direito com nenhum. Limite de 3 é aplicado
@@ -54,7 +61,9 @@ comentários, no formato:
     "orgao": null,
     "tipo_documento": null,
     "data_inicio": null,
-    "data_fim": null
+    "data_fim": null,
+    "executante_grupo": null,
+    "disciplinas": []
   }}
 }}
 
@@ -71,10 +80,38 @@ REGRAS PARA "consultas":
   "manutenção predial 5 anos"), devolva UMA consulta por assunto. Nunca junte
   assuntos diferentes numa consulta só. No máximo 3 consultas.
 - Se a pergunta trata de um assunto só, devolva uma lista com 1 item.
-- Não invente filtros. Os quatro campos de "filtros" são sempre null.
+- Não invente filtros. "orgao", "tipo_documento", "data_inicio" e "data_fim"
+  são sempre null.
+
+REGRAS PARA "executante_grupo" e "disciplinas" (filtros pela classificação do
+documento — só preencha quando o usuário PEDE EXPLICITAMENTE a restrição):
+- "executante_grupo": "solufarma" quando o usuário restringe aos atestados da
+  Solufarma ("só atestados da Solufarma", "comprovação em nome da Solufarma",
+  "executados pela Solufarma"); "tep" quando restringe aos da TEP. Mencionar a
+  Solufarma de passagem ("a Solufarma já fez sala limpa?") NÃO é restrição:
+  deixe null. Valores possíveis: solufarma, tep, consorcio, outra.
+- "disciplinas": só quando o usuário restringe por disciplina ("atestados de
+  HVAC", "só os de elétrica"). Use apenas estas chaves: {disciplinas}.
+  Caso contrário, lista vazia.
 
 Pergunta do usuário:
 {pergunta}
+""".replace("{disciplinas}", ", ".join(DISCIPLINAS))
+
+# Regra de negócio vigente (pendência 26 do plano): atestado cuja executante é a
+# TEP serve só como consulta interna — não comprova capacidade técnica da
+# Solufarma. Anexado ao PROMPT_RESPONDER quando a pergunta é de comprovação e há
+# trecho da TEP no contexto; o agente ainda acrescenta, em código, a lista do
+# executante de cada documento citado (não depende do modelo obedecer).
+PROMPT_EXECUTANTE_SUFIXO = """
+
+ATENÇÃO — EXECUTANTE DOS ATESTADOS: a pergunta é sobre comprovação de
+capacidade técnica e há, entre os trechos, atestados cuja executante é a TEP
+(atributo executante_grupo="tep"). Para CADA atestado que você citar, diga
+explicitamente quem é a executante (Solufarma, TEP, consórcio ou outra). Deixe
+claro que atestado da TEP serve apenas como referência interna e NÃO comprova
+capacidade técnica da Solufarma. Não some quantitativos de atestados da TEP aos
+da Solufarma.
 """
 
 # Reescrita de referência (I8 do PRECISÃO.md): roda ANTES de PROMPT_INTERPRETAR

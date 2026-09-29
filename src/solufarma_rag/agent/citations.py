@@ -20,13 +20,20 @@ def montar_contexto(resultados: list[ChunkComScore]) -> str:
 
     O id numérico (1-based) é o que o modelo referencia como [n]. Os metadados
     (documento, seção, página) entram na tag para o modelo poder mencioná-los.
+    Executante/grupo só entram quando o documento já foi classificado.
     """
     partes: list[str] = []
     for n, resultado in enumerate(resultados, start=1):
         c = resultado.chunk
+        executante = ""
+        if c.executante_grupo:
+            executante = (
+                f' executante="{c.executante or "—"}" executante_grupo="{c.executante_grupo}"'
+            )
         partes.append(
             f'<trecho id="{n}" documento_id="{c.documento_id}" tipo="{c.tipo_documento}" '
-            f'orgao="{c.orgao}" secao="{c.secao}" pagina="{c.pagina_inicio}-{c.pagina_fim}">\n'
+            f'orgao="{c.orgao}" secao="{c.secao}" pagina="{c.pagina_inicio}-{c.pagina_fim}"'
+            f"{executante}>\n"
             f"{c.conteudo}\n</trecho>"
         )
     return "\n\n".join(partes)
@@ -78,4 +85,6 @@ def _montar_citacao(marcador: int, chunk: Chunk) -> Citacao:
         pagina_inicio=chunk.pagina_inicio,
         pagina_fim=chunk.pagina_fim,
         trecho=trecho,
+        executante=chunk.executante,
+        executante_grupo=chunk.executante_grupo,
     )

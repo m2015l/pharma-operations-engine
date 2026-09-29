@@ -90,7 +90,8 @@ class EtapaOut(BaseModel):
 
 
 class EnvioOut(BaseModel):
-    """Progresso de um upload real: triagem → extração → chunks → cadastro → embeddings."""
+    """Progresso de um upload real: triagem → extração → chunks → cadastro → embeddings
+    → classificação."""
 
     id: str
     arquivo: str
@@ -102,6 +103,13 @@ class EnvioOut(BaseModel):
     titulo: str | None = None
     documento_id: str | None = None
     erro: str | None = None
+    aguardando_aprovacao: bool = Field(
+        default=False,
+        description=(
+            "True quando o envio parou antes do OCR por passar de UPLOAD_MAX_PAGINAS_OCR "
+            "(estado vem 'erro' para o frontend v2). Libere com POST /uploads/{id}/aprovar."
+        ),
+    )
 
 
 class SaudeOut(BaseModel):

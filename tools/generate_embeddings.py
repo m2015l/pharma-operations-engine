@@ -37,6 +37,7 @@ sys.path.insert(0, str(RAIZ / "src"))
 from solufarma_rag.db.repository import InMemoryChunkRepository
 from solufarma_rag.ingestion.embeddings import (
     FakeEmbeddingProvider,
+    RepoRestrito,
     criar_provedor,
     gerar_embeddings_pendentes,
 )
@@ -70,27 +71,8 @@ def _zerar_embeddings(conn) -> int:
     return afetadas
 
 
-class RepoRestrito:
-    """Restringe o pipeline incremental a alguns documentos.
-
-    `gerar_embeddings_pendentes` embedda TUDO o que `listar_pendentes` devolve.
-    Com outra sessão inserindo documentos ao mesmo tempo, isso embeddaria (e
-    marcaria como indexados) chunks que não são desta execução. Este invólucro
-    filtra a lista de pendentes por `documento_id` e delega o resto.
-    """
-
-    def __init__(self, repo, documento_ids: set[str]):
-        self._repo = repo
-        self._ids = set(documento_ids)
-
-    def listar_pendentes(self):
-        return [c for c in self._repo.listar_pendentes() if c.documento_id in self._ids]
-
-    def documentos_com_pendencias(self) -> set[str]:
-        return self._repo.documentos_com_pendencias() & self._ids
-
-    def __getattr__(self, nome):
-        return getattr(self._repo, nome)
+# `RepoRestrito` (o --documento-id) mora em solufarma_rag.ingestion.embeddings,
+# importado acima: o upload da API usa o mesmo invólucro.
 
 
 def construir_parser() -> argparse.ArgumentParser:

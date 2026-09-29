@@ -9,6 +9,7 @@ quando o banco estiver provisionado (DDL em docs/ARQUITETURA.md §3).
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol
@@ -20,13 +21,53 @@ from ..text_utils import tokenizar as _tokenizar
 from .models import Chunk, ItemPlanilha
 
 
+def _contem(a: object, b: object) -> bool:
+    """Semântica do `@>` do JSONB em Python: `a` contém `b`?
+
+    Objeto: toda chave de `b` existe em `a` e o valor de `a` contém o de `b`.
+    Lista: todo elemento de `b` é contido por ALGUM elemento de `a`.
+    Escalar: igualdade. Espelha o SQL para o repositório em memória.
+    """
+    if isinstance(b, dict):
+        return isinstance(a, dict) and all(k in a and _contem(a[k], v) for k, v in b.items())
+    if isinstance(b, list):
+        return isinstance(a, list) and all(any(_contem(x, y) for x in a) for y in b)
+    return a == b
+
+
 class FiltrosBusca(BaseModel):
-    """Filtros por metadados aplicados ANTES do ranking (ARQUITETURA.md §5.1)."""
+    """Filtros por metadados aplicados ANTES do ranking (ARQUITETURA.md §5.1).
+
+    `executante_grupo` e `disciplinas` filtram pela classificação por IA do
+    documento (`documentos.classificacao`, migração 004, formato
+    `{"campo": {"valor": ...}}` de `solufarma.classificacao`). Com um deles
+    preenchido, documento SEM classificação fica fora da busca (não há como
+    saber o executante dele); sem nenhum dos dois, nada muda. `disciplinas`
+    com mais de um valor exige TODAS (containment do JSONB).
+    """
 
     orgao: str | None = None
     tipo_documento: str | None = None
     data_inicio: date | None = None
     data_fim: date | None = None
+    executante_grupo: str | None = None
+    disciplinas: list[str] | None = None
+
+    def classificacao_exigida(self) -> dict | None:
+        """O documento-alvo do `classificacao @> ...`, ou None se não há filtro de classificação."""
+        alvo: dict = {}
+        if self.executante_grupo:
+            alvo["executante_grupo"] = {"valor": self.executante_grupo}
+        if self.disciplinas:
+            alvo["disciplinas"] = [{"valor": d} for d in self.disciplinas]
+        return alvo or None
+
+    def aceita_classificacao(self, classificacao: dict | None) -> bool:
+        """Mesma regra do SQL: sem filtro aceita tudo; com filtro, exige containment."""
+        alvo = self.classificacao_exigida()
+        if alvo is None:
+            return True
+        return classificacao is not None and _contem(classificacao, alvo)
 
     def aceita(self, chunk: Chunk) -> bool:
         """Verifica se um chunk passa nos filtros (usado pelo repositório em memória)."""
@@ -161,6 +202,33 @@ class InMemoryChunkRepository:
     _registros: dict[str, _RegistroChunk] = field(default_factory=dict)
     documentos_indexados: set[str] = field(default_factory=set)
     _itens_planilha: list[ItemPlanilha] = field(default_factory=list)
+    # documento_id -> `documentos.classificacao` (jsonb). Ausente = não classificado.
+    _classificacoes: dict[str, dict] = field(default_factory=dict)
+
+    def definir_classificacao(self, documento_id: str, classificacao: dict) -> None:
+        """Equivale ao `classificacao.salvar` do Supabase (testes)."""
+        self._classificacoes[documento_id] = classificacao
+
+    def contar_documentos_sem_classificacao(self) -> int:
+        docs = {r.chunk.documento_id for r in self._registros.values()}
+        return len(docs - set(self._classificacoes))
+
+    def _passa(self, chunk: Chunk, filtros: FiltrosBusca) -> bool:
+        return filtros.aceita(chunk) and filtros.aceita_classificacao(
+            self._classificacoes.get(chunk.documento_id)
+        )
+
+    def _com_executante(self, chunk: Chunk) -> Chunk:
+        """Anexa executante/grupo da classificação, como faz o JOIN do Supabase."""
+        cls = self._classificacoes.get(chunk.documento_id)
+        if not cls:
+            return chunk
+        return chunk.model_copy(
+            update={
+                "executante": (cls.get("executante") or {}).get("valor"),
+                "executante_grupo": (cls.get("executante_grupo") or {}).get("valor"),
+            }
+        )
 
     def upsert_chunks(self, chunks: list[Chunk]) -> None:
         for chunk in chunks:
@@ -214,9 +282,9 @@ class InMemoryChunkRepository:
         similaridade_minima: float = 0.0,
     ) -> list[tuple[Chunk, float]]:
         candidatos = [
-            (r.chunk, _cosseno(embedding_consulta, r.embedding))
+            (self._com_executante(r.chunk), _cosseno(embedding_consulta, r.embedding))
             for r in self._registros.values()
-            if r.embedding is not None and filtros.aceita(r.chunk)
+            if r.embedding is not None and self._passa(r.chunk, filtros)
         ]
         candidatos = [par for par in candidatos if par[1] >= similaridade_minima]
         candidatos.sort(key=lambda par: par[1], reverse=True)
@@ -230,7 +298,7 @@ class InMemoryChunkRepository:
             return []
         resultados: list[tuple[Chunk, float]] = []
         for r in self._registros.values():
-            if not filtros.aceita(r.chunk):
+            if not self._passa(r.chunk, filtros):
                 continue
             tokens_chunk = _tokenizar(r.chunk.conteudo)
             if not tokens_chunk:
@@ -238,7 +306,7 @@ class InMemoryChunkRepository:
             acertos = sum(1 for t in tokens_chunk if t in termos)
             if acertos > 0:
                 # Aproximação de ts_rank: frequência dos termos normalizada pelo tamanho.
-                resultados.append((r.chunk, acertos / len(tokens_chunk)))
+                resultados.append((self._com_executante(r.chunk), acertos / len(tokens_chunk)))
         resultados.sort(key=lambda par: par[1], reverse=True)
         return resultados[:limite]
 
@@ -276,11 +344,17 @@ class InMemoryChunkRepository:
 # `orgao` e `data_abertura` vivem em `licitacoes`, não em `doc_chunks` (decisão
 # de DDL: não duplicar escrita). Todo SELECT que monta um Chunk completo passa
 # por estes JOINs — daí a constante, para as três consultas não divergirem.
+#
+# Executante e grupo vêm da classificação por IA (migração 004) e ficam DEPOIS
+# do score (índices 12 e 13) para não deslocar as colunas que já existiam.
+# `{{` `}}` escapam as chaves do `.format(score=...)`.
 _SELECT_CHUNK = """
     select c.documento_id, c.chunk_index, d.tipo, coalesce(l.orgao, '—') as orgao,
            l.data_abertura, coalesce(c.secao, '') as secao,
            c.pagina_inicio, c.pagina_fim, c.conteudo, c.token_count, c.content_hash,
-           {score} as score
+           {score} as score,
+           d.classificacao #>> '{{executante,valor}}' as executante,
+           d.classificacao #>> '{{executante_grupo,valor}}' as executante_grupo
     from doc_chunks c
     join documentos d on d.id = c.documento_id
     left join licitacoes l on l.id = d.licitacao_id
@@ -294,15 +368,22 @@ _WHERE_FILTROS = """
     and (%(orgao)s::text is null or l.orgao ilike '%%' || %(orgao)s || '%%')
     and (%(data_inicio)s::date is null or l.data_abertura >= %(data_inicio)s)
     and (%(data_fim)s::date is null or l.data_abertura <= %(data_fim)s)
+    and (%(classificacao)s::jsonb is null or d.classificacao @> %(classificacao)s::jsonb)
 """
+# O último filtro é containment (`@>`) sobre `documentos.classificacao`, o
+# operador que o GIN `jsonb_path_ops` da migração 004 atende. Com o parâmetro
+# NULL (sem filtro), documento não classificado continua na busca; com filtro,
+# `NULL @> x` é NULL e o documento não classificado sai — de propósito.
 
 
 def _params_filtros(filtros: FiltrosBusca) -> dict:
+    alvo = filtros.classificacao_exigida()
     return {
         "tipo": filtros.tipo_documento,
         "orgao": filtros.orgao,
         "data_inicio": filtros.data_inicio,
         "data_fim": filtros.data_fim,
+        "classificacao": json.dumps(alvo, ensure_ascii=False) if alvo else None,
     }
 
 
@@ -320,6 +401,8 @@ def _linha_para_chunk(linha: tuple) -> Chunk:
         conteudo=linha[8],
         token_count=linha[9],
         content_hash=linha[10],
+        executante=linha[12] if len(linha) > 12 else None,
+        executante_grupo=linha[13] if len(linha) > 13 else None,
     )
 
 
@@ -456,6 +539,18 @@ class SupabaseChunkRepository:
                 (documento_id,),
             )
         self.conn.commit()
+
+    def contar_documentos_sem_classificacao(self) -> int:
+        """Quantos documentos com chunks ficam fora de uma busca com filtro de classificação."""
+        with self.conn.cursor() as cur:
+            cur.execute(
+                """
+                select count(*) from documentos d
+                 where d.classificacao is null
+                   and exists (select 1 from doc_chunks c where c.documento_id = d.id)
+                """
+            )
+            return int(cur.fetchone()[0])
 
     def documentos_com_pendencias(self) -> set[str]:
         with self.conn.cursor() as cur:

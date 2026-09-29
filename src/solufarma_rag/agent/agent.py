@@ -26,6 +26,13 @@ extra reescreve a pergunta como autossuficiente antes de interpretar; **I9** —
 quando a pergunta pede um quantitativo e há `repo_itens`, complementa a busca
 com um SELECT estruturado em `itens_planilha`.
 
+Classificação por IA (migração 004): a interpretação pode pedir filtros por
+`executante_grupo`/`disciplinas` quando o usuário restringe explicitamente
+("só atestados da Solufarma", "atestados de HVAC"); o refinamento os mantém.
+Em pergunta de comprovação de capacidade técnica com atestado da TEP entre as
+fontes, a resposta ganha, em código, o executante de cada documento citado
+(TEP = só consulta interna, pendência 26).
+
 Nota de decisão (formalizada na ADR-008, opção B — docs/DECISOES.md): o núcleo
 não importa LangGraph. O grafo tem 5 nós, 1 aresta condicional e nenhum
 requisito de persistência/checkpoint, então o custo de manutenção da dependência
@@ -42,7 +49,9 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from ..db.models import Chunk, ChunkComScore, ItemPlanilha, RespostaAgente
+from solufarma.classificacao import DISCIPLINAS, GRUPOS_EXECUTANTE
+
+from ..db.models import Chunk, ChunkComScore, Citacao, ItemPlanilha, RespostaAgente
 from ..db.repository import ChunkRepository, FiltrosBusca
 from ..retrieval.hybrid_search import Searcher
 from ..text_utils import normalizar as _normalizar
@@ -50,6 +59,7 @@ from .citations import extrair_citacoes, montar_contexto
 from .llm import LLMClient
 from .prompts import (
     PROMPT_ANALISE_EDITAL_SUFIXO,
+    PROMPT_EXECUTANTE_SUFIXO,
     PROMPT_INTERPRETAR,
     PROMPT_REFINAR_BUSCA,
     PROMPT_RESOLVER_REFERENCIA,
@@ -78,6 +88,88 @@ _MARCADORES_QUANTITATIVO = ("quant", "total de", "m2", "unidade")
 _OFFSET_CHUNK_INDEX_PLANILHA = 1_000_000
 
 _RE_JSON = re.compile(r"\{.*\}", re.DOTALL)
+
+# Pergunta de comprovação de capacidade técnica: é onde o executante do
+# atestado decide se ele serve (regra da TEP, pendência 26 do plano).
+_MARCADORES_COMPROVACAO = (
+    "comprov",
+    "capacidade tecnica",
+    "qualificacao tecnica",
+    "habilitacao tecnica",
+    "acervo tecnico",
+    "atestar",
+)
+
+_ROTULO_GRUPO = {
+    "solufarma": "Solufarma",
+    "tep": "TEP — só consulta interna, não comprova capacidade técnica da Solufarma",
+    "consorcio": "consórcio",
+    "outra": "outra empresa",
+}
+
+
+def _pede_comprovacao(pergunta: str) -> bool:
+    texto = _normalizar(pergunta)
+    return any(marcador in texto for marcador in _MARCADORES_COMPROVACAO)
+
+
+def _filtros_classificacao(brutos: dict) -> dict:
+    """Valida `executante_grupo`/`disciplinas` da interpretação contra o vocabulário
+    de `solufarma.classificacao`. Valor desconhecido é descartado com log — um
+    filtro inventado zeraria a busca (o erro de 17/08 com `tipo_documento`)."""
+    limpos: dict = {}
+    grupo = brutos.pop("executante_grupo", None)
+    if isinstance(grupo, str) and grupo.strip():
+        grupo = _normalizar(grupo).strip()
+        if grupo in GRUPOS_EXECUTANTE:
+            limpos["executante_grupo"] = grupo
+        else:
+            logger.warning("executante_grupo fora do vocabulário descartado: %r", grupo)
+    disciplinas = brutos.pop("disciplinas", None)
+    if isinstance(disciplinas, str):
+        disciplinas = [disciplinas]
+    if isinstance(disciplinas, list):
+        validas = []
+        for d in disciplinas:
+            chave = _normalizar(str(d)).strip().replace(" ", "_")
+            if chave in DISCIPLINAS:
+                validas.append(chave)
+            else:
+                logger.warning("disciplina fora do vocabulário descartada: %r", d)
+        if validas:
+            limpos["disciplinas"] = sorted(set(validas))
+    return limpos
+
+
+def _descrever_filtro_classificacao(filtros: FiltrosBusca) -> str | None:
+    partes = []
+    if filtros.executante_grupo:
+        partes.append(f"executante {filtros.executante_grupo}")
+    if filtros.disciplinas:
+        partes.append("disciplinas " + ", ".join(filtros.disciplinas))
+    return "; ".join(partes) or None
+
+
+def _nota_executantes(citacoes: list[Citacao]) -> str:
+    """Lista, em código, o executante de cada documento citado (regra da TEP).
+
+    Não depende do modelo obedecer ao PROMPT_EXECUTANTE_SUFIXO: a informação
+    vem da classificação gravada no banco.
+    """
+    por_documento: dict[str, list[Citacao]] = {}
+    for c in citacoes:
+        por_documento.setdefault(c.documento_id, []).append(c)
+    linhas = []
+    for grupo_citacoes in por_documento.values():
+        marcadores = ", ".join(str(c.marcador) for c in grupo_citacoes)
+        c = grupo_citacoes[0]
+        if c.executante_grupo:
+            rotulo = _ROTULO_GRUPO.get(c.executante_grupo, c.executante_grupo)
+            quem = f"{c.executante} ({rotulo})" if c.executante else rotulo
+        else:
+            quem = "executante não classificado — confira no documento"
+        linhas.append(f"- [{marcadores}] {quem}")
+    return "\n\nExecutante de cada atestado citado:\n" + "\n".join(linhas)
 
 
 def _extrair_json(texto: str) -> dict:
@@ -218,22 +310,44 @@ class AgenteLicitacoes:
             if not nova_consulta or nova_consulta in interpretacao.consultas:
                 break
             interpretacao.consultas = [nova_consulta]
-            # Segunda tentativa sem filtros: se foi um filtro que zerou a busca
-            # (tipo/órgão que não casa com o acervo), refinar só a consulta não
-            # tem como salvar — a segunda chamada nasce condenada.
-            resultados = self.searcher.buscar(nova_consulta, FiltrosBusca(), self.top_k)
+            # Segunda tentativa sem os filtros de metadado: se foi um filtro que
+            # zerou a busca (tipo/órgão que não casa com o acervo), refinar só a
+            # consulta não tem como salvar — a segunda chamada nasce condenada.
+            # Os de classificação (executante/disciplina) FICAM: o usuário pediu
+            # explicitamente "só da Solufarma"; tirar em silêncio devolveria
+            # atestado de outra executante como se atendesse.
+            f = interpretacao.filtros
+            resultados = self.searcher.buscar(
+                nova_consulta,
+                FiltrosBusca(executante_grupo=f.executante_grupo, disciplinas=f.disciplinas),
+                self.top_k,
+            )
 
         if not resultados:
+            filtro = _descrever_filtro_classificacao(interpretacao.filtros)
+            texto_vazio = MSG_SEM_RESULTADOS
+            if filtro:
+                texto_vazio += (
+                    f" A busca foi restrita a documentos classificados com {filtro}; "
+                    "documentos ainda não classificados ficam fora desse filtro."
+                )
             return RespostaAgente(
-                texto=MSG_SEM_RESULTADOS,
+                texto=texto_vazio,
                 citacoes=[],
                 tipo_fluxo=interpretacao.tipo_fluxo,
                 encontrou_no_acervo=False,
                 trechos_recuperados=0,
             )
 
-        texto = self._responder_com_contexto(pergunta, resultados, interpretacao, edital)
+        exigir_executante = _pede_comprovacao(pergunta) and any(
+            r.chunk.executante_grupo == "tep" for r in resultados
+        )
+        texto = self._responder_com_contexto(
+            pergunta, resultados, interpretacao, edital, exigir_executante
+        )
         citacoes, invalidos = extrair_citacoes(texto, resultados)
+        if exigir_executante and citacoes:
+            texto += _nota_executantes(citacoes)
 
         if invalidos:
             # Fonte inexistente é alucinação: registrar sempre, nunca engolir em silêncio.
@@ -300,6 +414,19 @@ class AgenteLicitacoes:
         vistos: set[str] = set()
         unidos: list[ChunkComScore] = []
 
+        filtro = _descrever_filtro_classificacao(interpretacao.filtros)
+        if filtro:
+            # Documento sem classificação não entra num filtro por executante/
+            # disciplina — registrar sempre, para ninguém achar que ele não existe.
+            contar = getattr(self.repo_itens, "contar_documentos_sem_classificacao", None)
+            fora = contar() if callable(contar) else "?"
+            logger.warning(
+                "Filtro de classificação ativo (%s): %s documento(s) sem classificação "
+                "ficam fora desta busca",
+                filtro,
+                fora,
+            )
+
         for consulta in interpretacao.consultas:
             for resultado in self.searcher.buscar(consulta, interpretacao.filtros, self.top_k):
                 chave = resultado.chunk.chave
@@ -341,12 +468,19 @@ class AgenteLicitacoes:
         filtros_brutos = dados.get("filtros")
         filtros = FiltrosBusca()
         if isinstance(filtros_brutos, dict):
-            limpos = {k: v for k, v in filtros_brutos.items() if v not in (None, "")}
+            brutos = dict(filtros_brutos)
+            de_classificacao = _filtros_classificacao(brutos)
+            limpos = {k: v for k, v in brutos.items() if v not in (None, "", [])}
+            limpos |= de_classificacao
             try:
                 filtros = FiltrosBusca.model_validate(limpos)
             except ValueError:
-                # Filtro malformado não pode derrubar a consulta — busca sem filtro.
+                # Filtro malformado não pode derrubar a consulta — busca sem os
+                # filtros de metadado, mas mantém os de classificação (já validados).
                 logger.warning("Filtros inválidos na interpretação: %r", filtros_brutos)
+                filtros = FiltrosBusca(**de_classificacao)
+        if filtros.classificacao_exigida():
+            logger.info("Filtro de classificação pedido na pergunta: %s", filtros.classificacao_exigida())
 
         return Interpretacao(tipo_fluxo=tipo_fluxo, consultas=consultas, filtros=filtros)
 
@@ -369,11 +503,14 @@ class AgenteLicitacoes:
         resultados: list,
         interpretacao: Interpretacao,
         edital: str | None,
+        exigir_executante: bool = False,
     ) -> str:
         """Gera a resposta final a partir dos trechos numerados do acervo."""
         conteudo = PROMPT_RESPONDER.format(
             contexto=montar_contexto(resultados), pergunta=pergunta
         )
+        if exigir_executante:
+            conteudo += PROMPT_EXECUTANTE_SUFIXO
         if interpretacao.tipo_fluxo == "analise_edital" and edital:
             conteudo += PROMPT_ANALISE_EDITAL_SUFIXO.format(edital=edital)
         return self.llm.completar(SYSTEM_AGENTE, [{"role": "user", "content": conteudo}])
