@@ -239,6 +239,30 @@ metadados de citação.
 ---
 
 
+## ADR-009 — O acervo é de atestados, não de editais e atas; sem tela de login por ora
+
+**Data:** 29/09/26 · **Decisão:** Roger, confirmada com o gerente da Solufarma
+
+**Contexto:** a proposta fala em indexar "editais, atas e resultados". O acervo real que chegou
+é todo de atestados de capacidade técnica e CATs. Editais e atas são documentos do começo ou do
+meio de um processo; o que a empresa quer consultar é o **resultado final da obra**, o atestado.
+
+**Decisão:**
+1. O acervo do RAG é de **atestados de capacidade técnica e CATs**. Editais e atas ficam fora
+   do acervo. O tipo padrão na ingestão e no upload é `atestado`;
+2. **Sem tela de login** nesta fase (fatia F8 do `frontend/PLANO_V2.md` suspensa). Se voltar,
+   é decisão nova.
+
+**Consequências:**
+- Deixa de ser lacuna a falta de editais/atas no acervo, e o golden set e a heurística de
+  folha de rosto (calibrados em CATs) cobrem o tipo de documento que importa;
+- O fluxo `analise_edital` do agente continua existindo (comparar um edital novo com o acervo
+  de atestados), mas o edital é **entrada da pergunta**, não parte do acervo;
+- Sem login, não há histórico persistido por usuário nem autor no .docx.
+
+---
+
+
 ## Decisões pendentes
 
 | # | Decisão | Opções em avaliação | Prazo sugerido |
