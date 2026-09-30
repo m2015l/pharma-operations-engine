@@ -1,6 +1,6 @@
 [
   {
-    "pergunta": "Qual a área certificada de execução de obra e de reforma de edificação nesta CAT?",
+    "pergunta": "Qual a área certificada de execução de obra e de reforma de edificação na CAT do laboratório ISI do SENAI CETIQT?",
     "esperado_paginas": [
       1,
       2
@@ -11,7 +11,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 1.3/1.4/I6 — 'ATIVIDADE TÉCNICA REALIZADA': 5655.00 m² de execução de obra e 5655.00 m² de reforma de edificação, .tmp/acervo_indexado.md linha 62-63 (chunk 1-2, p.1-2)"
   },
   {
-    "pergunta": "Quem é o contratante, qual o CNPJ dele e qual a vigência do contrato?",
+    "pergunta": "Na obra do laboratório ISI do SENAI CETIQT, quem é o contratante, qual o CNPJ dele e qual a vigência do contrato?",
     "esperado_paginas": [
       1,
       4
@@ -22,7 +22,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 3.3/3.4 — contratante SENAI CETIQT e CNPJ 03.851.105/0001-42 em p.1-2 (chunk 2-3); vigência 07/02/2019 a 06/02/2020 em p.4 (chunk 7, seção 2.6 Vigência contratual)"
   },
   {
-    "pergunta": "Qual a área construída total da obra, somando todos os pavimentos?",
+    "pergunta": "Qual a área construída total da obra do laboratório ISI do SENAI CETIQT, somando todos os pavimentos?",
     "esperado_paginas": [
       4,
       6
@@ -33,7 +33,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 1.2/1.4 — tabelas de área por pavimento: 2º p.4-5 (chunk 10), 3º p.5 (chunk 11), 4º p.5-6 (chunk 13), 5º p.6 (chunk 15). Não existe 1º pavimento no acervo."
   },
   {
-    "pergunta": "Quais as quantidades de piso vinílico aplicadas (P01, P02, P03)?",
+    "pergunta": "Quais as quantidades de piso vinílico aplicadas (P01, P02, P03) na obra do SENAI CETIQT?",
     "esperado_paginas": [
       35,
       36
@@ -44,7 +44,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 2.1 — P01 206,92 m², P02 1.278,26 m², P03 2.210,18 m², planilha REVESTIMENTOS > PISO, p.35 (chunk 99)"
   },
   {
-    "pergunta": "Quantos pontos de consumo (postos de utilização) de gases especiais foram instalados?",
+    "pergunta": "Quantos pontos de consumo (postos de utilização) de gases especiais foram instalados no laboratório do SENAI CETIQT?",
     "esperado_paginas": [
       45
     ],
@@ -54,7 +54,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 2.4/P7 — 144 reguladores 2º estágio em parede + 167 em totem = 311 postos, mais 28 de 1º estágio; chunk 132, p.45-50, rotulado (errado) como seção de quadro elétrico"
   },
   {
-    "pergunta": "Qual foi o prazo total de execução da obra, com os aditivos?",
+    "pergunta": "Qual foi o prazo total de execução da obra do SENAI CETIQT, com os aditivos?",
     "esperado_paginas": [
       3
     ],
@@ -64,7 +64,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 2.3 — 180 dias (contrato) + 30 (2º aditivo) + 60 (3º aditivo) = 270 dias, seção 2.4 do atestado, p.3 (chunk 6)"
   },
   {
-    "pergunta": "Qual o valor global ajustado do contrato após os termos aditivos?",
+    "pergunta": "Qual o valor global ajustado do contrato do SENAI CETIQT após os termos aditivos?",
     "esperado_paginas": [
       3
     ],
@@ -74,7 +74,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 3.5 — R$ 12.994.398,92 (valor original R$ 9.120.045,54), seção 2.3.c, p.3 (chunk 6)"
   },
   {
-    "pergunta": "Qual o número da CAT e do RRT deste atestado?",
+    "pergunta": "Qual o número da CAT e do RRT do atestado do laboratório ISI do SENAI CETIQT?",
     "esperado_paginas": [
       1
     ],
@@ -84,7 +84,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 3.2 — CAT nº 576640, RRT 8014430 SIMPLES de 13/03/2019, folha de rosto p.1 (chunk 1)"
   },
   {
-    "pergunta": "O atestado menciona porta padrão para sala limpa?",
+    "pergunta": "O atestado do SENAI CETIQT menciona porta padrão para sala limpa?",
     "esperado_paginas": [
       11
     ],
@@ -94,7 +94,7 @@
     "fonte_verificacao": "PRECISÃO.md turno 4.3 — seção A.6.1 'Portas padrão sala limpa', p.11 (chunk 36). Recusa falsa registrada na auditoria: o agente negou existir essa nomenclatura."
   },
   {
-    "pergunta": "Quantas luminárias de sala limpa foram instaladas?",
+    "pergunta": "Quantas luminárias de sala limpa foram instaladas na obra do SENAI CETIQT?",
     "esperado_paginas": [
       43
     ],
@@ -104,7 +104,7 @@
     "fonte_verificacao": "'LUMINÁRIA RETANGULAR SALA LIMPA DE EMBUTIR COM LED REF.: LPT-400 46W' — 121 PÇ, planilha LUMINOTECNIA, p.43 (chunk 125). Mesmo padrão do turno 4.3, segundo trecho que a auditoria não chegou a citar."
   },
   {
-    "pergunta": "Quem assinou como responsável técnico pela obra e quais os registros profissionais?",
+    "pergunta": "Quem assinou como responsável técnico pela obra do SENAI CETIQT e quais os registros profissionais?",
     "esperado_paginas": [
       1
     ],
