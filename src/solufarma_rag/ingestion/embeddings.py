@@ -331,6 +331,31 @@ class RelatorioEmbeddings(BaseModel):
     documentos_indexados: list[str]
 
 
+# A Voyage recusa lote acima de 120k tokens (medido por ela). Em 30/09 um lote de
+# tabelas de materiais do Cristália Obra II deu 120.348 tokens reais: texto
+# numérico tokeniza bem acima da estimativa `estimar_tokens`. Por isso o teto
+# é sobre a ESTIMATIVA e com folga larga (~3x).
+MAX_TOKENS_ESTIMADOS_POR_LOTE = 40_000
+
+
+def _lotes(chunks: list, tamanho_lote: int, max_tokens: int):
+    """Fatia em lotes de até `tamanho_lote` chunks e até `max_tokens` estimados.
+
+    Um chunk sozinho acima do teto vira um lote de um (o provedor trunca).
+    """
+    lote: list = []
+    tokens = 0
+    for chunk in chunks:
+        t = estimar_tokens(chunk.conteudo)
+        if lote and (len(lote) >= tamanho_lote or tokens + t > max_tokens):
+            yield lote
+            lote, tokens = [], 0
+        lote.append(chunk)
+        tokens += t
+    if lote:
+        yield lote
+
+
 def gerar_embeddings_pendentes(
     repo: ChunkRepository,
     provider: EmbeddingProvider,
@@ -358,8 +383,7 @@ def gerar_embeddings_pendentes(
 
     tokens_estimados = 0
     lotes = 0
-    for inicio in range(0, len(indexaveis), tamanho_lote):
-        lote = indexaveis[inicio : inicio + tamanho_lote]
+    for lote in _lotes(indexaveis, tamanho_lote, MAX_TOKENS_ESTIMADOS_POR_LOTE):
         vetores = provider.embed_batch([c.conteudo for c in lote])
         if len(vetores) != len(lote):
             raise RuntimeError(
