@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-09-30 — Preparação do teste de ponta a ponta: reindexação, golden set, hospedagem (Roger + Claude)
+
+**Contexto:** a chave do OpenRouter tem **limite de US$ 5/mês** (`limit_remaining: 0`; uso do mês US$ 5,71). Deve zerar na virada para 01/10. A chave da OpenAI do `.env` expirou (29/09) e hoje nem é reconhecida; é preciso gerar outra se um dia for usada. **Decisão do Roger:** não trocar para a OpenAI para o teste; esperar o OpenRouter. O suporte à OpenAI chegou a ser implementado e foi revertido (commit de revert).
+
+**O que foi feito (tudo sem custo de LLM):**
+- **Reindexação dos 23 documentos com o chunker corrigido** (todos menos o SENAI, que tem o patch manual do I6). O banco foi de 862 para **850 chunks**, todos com embedding. Os 4 trechos-lixo do Cristália Obra II saíram, e os trechos passaram a citar a página certa;
+- **Bug corrigido nos embeddings:** a Voyage recusa lote acima de 120 mil tokens, e as tabelas de materiais do Cristália deram 120.348. O lote agora é limitado também por tokens estimados (`MAX_TOKENS_ESTIMADOS_POR_LOTE = 40_000`);
+- **Golden set:** as 11 perguntas do SENAI diziam "nesta CAT"/"deste atestado", o que é ambíguo com 24 documentos. Foram reescritas citando a obra. **Resultado com reranker: 22/22 já no top-5, controles 4/4, MRR 0,955** (sem reranker: 21/22, MRR 0,879);
+- **Achado:** reescrever o controle negativo da usina nuclear como "...em algum dos nossos atestados" fez a busca devolver trechos acima do piso. Uma pergunta genérica sobre "atestados" parece com todo o acervo, então nesses casos quem recusa é o agente, não o piso. Conferir isso no teste de amanhã;
+- **`docs/HOSPEDAGEM.md`:** roteiro com 3 opções. Recomendação: **PC da empresa na rede interna** (US$ 0, sem mudar código); se precisar de acesso externo, VM Lightsail em São Paulo com HTTPS + senha (~US$ 12/mês). Vercel + host de API não é recomendado agora.
+
+**Não feito:** subir a API em modo real para testar Acervo/Storage/upload sem LLM. A proteção automática do ambiente bloqueou (modo real pode gerar cobrança). Fica para o teste de amanhã, com o Roger presente.
+
+**Roteiro para 01/10 (com o limite do OpenRouter zerado):**
+1. Subir a API com `MODO_DEMO=0` e o frontend;
+2. 8–10 perguntas pela interface: pronome ("e o valor disso?"), filtro ("só atestados da Solufarma"), comprovação técnica (nota da TEP), pergunta sem resposta no acervo, pergunta genérica sobre "atestados" (achado acima);
+3. Exportar a conversa em .docx; abrir um PDF pelo "Ver a fonte";
+4. Enviar um PDF pequeno pela tela de envio;
+5. `tools/classificar_documentos.py` para os 24 documentos (a reindexação mudou o texto dos 23, e a classificação é por hash do texto), cerca de US$ 0,12.
+
+---
+
 ## 2026-09-29 (noite) — OCR pago do lote, classificação por IA, golden set novo, frontend v2 (Roger + Claude)
 
 **Decisões do Roger / gerente:** sem tela de login por ora; o acervo é só de atestados/CATs (ADR-009); gastar o crédito disponível.
