@@ -263,14 +263,14 @@ def etapa_classificacao(envio: Envio) -> str:
         import classificar_documentos
 
         from solufarma import classificacao as cl
-        from solufarma_rag.agent.llm import OpenRouterLLM
+        from solufarma_rag.agent.llm import criar_llm_json
         from solufarma_rag.db.repository import criar_conexao
 
         modelo = os.getenv("CLASSIFICACAO_MODELO") or classificar_documentos.MODELO_PADRAO
         conn = criar_conexao()
         try:
             chunks = cl.carregar_chunks(conn, envio.documento_id)
-            llm = OpenRouterLLM(model=modelo, json_mode=True, temperatura=0)
+            llm = criar_llm_json(modelo)
             res = cl.classificar_documento(llm, chunks, envio.titulo, modelo=modelo)
             cl.salvar(conn, envio.documento_id, res.classificacao, res.resumo)
         finally:

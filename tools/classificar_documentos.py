@@ -134,9 +134,9 @@ def main() -> int:
     if args.dry_run:
         return 0
 
-    from solufarma_rag.agent.llm import OpenRouterLLM
+    from solufarma_rag.agent.llm import criar_llm_json
 
-    llm = OpenRouterLLM(model=modelo, json_mode=True, temperatura=0)
+    llm = criar_llm_json(modelo)
     gasto, relatorio = 0.0, []
     for i, d in enumerate(docs, 1):
         if gasto + d["custo_est"] > args.teto_usd:

@@ -175,11 +175,96 @@ class OpenRouterLLM:
         return resposta.choices[0].message.content or ""
 
 
+class OpenAILLM:
+    """Modelo da própria OpenAI, pela API direta (`OPENAI_API_KEY`).
+
+    POR QUE EXISTE
+    Alternativa quando o OpenRouter está indisponível (ex.: limite mensal da
+    chave estourado em 29/09) e há crédito na conta da OpenAI. Os prompts foram
+    calibrados no Claude: trocar o modelo do agente exige conferir a qualidade
+    das respostas de novo (golden set / auditoria), não é troca neutra.
+
+    Os modelos recentes da OpenAI usam `max_completion_tokens` (não
+    `max_tokens`) e alguns não aceitam `temperature`; se a API recusar a
+    temperatura, a chamada é refeita sem ela. O custo em `ultimo_uso` só é
+    calculado se `OPENAI_PRECO_ENTRADA`/`OPENAI_PRECO_SAIDA` (US$/Mtok) estiverem
+    no `.env` — a API da OpenAI não devolve custo.
+    """
+
+    MODELO_PADRAO = "gpt-5-mini"
+
+    def __init__(
+        self,
+        model: str | None = None,
+        *,
+        json_mode: bool = False,
+        temperatura: float | None = None,
+        client=None,
+    ) -> None:
+        import os
+
+        self._json_mode = json_mode
+        self._temperatura = temperatura
+        self.ultimo_uso: dict = {}
+        self._model = model or os.getenv("OPENAI_MODELO") or self.MODELO_PADRAO
+        self._preco_ent = _float_env("OPENAI_PRECO_ENTRADA")
+        self._preco_sai = _float_env("OPENAI_PRECO_SAIDA")
+        if client is not None:  # testes injetam um dublê
+            self._client = client
+            return
+        try:
+            from openai import OpenAI
+        except ImportError as exc:  # pragma: no cover - caminho de produção
+            raise ImportError("O pacote 'openai' não está instalado.") from exc
+        chave = os.getenv("OPENAI_API_KEY", "")
+        if not chave:
+            raise RuntimeError("OPENAI_API_KEY não está no .env.")
+        self._client = OpenAI(api_key=chave)
+
+    def completar(self, system: str, mensagens: list[dict], max_tokens: int = 4096) -> str:
+        pedido: dict = {
+            "model": self._model,
+            "max_completion_tokens": max_tokens,
+            "messages": [{"role": "system", "content": system}, *mensagens],
+        }
+        if self._json_mode:
+            pedido["response_format"] = {"type": "json_object"}
+        if self._temperatura is not None:
+            pedido["temperature"] = self._temperatura
+        try:
+            resposta = self._client.chat.completions.create(**pedido)
+        except Exception as exc:
+            if "temperature" not in pedido or "temperature" not in str(exc):
+                raise
+            pedido.pop("temperature")
+            resposta = self._client.chat.completions.create(**pedido)
+        uso = resposta.usage
+        ent = getattr(uso, "prompt_tokens", None)
+        sai = getattr(uso, "completion_tokens", None)
+        custo = None
+        if None not in (ent, sai, self._preco_ent, self._preco_sai):
+            custo = (ent * self._preco_ent + sai * self._preco_sai) / 1_000_000
+        self.ultimo_uso = {
+            "modelo": self._model,
+            "tokens_entrada": ent,
+            "tokens_saida": sai,
+            "custo_usd": custo,
+        }
+        return resposta.choices[0].message.content or ""
+
+
+def _float_env(nome: str) -> float | None:
+    import os
+
+    valor = os.getenv(nome, "").strip()
+    return float(valor) if valor else None
+
+
 def criar_llm(nome: str | None = None) -> LLMClient:
     """Fábrica: escolhe o cliente conforme AGENT_PROVIDER do `.env`.
 
-    Padrão `openrouter` porque é a chave que o projeto tem hoje. Vira
-    `anthropic` trocando uma linha, quando a chave direta existir.
+    Padrão `openrouter` (Claude). `openai` usa a API direta da OpenAI com
+    `OPENAI_MODELO`; `anthropic` usa a API direta da Anthropic.
     """
     import os
 
@@ -188,4 +273,25 @@ def criar_llm(nome: str | None = None) -> LLMClient:
         return OpenRouterLLM()
     if escolhido == "anthropic":
         return AnthropicLLM()
-    raise ValueError(f"AGENT_PROVIDER inválido: {escolhido!r}. Use 'openrouter' ou 'anthropic'.")
+    if escolhido == "openai":
+        return OpenAILLM()
+    raise ValueError(
+        f"AGENT_PROVIDER inválido: {escolhido!r}. Use 'openrouter', 'openai' ou 'anthropic'."
+    )
+
+
+def criar_llm_json(modelo_openrouter: str) -> LLMClient:
+    """Cliente para saída JSON estável (classificação), conforme CLASSIFICACAO_PROVIDER.
+
+    `openrouter` (padrão) usa `modelo_openrouter`; `openai` usa
+    `CLASSIFICACAO_MODELO_OPENAI` (ou `OPENAI_MODELO`, ou o padrão da classe).
+    """
+    import os
+
+    provedor = os.getenv("CLASSIFICACAO_PROVIDER", "openrouter").strip().lower()
+    if provedor == "openai":
+        modelo = os.getenv("CLASSIFICACAO_MODELO_OPENAI") or None
+        return OpenAILLM(model=modelo, json_mode=True, temperatura=0)
+    if provedor == "openrouter":
+        return OpenRouterLLM(model=modelo_openrouter, json_mode=True, temperatura=0)
+    raise ValueError(f"CLASSIFICACAO_PROVIDER inválido: {provedor!r}. Use 'openrouter' ou 'openai'.")
