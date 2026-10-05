@@ -77,14 +77,30 @@ def test_gravar_itens_apaga_antes_e_preenche_as_duas_chaves():
     itens = [
         {"pagina": 2, "secao": "PISO", "celulas": ["P01", "206,92"]},
         {"pagina": 3, "secao": None, "celulas": None},
+        # Linha com a qualidade da leitura (migração 004): status, confiança e
+        # observação viajam junto com o dado.
+        {
+            "pagina": 5,
+            "secao": "GASES",
+            "celulas": ["2.1", ""],
+            "status": "ilegivel",
+            "confianca": 0.55,
+            "observacoes": "carimbo sobre as linhas 2.1, 2.5",
+        },
     ]
-    assert gravar_itens_planilha(conn, documento_hash="h16", documento_id="d1", itens=itens) == 2
+    assert gravar_itens_planilha(conn, documento_hash="h16", documento_id="d1", itens=itens) == 3
 
     assert conn.executados[0][0].startswith("delete from itens_planilha")
     inserts = conn.sql("insert into itens_planilha")
+    # JSON anterior à migração 004 não tem os três campos: ficam nulos em vez de
+    # virar "ok", porque afirmar integridade sem ter verificado é pior que não saber.
     assert [p for _, p in inserts] == [
-        ("h16", "d1", 2, "PISO", ["P01", "206,92"]),
-        ("h16", "d1", 3, None, []),
+        ("h16", "d1", 2, "PISO", ["P01", "206,92"], None, None, None),
+        ("h16", "d1", 3, None, [], None, None, None),
+        (
+            "h16", "d1", 5, "GASES", ["2.1", ""],
+            "ilegivel", 0.55, "carimbo sobre as linhas 2.1, 2.5",
+        ),
     ]
     assert conn.commits == 1
 

@@ -62,6 +62,12 @@ MIN_DENSIDADE = float(os.getenv("SOLUFARMA_MIN_DENSIDADE", "0.00035"))
 # Linha presente em mais de X% das páginas é cabeçalho/rodapé/carimbo.
 LIMIAR_BOILERPLATE = float(os.getenv("SOLUFARMA_LIMIAR_BOILERPLATE", "0.55"))
 
+# Sinais de que uma página NATIVA é planilha achatada e precisa da terceira via
+# do roteamento (ver extracao.parece_planilha). Derivados do acervo de 33 CATs
+# em 25/09/26; como os demais limiares, são hipótese até serem recalibrados.
+MIN_UNIDADES_PLANILHA = int(os.getenv("SOLUFARMA_MIN_UNIDADES", "3"))
+MIN_LINHAS_CURTAS = int(os.getenv("SOLUFARMA_MIN_LINHAS_CURTAS", "15"))
+
 # Abaixo disso a página entra no relatório para revisão manual.
 LIMIAR_CONFIANCA_REVISAO = float(os.getenv("SOLUFARMA_LIMIAR_CONFIANCA", "0.75"))
 

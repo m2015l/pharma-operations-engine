@@ -149,8 +149,11 @@ def gravar_itens_planilha(
         for item in itens:
             cur.execute(
                 """
-                insert into itens_planilha (documento_hash, documento_id, pagina, secao, celulas)
-                values (%s, %s, %s, %s, %s)
+                insert into itens_planilha (
+                    documento_hash, documento_id, pagina, secao, celulas,
+                    status, confianca, observacoes
+                )
+                values (%s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     documento_hash,
@@ -158,6 +161,12 @@ def gravar_itens_planilha(
                     item.get("pagina"),
                     item.get("secao"),
                     list(item.get("celulas") or []),
+                    # `status` ausente = JSON de chunking anterior à migração 004.
+                    # Fica nulo em vez de virar "ok": afirmar que a linha está
+                    # íntegra sem ter verificado é pior do que não saber.
+                    item.get("status"),
+                    item.get("confianca"),
+                    item.get("observacoes"),
                 ),
             )
     conn.commit()

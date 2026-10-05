@@ -15,7 +15,7 @@ class Pagina:
     """Uma página transcrita. `markdown` é a entrada do chunking."""
 
     numero: int
-    estrategia: str = "pendente"  # nativo | vlm | vazia
+    estrategia: str = "pendente"  # nativo | nativo_tabela | vlm | vazia
     markdown: str = ""
     secao_corrente: str | None = None
     cabecalho_tabela_final: list[str] | None = None
@@ -47,7 +47,7 @@ class Documento:
 
     @property
     def n_nativas(self) -> int:
-        return sum(1 for p in self.paginas if p.estrategia == "nativo")
+        return sum(1 for p in self.paginas if p.estrategia in ("nativo", "nativo_tabela"))
 
     @property
     def n_vlm(self) -> int:

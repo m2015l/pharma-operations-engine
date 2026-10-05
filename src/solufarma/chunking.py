@@ -492,20 +492,27 @@ def chunk_tabela(bloco: Bloco, doc_titulo: str, doc_id: str, seq: list[int]) -> 
     Por que não a tabela inteira num chunk: 50 linhas heterogêneas produzem um
     vetor que é a média de tudo, e não casa bem com nada.
     """
-    linhas = [ln for ln in bloco.linhas if ln.strip()]
-    if not linhas:
+    # Cada linha carrega a página de onde veio, para a janela saber o
+    # intervalo REAL que cobre. Sem isso um chunk de 20 itens da página 40
+    # citaria "páginas 15-143", que é o mesmo que não citar página nenhuma.
+    paginas_bloco = bloco.paginas_linhas or [bloco.pag_ini] * len(bloco.linhas)
+    pares = [(ln, pag) for ln, pag in zip(bloco.linhas, paginas_bloco) if ln.strip()]
+    if not pares:
         return []
+    linhas = [ln for ln, _ in pares]
+    paginas = [pag for _, pag in pares]
 
     header: list[str] = []
-    corpo = linhas
+    corpo, paginas_corpo = linhas, paginas
     if len(linhas) >= 2 and RE_SEPARADOR_TABELA.match(linhas[1]):
-        header, corpo = linhas[:2], linhas[2:]
+        header, corpo, paginas_corpo = linhas[:2], linhas[2:], paginas[2:]
 
     saida: list[Chunk] = []
     passo = config.LINHAS_POR_CHUNK_TABELA
 
     for i in range(0, len(corpo), passo):
         janela = corpo[i : i + passo]
+        paginas_janela = paginas_corpo[i : i + passo] or [bloco.pag_ini]
 
         # Última janela órfã (1-3 linhas) volta para a anterior: um chunk de
         # duas linhas de planilha não tem sinal suficiente para recuperar.
@@ -515,12 +522,14 @@ def chunk_tabela(bloco: Bloco, doc_titulo: str, doc_id: str, seq: list[int]) -> 
             anterior.texto_puro += "\n" + extra
             anterior.texto += "\n" + extra
             anterior.n_chars = len(anterior.texto_puro)
+            anterior.pagina_fim = max(anterior.pagina_fim, max(paginas_janela))
             continue
 
         seq[0] += 1
         corpo_md = "\n".join(header + janela)
         rotulo = f"itens {i + 1}-{i + len(janela)}"
-        cab = cabecalho_contextual(doc_titulo, bloco.caminho, bloco.pag_ini, rotulo)
+        pag_ini_janela, pag_fim_janela = min(paginas_janela), max(paginas_janela)
+        cab = cabecalho_contextual(doc_titulo, bloco.caminho, pag_ini_janela, rotulo)
         saida.append(
             Chunk(
                 id=f"{doc_id}#c{seq[0]:04d}",
@@ -528,8 +537,8 @@ def chunk_tabela(bloco: Bloco, doc_titulo: str, doc_id: str, seq: list[int]) -> 
                 texto_puro=corpo_md,
                 tipo="tabela",
                 caminho_secao=bloco.caminho,
-                pagina_inicio=bloco.pag_ini,
-                pagina_fim=bloco.pag_fim,
+                pagina_inicio=pag_ini_janela,
+                pagina_fim=pag_fim_janela,
                 n_chars=len(corpo_md),
                 documento=doc_titulo,
                 metadados={
@@ -546,20 +555,167 @@ def chunk_tabela(bloco: Bloco, doc_titulo: str, doc_id: str, seq: list[int]) -> 
 # --------------------------------------------------------------------------
 
 
-def extrair_linhas_tabela(blocos: list[Bloco], doc_id: str) -> list[dict]:
+# Código hierárquico de item citado numa observação do VLM: "2.1", "3.10".
+# Exige ao menos um ponto: um número solto ("linha 2") é ruído demais.
+RE_CODIGO_CITADO = re.compile(r"\b\d+(?:\.\d+)+\b")
+
+# Divide a observação em frases. O lookbehind exige letra ou ")" antes do ponto,
+# senão "2.1" seria partido ao meio e o código se perderia.
+RE_FRASE = re.compile(r"(?<=[A-Za-zÀ-ÿ)\]])\.\s+|;\s+")
+
+# O modelo diz por que a célula está vazia, e o motivo muda o que fazer. Estas
+# três listas leem essa intenção. Foram derivadas das observações reais do CAT
+# SJC-003369 (páginas 5, 7, 8, 10 e 23) — não de suposição sobre como o modelo
+# escreve.
+#
+# "o valor existe no papel e eu não consegui lê-lo":
+MARCAS_ILEGIVEL = (
+    "ilegív", "ilegiv", "em branco", "deixad", "não foi possível ler",
+    "nao foi possivel ler", "não legível", "obstru", "encobr", "apagad",
+)
+# "está vazio no documento mesmo, não é perda":
+MARCAS_LEGITIMO = (
+    "no original", "título", "titulo", "subgrupo", "cabeçalho", "cabecalho",
+    "heading", "ausente na numeração", "ausente na numeracao",
+)
+# "tem carimbo em cima, mas eu acho que li certo" — não é perda declarada nem
+# vazio garantido. Merece olho humano, não preenchimento cego:
+MARCAS_OBSTRUCAO = ("carimbo", "sobrepõe", "sobrepost", "selo", "rubrica", "marcas rotacionadas")
+
+
+def sinais_da_observacao(observacoes: str) -> dict[str, str]:
+    """
+    Lê a observação do VLM e devolve {código do item: classificação}.
+
+    Por que não basta achar os códigos: a intenção do texto muda tudo, e as duas
+    frases abaixo são dos mesmos documentos do acervo.
+
+        página 5  "carimbos ... nas linhas 2.1, 2.5 ... tornando alguns valores
+                   ILEGÍVEIS - foram deixados em branco por fidelidade"
+                   -> o valor existe no papel. Precisa ser preenchido.
+
+        página 7  "células de UNIDADE/QUANTIDADE ficaram vazias NO ORIGINAL para
+                   linhas que são apenas TÍTULOS DE SUBGRUPO (ex: 6.1, 6.3...)"
+                   -> não há valor nenhum a recuperar. Mandar alguém procurar
+                      esse número é mandar procurar o que não existe.
+
+    Tratar as duas iguais — o que uma busca crua por código faria — produziria
+    cinco pedidos de preenchimento falsos só na página 7 deste documento.
+    """
+    sinais: dict[str, str] = {}
+    for frase in RE_FRASE.split(observacoes or ""):
+        if not frase:
+            continue
+        baixa = frase.lower()
+        codigos = RE_CODIGO_CITADO.findall(frase)
+        if not codigos:
+            continue
+        # A ordem importa: "vazio no original" vence "tem carimbo na página",
+        # porque é uma afirmação sobre a célula, não sobre a página.
+        if any(m in baixa for m in MARCAS_LEGITIMO):
+            classificacao = "vazio"
+        elif any(m in baixa for m in MARCAS_ILEGIVEL):
+            classificacao = "ilegivel"
+        elif any(m in baixa for m in MARCAS_OBSTRUCAO):
+            classificacao = "suspeita"
+        else:
+            continue
+        for codigo in codigos:
+            # Uma frase que declara ilegibilidade não é apagada por outra mais
+            # frouxa depois: fica o diagnóstico mais grave.
+            if sinais.get(codigo) != "ilegivel":
+                sinais[codigo] = classificacao
+    return sinais
+
+
+def codigos_citados(observacoes: str) -> set[str]:
+    """Só os códigos que o modelo declarou ilegíveis. Atalho para os testes."""
+    return {c for c, v in sinais_da_observacao(observacoes).items() if v == "ilegivel"}
+
+
+def classificar_lacuna(
+    celulas: list[str], confianca: float, sinais: dict[str, str] | set[str]
+) -> str:
+    """
+    Distingue "não consegui ler" de "está vazio mesmo". Quatro estados:
+
+      ok        — linha completa, nada a fazer;
+      vazio     — célula vazia sem sinal de problema. É o cabeçalho de seção
+                  ("1 | SERVIÇOS TECNICOS | | "), que não tem quantidade por
+                  natureza, ou uma linha que o modelo declarou vazia no original;
+      ilegivel  — o modelo nomeou ESTA linha como ilegível. O valor existe no
+                  papel e não foi capturado: é o que vale preencher à mão;
+      suspeita  — há carimbo sobre a região, ou a página inteira veio abaixo do
+                  limiar de confiança sem identificar quais linhas. Precisa de
+                  olho humano, mas não se sabe se há valor a recuperar.
+
+    Sem essa distinção um SUM(quantidade) ignora as lacunas e devolve um total
+    menor que o real, sem erro nenhum — número errado com cara de certo, que é
+    exatamente o que este projeto existe para evitar.
+
+    `sinais` vem de `sinais_da_observacao()`. Um `set` também é aceito, e aí todo
+    código nele conta como ilegível — é a forma antiga, mantida para os testes.
+    """
+    if all(str(c).strip() for c in celulas):
+        return "ok"
+
+    if isinstance(sinais, set):
+        sinais = dict.fromkeys(sinais, "ilegivel")
+
+    codigo = str(celulas[0]).strip() if celulas else ""
+    declarado = sinais.get(codigo)
+    if declarado:
+        return declarado
+    if sinais:
+        # O modelo falou das linhas afetadas, e esta não está entre elas: a
+        # lacuna é estrutural. Assumir o contrário marcaria todo cabeçalho de
+        # seção da página para revisão — na página 5 do BUTANTAN seriam 60
+        # linhas para conferir no lugar de 6.
+        # A aposta é que a enumeração do modelo é completa; se um dia se provar
+        # que não é, o caminho é o inverso (marcar tudo e filtrar depois).
+        return "vazio"
+    if confianca < config.LIMIAR_CONFIANCA_REVISAO:
+        return "suspeita"
+    return "vazio"
+
+
+def extrair_linhas_tabela(
+    blocos: list[Bloco], doc_id: str, paginas: list[dict] | None = None
+) -> list[dict]:
     """
     Uma planilha de quantitativos precisa de SQL, não de busca vetorial.
     "Quanto de piso vinílico já fornecemos no total?" é um SUM, e RAG não soma.
     Estas linhas vão para `itens_planilha` no Supabase, em paralelo aos chunks —
     o agente decide entre buscar (vetor) e consultar (SQL).
+
+    `paginas` são as páginas do JSON de extração. Delas vêm a confiança e a
+    observação que permitem marcar a lacuna deixada por carimbo. Sem elas todas
+    as linhas entram como se a página fosse confiável — é o comportamento
+    antigo, mantido para os testes que não simulam extração.
     """
+    qualidade: dict[int, tuple[float, str]] = {}
+    for pag in paginas or []:
+        qualidade[int(pag.get("numero", 0))] = (
+            float(pag.get("confianca", 1.0)),
+            pag.get("observacoes") or "",
+        )
+
     itens: list[dict] = []
 
     for bloco in blocos:
         if bloco.tipo != "tabela":
             continue
 
-        linhas = [ln for ln in bloco.linhas if ln.strip().startswith("|")]
+        # Cada linha carrega a sua própria página. Numa planilha que atravessa
+        # dezenas de páginas, usar `bloco.pag_ini` para todas mandaria o leitor
+        # para a página errada ao clicar na fonte da citação.
+        paginas_bloco = bloco.paginas_linhas or [bloco.pag_ini] * len(bloco.linhas)
+        pares = [
+            (ln, pag)
+            for ln, pag in zip(bloco.linhas, paginas_bloco)
+            if ln.strip().startswith("|")
+        ]
+        linhas = [ln for ln, _ in pares]
         # Índices a pular: o separador `|---|---|` e a linha IMEDIATAMENTE
         # ANTES dele, que é o cabeçalho de colunas. Sem isso, "Descrição |
         # Unidade | Quantidade" entra em itens_planilha como se fosse um item,
@@ -577,14 +733,23 @@ def extrair_linhas_tabela(blocos: list[Bloco], doc_id: str) -> list[dict]:
             celulas = [c.strip() for c in linha.strip().strip("|").split("|")]
             if len(celulas) < 2 or not any(celulas):
                 continue
-            itens.append(
-                {
-                    "documento_id": doc_id,
-                    "pagina": bloco.pag_ini,
-                    "secao": " > ".join(bloco.caminho),
-                    "celulas": celulas,
-                }
-            )
+            pagina = pares[i][1]
+            confianca, observacoes = qualidade.get(pagina, (1.0, ""))
+            status = classificar_lacuna(celulas, confianca, sinais_da_observacao(observacoes))
+            item = {
+                "documento_id": doc_id,
+                "pagina": pagina,
+                "secao": " > ".join(bloco.caminho),
+                "celulas": celulas,
+                "status": status,
+                "confianca": confianca,
+            }
+            # A observação só acompanha a linha que tem problema: ela é a mesma
+            # para a página inteira, e repeti-la nas 28 linhas de uma planilha
+            # completa só engordaria a tabela sem dizer nada.
+            if status in ("ilegivel", "suspeita"):
+                item["observacoes"] = observacoes
+            itens.append(item)
     return itens
 
 
@@ -662,4 +827,4 @@ def chunkar_documento(doc: dict, titulo: str | None = None) -> tuple[list[Chunk]
         else:
             chunks.extend(chunk_prosa(bloco, doc_titulo, doc_id, seq))
 
-    return _fundir_residuos(chunks), extrair_linhas_tabela(blocos, doc_id)
+    return _fundir_residuos(chunks), extrair_linhas_tabela(blocos, doc_id, doc["paginas"])

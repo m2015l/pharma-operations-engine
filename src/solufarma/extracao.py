@@ -148,6 +148,77 @@ def precisa_vlm(texto_limpo: str, area_px: int) -> bool:
     return volume_insuficiente or densidade_insuficiente
 
 
+# Caracteres sem largura que alguns geradores de PDF usam para alinhar texto.
+# A página 1 do CAT da CRISTÁLIA tem 15 linhas contendo só "\u200b", usadas no
+# alinhamento de "RESPONSÁVEIS TÉCNICOS ... CREA". Contadas como linhas curtas,
+# faziam uma página de prosa limpa ser mandada para o VLM — custo por página,
+# sem nenhum ganho.
+INVISIVEIS = "\u200b\u200c\u200d\ufeff\xa0\u00ad"
+
+
+def _visivel(linha: str) -> str:
+    """A linha sem os caracteres invisíveis. Vazia se não sobrar nada."""
+    return linha.strip().strip(INVISIVEIS).strip()
+
+
+def parece_planilha(texto_limpo: str) -> bool:
+    """
+    True quando o texto nativo tem cara de planilha de quantitativos achatada.
+
+    POR QUE ISSO EXISTE
+    A rota nativa lê `page.get_text()`, que devolve os fragmentos na ordem em
+    que foram desenhados. Numa planilha isso separa o código do item da sua
+    quantidade por várias linhas, e a ligação entre as células — que é o dado
+    inteiro — se perde. Medido no acervo: 460 das 628 páginas nativas são
+    planilha, e NENHUMA delas produziu uma linha em `itens_planilha`.
+
+    Dois sinais, qualquer um basta:
+      - unidades de medida isoladas na própria linha ("vb", "kg", "m²");
+      - muitas linhas curtíssimas, que é como uma coluna estreita achatada cai.
+    """
+    linhas = [_visivel(ln) for ln in texto_limpo.splitlines()]
+    linhas = [ln for ln in linhas if ln]
+    unidades = sum(1 for ln in linhas if ln.lower() in formatos.UNIDADES_PLANILHA)
+    curtas = sum(1 for ln in linhas if len(ln) <= 4)
+    return unidades >= config.MIN_UNIDADES_PLANILHA or curtas >= config.MIN_LINHAS_CURTAS
+
+
+def refinar_rotas(
+    caminho: Path, rotas: list[str], limpos: list[str]
+) -> tuple[list[str], dict[int, str]]:
+    """
+    Terceira via do roteamento. Devolve (rotas ajustadas, markdown de tabela).
+
+    Página nativa com tabela não pode seguir como texto corrido. Os destinos,
+    nesta ordem:
+
+      1. `find_tables()` recupera a grade  -> rota "nativo_tabela", custo ZERO;
+      2. não recupera, mas o texto tem cara de planilha achatada -> rota "vlm";
+      3. não recupera e é prosa -> segue "nativo", como antes.
+
+    Medido no acervo de 33 CATs: 326 páginas caem em (1) e 134 em (2). Tratar
+    todas como VLM custaria ~US$ 13 a mais sem ganho nenhum de qualidade.
+    """
+    nativas = [i for i, rota in enumerate(rotas) if rota == "nativo"]
+    if not nativas:
+        return rotas, {}
+
+    # A reconstrução roda em TODAS as nativas, não só nas que a heurística
+    # suspeita. `find_tables()` é CPU local e custo zero, e assim o caminho
+    # gratuito não depende de a heurística acertar: se ela errar para menos, a
+    # tabela é recuperada mesmo assim. A heurística decide só o caminho PAGO.
+    recuperadas = formatos.tabelas_nativas(caminho, nativas)
+    ajustadas = list(rotas)
+    for i in nativas:
+        if i in recuperadas:
+            ajustadas[i] = "nativo_tabela"
+        elif parece_planilha(limpos[i]):
+            # Planilha sem grade gráfica: o detector não enxerga, e o texto
+            # nativo já provou que achata. Só o VLM resolve.
+            ajustadas[i] = "vlm"
+    return ajustadas, recuperadas
+
+
 # --------------------------------------------------------------------------
 # 3. Chamada ao OpenRouter
 # --------------------------------------------------------------------------
@@ -325,8 +396,17 @@ def processar(caminho: Path, saida_dir: Path, verboso: bool = True) -> Documento
         "vlm" if precisa_vlm(limpo, area) else "nativo"
         for limpo, (_, _, area) in zip(limpos, brutas)
     ]
+    # Terceira via: página nativa que é planilha não pode seguir como texto
+    # corrido. Só se aplica a PDF — os outros formatos não têm grade para ler.
+    tabelas_md: dict[int, str] = {}
+    if formato == "pdf":
+        rotas, tabelas_md = refinar_rotas(caminho, rotas, limpos)
     if verboso:
-        print(f"  rotas: {rotas.count('nativo')} nativas, {rotas.count('vlm')} via VLM")
+        print(
+            f"  rotas: {rotas.count('nativo')} nativas, "
+            f"{rotas.count('nativo_tabela')} tabela reconstruída, "
+            f"{rotas.count('vlm')} via VLM"
+        )
 
     paginas: list[Pagina | None] = [None] * len(brutas)
 
@@ -338,6 +418,23 @@ def processar(caminho: Path, saida_dir: Path, verboso: bool = True) -> Documento
                 estrategia="nativo",
                 markdown=limpo,
                 confianca=1.0,
+                area_px=brutas[i][2],
+                caracteres_uteis=len(limpo),
+            )
+        elif rota == "nativo_tabela":
+            # Confiança 1.0: a grade veio do próprio PDF, não de leitura de
+            # imagem. O que é heurística aqui é o NOME das colunas, e a
+            # observação registra isso em vez de deixar implícito.
+            paginas[i] = Pagina(
+                numero=i + 1,
+                estrategia="nativo_tabela",
+                markdown=tabelas_md[i],
+                confianca=1.0,
+                observacoes=(
+                    "Tabela reconstruída da grade do PDF (find_tables). Os nomes "
+                    "das colunas foram inferidos por heurística — a página não "
+                    "tinha linha de cabeçalho."
+                ),
                 area_px=brutas[i][2],
                 caracteres_uteis=len(limpo),
             )
