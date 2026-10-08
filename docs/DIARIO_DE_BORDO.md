@@ -6,6 +6,49 @@
 
 ---
 
+## 2026-10-07 — OCR de 7 atestados e indexação de 5; acervo vai a 29 documentos (Thiago + Claude)
+
+**O que foi feito:**
+- **Limite do OpenRouter:** o teto mensal de US$ 5 da chave tinha zerado na virada do mês; o Thiago subiu para US$ 50 em openrouter.ai/settings/keys. O que limita agora é o saldo da conta: **US$ 6,23** ao fim do dia (US$ 25 carregados);
+- **OCR de 7 documentos, 382 páginas via VLM, US$ 9,66** (`tools/extract_text.py`, `anthropic/claude-sonnet-5`): LAQFA/CEMFAR 522936 (1,01), SS WHITE 11686/2010 (0,02), Consórcio da Ilha 825976/2020 (0,65), Cristália 3ª fase 2620210005534 (1,50), Hangar Anápolis 1020240001098 (3,30), FIOTEC LAFIQ 96193/2022 (1,39), Butantan hemoderivados 0000000238897 (1,78). Os três últimos rodaram com trava de saldo (piso de US$ 2,50), que não foi acionada;
+- **5 indexados** (`chunk_document.py --titulo` → `indexar.py` → `generate_embeddings.py --documento-id`): LAQFA, Consórcio da Ilha, Hangar, LAFIQ e Butantan hemoderivados. **837 chunks e 4.043 linhas de planilha.** Banco: **29 documentos, 1.687 chunks (1.684 com embedding; 3 são ruído), 5.170 linhas em `itens_planilha`**;
+- **Migração `004_qualidade_itens.sql` aplicada no Supabase.** Estava no repositório desde 05/10 e não no banco; o `indexar.py` falhava com `column "status" of relation "itens_planilha" does not exist`. Só aditiva; as 1.127 linhas antigas ficaram com `status` nulo;
+- **Golden set depois do lote:** `tools/avaliar.py --provedor voyage` → **22/22, controles 4/4**;
+- Workflows atualizados: `indexacao.md` (migração pendente, chunk de ruído, lentidão do `itens_planilha`) e `ocr_escaneados.md` (teto de tokens, limite da chave, custo real).
+
+**Aprendizados / observações:**
+- **Quatro dos sete são da Solufarma:** LAQFA, Hangar Anápolis, LAFIQ (executante na CAT) e Consórcio da Ilha (Solufarma com 50%, Amorim Coutinho líder). A triagem por regex não tinha pego o LAFIQ (100% escaneado) nem o consórcio;
+- **Custo real de OCR: US$ 0,022 a 0,034 por página**, contra US$ 0,016 da estimativa da triagem;
+- A leitura de página com carimbo foi conferida à mão em uma página (LAQFA, pág. 21): 11 valores legíveis corretos, e a linha tapada pelo carimbo ficou em branco em vez de inventada. É amostra de uma página, não auditoria;
+- O PDF "SS WHITE CAT 11686-2010" está em `data/brutos/` e o conteúdo confere (o diário de 29/09 dava o arquivo como faltando);
+- Os nomes dos 9 PDFs pendentes batem com o conteúdo (`triar_documentos.py`: 7 batem, 2 inconclusivos, 0 trocados).
+
+**Problemas em aberto (pendências 30 a 34 do `PLANO_PROJETO.md`):**
+1. **Lacunas de carimbo do LAQFA gravadas como `vazio`**, não `ilegivel`: o `relatorio_lacunas.py` não as lista. Só o Butantan teve linhas sinalizadas (9);
+2. **Documento preso em `chunked`** quando tem chunk só de título. Contornado à mão com `repo.marcar_documento_indexado()` em LAQFA, Consórcio da Ilha e LAFIQ;
+3. **OCR antiga embutida tratada como texto nativo** (SS WHITE, 3 páginas com erros de grafia);
+4. **Pág. 35 do Cristália 3ª fase cortada** no teto de 8.000 tokens de saída; documento não indexado por isso;
+5. Butantan hemoderivados: valores **inferidos** pelo modelo na pág. 19 (item 18.6.35, "2,00") e pág. 31 (item 2.11, "13.019,28"); conferir no PDF;
+6. Os 5 novos estão **sem classificação por IA** e **sem perguntas no golden set**.
+
+**Próximos passos:**
+1. Classificar os 5 novos (`tools/classificar_documentos.py`, ~US$ 0,03) para o filtro de executante funcionar com eles;
+2. Corrigir o classificador de lacunas e o status `chunked` (itens 1 e 2), e reindexar os afetados;
+3. Refazer a pág. 35 do Cristália e as 3 páginas da SS WHITE; indexar os dois;
+4. Recarregar o OpenRouter para o HC USP (294 páginas, ~US$ 7);
+5. Escrever perguntas de golden set para os 5 novos e recalibrar o piso de similaridade;
+6. Avisar o Roger da migração aplicada e do novo limite da chave.
+
+**Continuação na madrugada de 08/10 (Thiago + Claude):**
+- Recarga de US$ 10 no OpenRouter (total carregado US$ 35). **Saldo ao pausar: ~US$ 12,91**;
+- **Cristália 3ª fase, SS WHITE e BUNKER indexados** (138 chunks, todos com embedding). Banco: **32 documentos, 1.825 chunks**;
+  - Cristália: a resposta cortada da pág. 35 estava no cache (`chamar_vlm` grava mesmo a resposta inválida). Removida a entrada e refeita: saiu completa (conf. 0,93). Custou US$ 0,45, porque as 14 páginas seguintes foram relidas (o contexto herdado muda a chave do cache);
+  - SS WHITE e BUNKER: OCR novo forçado em todas as páginas com `SOLUFARMA_MIN_DENSIDADE=1` (US$ 0,09 cada). O BUNKER ficou legível: CAT SJC-01555, TEP, Bunker Indústria Farmacêutica, 785 m², R$ 1.796.000,00;
+- **HC USP: OCR pausado a pedido, com ~109 das 294 páginas já no cache** (~US$ 2,60 gastos). **Para retomar:** `uv run python tools/extract_text.py "data/brutos/HC USP CAT 2620150013479 Construção do HC criança Rev00.pdf"`. As páginas prontas saem do cache sem custo; faltam ~185 páginas, cerca de US$ 4,50 e 1 hora. Depois: chunk com `--titulo`, `indexar.py` e `generate_embeddings.py --documento-id`;
+- Os 3 documentos indexados nesta madrugada também estão sem classificação por IA. O golden set não foi rodado de novo depois deles.
+
+---
+
 ## 2026-09-30 — Preparação do teste de ponta a ponta: reindexação, golden set, hospedagem (Roger + Claude)
 
 **Contexto:** a chave do OpenRouter tem **limite de US$ 5/mês** (`limit_remaining: 0`; uso do mês US$ 5,71). Deve zerar na virada para 01/10. A chave da OpenAI do `.env` expirou (29/09) e hoje nem é reconhecida; é preciso gerar outra se um dia for usada. **Decisão do Roger:** não trocar para a OpenAI para o teste; esperar o OpenRouter. O suporte à OpenAI chegou a ser implementado e foi revertido (commit de revert).
