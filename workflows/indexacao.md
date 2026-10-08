@@ -114,6 +114,23 @@ extração do documento e remove, numa transação, os `chunk_index` antigos que
 pegar chunks pendentes de outra sessão. **Não reindexe a CAT do SENAI 576640**: ela tem o patch
 manual do I6.
 
+**Aprendido no lote de 07/10 (5 documentos, 837 chunks):**
+
+- **Migrações pendentes travam a indexação no meio.** O `indexar.py` falhou com
+  `column "status" of relation "itens_planilha" does not exist` porque a
+  `004_qualidade_itens.sql` estava no repositório e não no banco. O
+  `setup_supabase.py --apply` só aplica a 001; as demais são aplicadas à mão. A falha
+  acontece depois do cadastro e dos chunks, então o documento fica gravado sem linhas de
+  planilha: basta aplicar a migração e rodar o `indexar.py` de novo (não duplica);
+- **Chunk só com título deixa o documento em `chunked`.** O `generate_embeddings.py`
+  pula chunks de ruído (`pulados_ruido`), mas eles continuam contando como pendentes,
+  então o documento não vira `indexado` e a tela de Acervo mostra "Em processamento".
+  Em 07/10 isso foi resolvido à mão com `repo.marcar_documento_indexado()` em 3
+  documentos; a correção de verdade é no código (ruído não deveria contar como pendência);
+- **A gravação de `itens_planilha` é lenta** (um `insert` por linha): cerca de 10 minutos
+  para 4.000 linhas. Rode em segundo plano;
+- Depois do lote: golden set em 22/22, controles 4/4, com 29 documentos e 1.687 chunks.
+
 ### Pipeline
 
 ```

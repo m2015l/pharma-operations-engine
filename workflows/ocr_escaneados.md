@@ -75,6 +75,13 @@ Saída:
 | Todas as páginas viraram "nativas" | boilerplate não detectado | baixar `SOLUFARMA_LIMIAR_BOILERPLATE` ou subir `SOLUFARMA_MIN_DENSIDADE` |
 | Tabela sem cabeçalho na 2ª página | carry-over quebrado | conferir se as páginas VLM contíguas ficaram no mesmo bloco |
 | `resposta não era JSON válido` nas observações | modelo saiu do formato | página fica com confiança 0.4 e entra na revisão; se for recorrente, revisar `prompts.py` |
+| Mesma mensagem, com `tokens_saida` = 8000 | a resposta bateu no teto de tokens e foi cortada (pág. 35 do Cristália 2620210005534, 07/10) | o markdown salvo é só o começo da página, em JSON cru; **não indexar o documento** antes de refazer a página |
+| `HTTP 403 Key limit exceeded` | teto mensal da **chave** (não da conta) | openrouter.ai/settings/keys → editar a chave → Credit limit. Conferir também o saldo em Credits: limite acima do saldo não adianta |
+
+**Custo real medido (07/10, 382 páginas, `anthropic/claude-sonnet-5`):** US$ 0,022 a
+0,034 por página via VLM, contra US$ 0,016 da estimativa do `triar_documentos.py`.
+Planilhas densas ficam no topo da faixa. O painel do OpenRouter demora alguns minutos
+para contabilizar as últimas chamadas.
 
 ---
 
