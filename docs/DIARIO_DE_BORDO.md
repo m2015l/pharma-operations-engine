@@ -23,8 +23,10 @@
 - Páginas 269 e 271 com confiança 0,75 e 0,72; avisos de leitura incerta nas páginas 79, 91, 171, 238, 269, 271 e 287;
 - O OCR levou das 16:42 às 23:06, com falhas de conexão no meio (provável suspensão do computador). O cache segurou: nada foi pago duas vezes.
 
+**Classificação por IA (feita em seguida, mesmo dia):** `tools/classificar_documentos.py --teto-usd 0.50` em **28 documentos, US$ 0,26**. Não eram só os 9 novos: os 13 do lote de 29/09 nunca tinham sido classificados e 6 tinham o texto alterado pela reindexação de 30/09. **Os 33 estão classificados.** Por executante: **7 Solufarma** (SENAI, vestiários do CTM, pass-through, Hipolabor, LAQFA/CEMFAR, Hangar Anápolis, LAFIQ), **4 consórcio** (Prédio 70 do CTM, FURP ABC-01916 com MPD-TEP, CAR-1023 Butantan, e Hospital da Ilha com a Solufarma em 50%) e **22 TEP**. O Hipolabor (CAT 1420180002485) é da Solufarma e não constava assim no diário. Em 6 documentos o trecho citado como prova do executante ficou com `verificado: false` (validação em código não achou o trecho literal no texto).
+
 **Próximos passos:**
-1. Classificação por IA dos 9 documentos novos (`tools/classificar_documentos.py`), para o filtro de executante;
+1. ~~Classificação por IA~~ feita (acima);
 2. Perguntas de golden set sobre os 9 novos e recalibração do piso de similaridade (o acervo triplicou em chunks);
 3. As 20 perguntas de validação no app em modo real;
 4. Pendências 30 a 33 do `PLANO_PROJETO.md` (lacunas de carimbo, status `chunked`, OCR antiga, teto de tokens).
