@@ -6,6 +6,31 @@
 
 ---
 
+## 2026-10-08 — HC USP indexado: os 33 PDFs do acervo estão no banco (Thiago + Claude)
+
+**O que foi feito:**
+- **OCR do HC USP retomado e concluído** (`tools/extract_text.py`): 296 páginas, 294 via VLM (109 vieram do cache da madrugada, 185 pagas). Custo do documento: cerca de US$ 8,30 no total. Confiança média 0,92;
+- **Páginas 16 e 193 saíram cortadas** no teto de 8.000 tokens (pendência 33). Refeitas uma a uma, reusando `formatos.carregar_paginas`, `prompts.montar_contexto` e `extracao.chamar_vlm`: a resposta ruim sai do cache, a página é relida com a mesma imagem e o mesmo contexto, e só ela é trocada no JSON de `data/extraidos/`. Saíram completas na primeira tentativa, por centavos, sem reler as páginas seguintes;
+- **Indexado:** 662 chunks (659 com embedding, 3 de ruído) e 6.259 linhas de planilha. Título: "Término da Construção do Prédio do HC Criança - HC da Faculdade de Medicina de Ribeirão Preto/USP (CAT 2620150013479)", executante TEP;
+- **Banco: 33 documentos, 2.487 chunks (2.481 com embedding; 6 são ruído), 12.656 linhas em `itens_planilha` (14 marcadas para revisão).** Os 33 PDFs de `data/brutos/` conferem com o banco pelo hash;
+- **Golden set com o acervo completo:** `tools/avaliar.py --provedor voyage` → **22/22, controles 4/4**;
+- **OpenRouter ao fim: saldo de US$ 7,10** (US$ 35 carregados, US$ 27,90 usados).
+
+**Aprendizados / observações:**
+- **Refazer uma página pelo pipeline normal relê as seguintes** (o contexto herdado entra na chave do cache): no Cristália, 1 página custou 15. Trocar só a página no JSON evita isso. O script usado ficou fora do repositório (pasta temporária da sessão); se o problema se repetir, vale virar uma ferramenta em `tools/`;
+- O HC USP também ficou preso em `chunked` por causa de 3 chunks de ruído (pendência 31); marcado à mão com `repo.marcar_documento_indexado()`;
+- A página 2 do HC USP (folha do atestado) veio da OCR antiga embutida, com erros de grafia ("lldemar", "Fcauldade") — pendência 32;
+- Páginas 269 e 271 com confiança 0,75 e 0,72; avisos de leitura incerta nas páginas 79, 91, 171, 238, 269, 271 e 287;
+- O OCR levou das 16:42 às 23:06, com falhas de conexão no meio (provável suspensão do computador). O cache segurou: nada foi pago duas vezes.
+
+**Próximos passos:**
+1. Classificação por IA dos 9 documentos novos (`tools/classificar_documentos.py`), para o filtro de executante;
+2. Perguntas de golden set sobre os 9 novos e recalibração do piso de similaridade (o acervo triplicou em chunks);
+3. As 20 perguntas de validação no app em modo real;
+4. Pendências 30 a 33 do `PLANO_PROJETO.md` (lacunas de carimbo, status `chunked`, OCR antiga, teto de tokens).
+
+---
+
 ## 2026-10-07 — OCR de 7 atestados e indexação de 5; acervo vai a 29 documentos (Thiago + Claude)
 
 **O que foi feito:**
