@@ -92,6 +92,11 @@ def rotear_paginas(caminho: Path) -> tuple[list[str], list[str], int]:
         "ocr" if extracao.precisa_vlm(extracao.limpar(t, boilerplate, assinaturas), a) else "nativo"
         for t, a in zip(textos, areas)
     ]
+    # Mesmo desvio do pipeline: folha escaneada com OCR antigo embutido vai para
+    # o VLM. Sem isto a estimativa de custo sairia menor que a conta real.
+    if config.OCR_EMBUTIDO_VAI_PARA_VLM:
+        escaneadas = formatos.paginas_escaneadas(caminho)
+        rotas = ["ocr" if i in escaneadas else rota for i, rota in enumerate(rotas)]
     return textos, rotas, com_imagem
 
 

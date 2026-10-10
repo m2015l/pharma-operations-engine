@@ -346,3 +346,77 @@ class TestIntencaoDaObservacao:
         """O ponto de "2.10" não pode ser lido como fim de frase."""
         obs = "Carimbo deixou em branco o item 2.10 da planilha."
         assert sinais_da_observacao(obs) == {"2.10": "ilegivel"}
+
+
+class TestObservacoesDoLoteDeOutubro:
+    """
+    Regressão de 07/10: as 7 lacunas de carimbo do LAQFA/CEMFAR entraram no banco
+    como "vazio" e o relatório de lacunas não listou nenhuma. Três causas, uma por
+    teste abaixo. As observações são as reais, copiadas do JSON de extração.
+    """
+
+    def test_codigo_com_sufixo_de_letras(self):
+        """ "04.01.242.ac" era lido como "04.01.242" e não casava com célula nenhuma."""
+        obs = (
+            "Item 08.01.517.cd não possui quantidade legível na coluna, "
+            "provavelmente obscurecida por carimbo."
+        )
+        assert sinais_da_observacao(obs) == {"08.01.517.cd": "ilegivel"}
+
+    def test_abreviacao_nao_parte_a_frase(self):
+        """ "QUANT. está" separava o código (antes) do motivo (depois)."""
+        obs = (
+            "Na linha 04.01.521.ac a coluna UNIDADE/QUANT. está obscurecida por um "
+            "carimbo/assinatura sobreposto, impossibilitando a leitura dos valores."
+        )
+        assert sinais_da_observacao(obs) == {"04.01.521.ac": "ilegivel"}
+
+    def test_oracao_sem_codigo_herda_o_item_da_anterior(self):
+        obs = (
+            "Valor da coluna QUANT. para o item 03.01.342.aa não está legível na "
+            "imagem (parcialmente oculto pelo carimbo sobreposto); célula deixada vazia."
+        )
+        assert sinais_da_observacao(obs) == {"03.01.342.aa": "ilegivel"}
+
+    def test_valor_inferido_e_incerto(self):
+        """O caso mais perigoso: a célula sai preenchida com um palpite."""
+        obs = (
+            "O valor da quantidade do item 18.6.35 está parcialmente obscurecido por "
+            "sobreposição de carimbo/rubrica vermelha, dificultando a leitura exata; "
+            "foi inferido como '2,00' por consistência com o item seguinte similar."
+        )
+        assert sinais_da_observacao(obs) == {"18.6.35": "incerta"}
+
+    def test_numero_ptbr_nao_e_codigo(self):
+        """ "13.019,28" é o valor transcrito, não um item da planilha."""
+        obs = (
+            "O valor da última linha (item 2.11) está parcialmente obscurecido por uma "
+            "rubrica; transcrito como '13.019,28' com base na leitura parcial visível, "
+            "mas há incerteza no primeiro dígito."
+        )
+        assert sinais_da_observacao(obs) == {"2.11": "incerta"}
+
+    def test_duvida_desfeita_pelo_proprio_modelo_nao_e_incerta(self):
+        obs = (
+            "Alguns valores próximos a rubricas sobrepostas (ex: 06.01.305.bf e "
+            "06.01.305.bg) podem ter leve incerteza de leitura, mas os valores "
+            "numéricos permaneceram legíveis."
+        )
+        assert set(sinais_da_observacao(obs).values()) == {"suspeita"}
+
+    def test_linha_preenchida_com_valor_incerto_vira_suspeita(self):
+        celulas = ["04.01.242.ac", "PORTA DE MADEIRA", "UN", "20,00"]
+        assert classificar_lacuna(celulas, 0.9, {"04.01.242.ac": "incerta"}) == "suspeita"
+
+    def test_linha_preenchida_perto_de_carimbo_continua_ok(self):
+        """Carimbo por perto não basta: o modelo leu o valor e não duvidou dele."""
+        celulas = ["04.01.712.da", "RODAPE", "M", "28,91"]
+        assert classificar_lacuna(celulas, 0.9, {"04.01.712.da": "suspeita"}) == "ok"
+
+    def test_codigo_colado_na_descricao(self):
+        celulas = ['18.6.35 1/2"', "pç", "2,00"]
+        assert classificar_lacuna(celulas, 0.82, {"18.6.35": "incerta"}) == "suspeita"
+
+    def test_codigo_fora_da_primeira_coluna(self):
+        celulas = ["", "501.00", "Extintor", "un", ""]
+        assert classificar_lacuna(celulas, 0.9, {"501.00": "ilegivel"}) == "ilegivel"

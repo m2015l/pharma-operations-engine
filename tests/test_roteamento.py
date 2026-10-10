@@ -147,3 +147,65 @@ def test_documento_todo_escaneado_vira_um_bloco_unico():
     blocos = extracao._montar_blocos(["vlm"] * 58)
     assert len(blocos) == 1
     assert len(blocos[0]) == 58
+
+
+# --------------------------------------------------------------------------
+# OCR antigo embutido — texto que passa na dupla condição e não presta
+# --------------------------------------------------------------------------
+#
+# A dupla condição mede quanto texto a página tem, não de onde ele veio. A
+# camada de OCR que o scanner embute no PDF tem volume e densidade de texto
+# digitado: passava por nativa e chegava ao acervo como "Márcio Flávio Copplo"
+# (SS WHITE) e "lldemar Coppio" (pág. 2 do HC USP).
+
+
+def test_pagina_escaneada_com_ocr_embutido_vai_para_o_vlm():
+    rotas = ["nativo", "nativo", "vlm", "nativo"]
+    ajustadas, desviadas = extracao.desviar_ocr_embutido(rotas, escaneadas={1, 2})
+    assert ajustadas == ["nativo", "vlm", "vlm", "nativo"]
+    assert desviadas == 1
+
+
+def test_pagina_digital_continua_nativa():
+    """As 142 páginas do Cristália Obra II não podem virar custo de OCR."""
+    rotas = ["nativo"] * 5
+    ajustadas, desviadas = extracao.desviar_ocr_embutido(rotas, escaneadas=set())
+    assert ajustadas == rotas
+    assert desviadas == 0
+
+
+def _pdf_de_teste(tmp_path):
+    """Pág. 1 digital; pág. 2 folha escaneada com OCR embutido; pág. 3 digital com logotipo."""
+    import pymupdf
+
+    figura = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 60, 80), False)
+    figura.clear_with(200)
+    doc = pymupdf.open()
+
+    digital = doc.new_page()
+    digital.insert_text((72, 100), "Certidão de Acervo Técnico digitada")
+
+    escaneada = doc.new_page()
+    escaneada.insert_image(escaneada.rect, pixmap=figura)
+    escaneada.insert_text((72, 100), "Atestarnos para os devldos fins", render_mode=3)
+
+    com_logo = doc.new_page()
+    com_logo.insert_image(pymupdf.Rect(40, 40, 160, 120), pixmap=figura)
+    com_logo.insert_text((72, 200), "Página digital com logotipo no topo")
+
+    caminho = tmp_path / "misto.pdf"
+    doc.save(caminho)
+    doc.close()
+    return caminho
+
+
+def test_detecta_so_a_folha_que_e_imagem_inteira(tmp_path):
+    from solufarma import formatos
+
+    assert formatos.paginas_escaneadas(_pdf_de_teste(tmp_path)) == {1}
+
+
+def test_logotipo_nao_faz_a_pagina_contar_como_escaneada(tmp_path):
+    from solufarma import formatos
+
+    assert 2 not in formatos.paginas_escaneadas(_pdf_de_teste(tmp_path))

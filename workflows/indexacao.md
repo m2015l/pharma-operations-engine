@@ -122,11 +122,13 @@ manual do I6.
   `setup_supabase.py --apply` só aplica a 001; as demais são aplicadas à mão. A falha
   acontece depois do cadastro e dos chunks, então o documento fica gravado sem linhas de
   planilha: basta aplicar a migração e rodar o `indexar.py` de novo (não duplica);
-- **Chunk só com título deixa o documento em `chunked`.** O `generate_embeddings.py`
-  pula chunks de ruído (`pulados_ruido`), mas eles continuam contando como pendentes,
-  então o documento não vira `indexado` e a tela de Acervo mostra "Em processamento".
-  Em 07/10 isso foi resolvido à mão com `repo.marcar_documento_indexado()` em 3
-  documentos; a correção de verdade é no código (ruído não deveria contar como pendência);
+- ~~Chunk só com título deixa o documento em `chunked`~~ **corrigido em 09/10**: em
+  `gerar_embeddings_pendentes`, chunk de ruído (`pulados_ruido`) não conta mais como
+  pendência, e o documento vira `indexado` mesmo com ele. É normal o CLI terminar com
+  "Ainda pendentes: N" igual ao número de chunks de ruído;
+- **Passar um único `--documento-id` por variável no PowerShell:** `$ids[0]` de uma
+  string devolve o primeiro caractere, não o id. Usar `@(...)` para forçar lista
+  (08/10: o HC USP ficou sem embedding até a conferência no banco apontar);
 - **A gravação de `itens_planilha` é lenta** (um `insert` por linha): cerca de 10 minutos
   para 4.000 linhas. Rode em segundo plano;
 - Depois do lote: golden set em 22/22, controles 4/4, com 29 documentos e 1.687 chunks.

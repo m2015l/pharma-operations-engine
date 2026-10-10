@@ -148,6 +148,21 @@ def precisa_vlm(texto_limpo: str, area_px: int) -> bool:
     return volume_insuficiente or densidade_insuficiente
 
 
+def desviar_ocr_embutido(rotas: list[str], escaneadas: set[int]) -> tuple[list[str], int]:
+    """
+    Manda para o VLM a página "nativa" que é uma folha escaneada.
+
+    Devolve (rotas ajustadas, quantas mudaram). A dupla condição de
+    `precisa_vlm` mede QUANTO texto há, não de onde ele veio: a camada de OCR
+    que o scanner embute tem volume e densidade de texto digitado, e passava.
+    Foi assim que "Márcio Flávio Copplo" e "lldemar Coppio" entraram no acervo.
+    """
+    ajustadas = [
+        "vlm" if rota == "nativo" and i in escaneadas else rota for i, rota in enumerate(rotas)
+    ]
+    return ajustadas, sum(1 for antes, depois in zip(rotas, ajustadas) if antes != depois)
+
+
 # Caracteres sem largura que alguns geradores de PDF usam para alinhar texto.
 # A página 1 do CAT da CRISTÁLIA tem 15 linhas contendo só "\u200b", usadas no
 # alinhamento de "RESPONSÁVEIS TÉCNICOS ... CREA". Contadas como linhas curtas,
@@ -240,7 +255,27 @@ def _extrair_json(bruto: str) -> dict:
                 pass
     # Último recurso: preserva o texto como markdown e marca confiança baixa,
     # para a página aparecer no relatório de revisão em vez de sumir.
-    return {"markdown": bruto, "confianca": 0.4, "observacoes": "resposta não era JSON válido"}
+    return {"markdown": bruto, "confianca": 0.4, "observacoes": OBS_JSON_INVALIDO}
+
+
+OBS_JSON_INVALIDO = "resposta não era JSON válido"
+
+# Teto de tokens da resposta do VLM. Página densa fica em ~2.500; bater aqui é
+# sinal de que o modelo degenerou (encheu o resto de espaços), não de página
+# grande: aconteceu na pág. 35 do Cristália 3ª fase e nas 16 e 193 do HC USP.
+MAX_TOKENS_SAIDA = 8000
+# Quantas vezes repetir uma resposta cortada/inválida antes de desistir. Nos três
+# casos acima a primeira repetição resolveu; cada uma custa ~US$ 0,08.
+RETENTATIVAS_RESPOSTA_RUIM = 2
+
+
+def _resposta_ruim(resultado: dict, escolha: dict) -> bool:
+    """A resposta foi cortada no teto de tokens ou não era o JSON pedido."""
+    return (
+        escolha.get("finish_reason") == "length"
+        or resultado.get("_tokens_saida", 0) >= MAX_TOKENS_SAIDA
+        or resultado.get("observacoes") == OBS_JSON_INVALIDO
+    )
 
 
 def _assinatura_cache(jpeg: bytes, contexto_herdado: str) -> str:
@@ -266,6 +301,12 @@ def chamar_vlm(jpeg: bytes, contexto_herdado: str, chave_api: str) -> tuple[dict
 
     O flag de cache é o que permite provar a idempotência exigida pelo
     CLAUDE.md: segunda execução do mesmo documento deve custar US$ 0,00.
+
+    Resposta cortada no teto de tokens (ou que não era JSON) é repetida e NUNCA
+    vai para o cache. Antes ia: a página saía pela metade, ficava gravada, e toda
+    reexecução devolvia a mesma metade sem custo e sem aviso. Se todas as
+    repetições falharem, a página segue com confiança 0.4 para a revisão manual
+    e a próxima execução tenta de novo.
     """
     config.DIR_CACHE.mkdir(parents=True, exist_ok=True)
     arquivo_cache = config.DIR_CACHE / f"{_assinatura_cache(jpeg, contexto_herdado)}.json"
@@ -275,7 +316,7 @@ def chamar_vlm(jpeg: bytes, contexto_herdado: str, chave_api: str) -> tuple[dict
     payload = {
         "model": config.OPENROUTER_MODELO,
         "temperature": 0,
-        "max_tokens": 8000,
+        "max_tokens": MAX_TOKENS_SAIDA,
         "messages": [
             {"role": "system", "content": prompts.SYSTEM_PROMPT},
             {
@@ -302,7 +343,13 @@ def chamar_vlm(jpeg: bytes, contexto_herdado: str, chave_api: str) -> tuple[dict
     }
 
     ultimo_erro: Exception | None = None
-    for tentativa in range(config.TENTATIVAS):
+    ruim: dict | None = None  # última resposta cortada/inválida, se houve
+    respostas_ruins = 0
+    # Tokens de TODAS as chamadas pagas desta página, inclusive as descartadas:
+    # o relatório de custo mentiria para menos se contasse só a que ficou.
+    tokens_entrada = tokens_saida = 0
+    tentativa = 0
+    while tentativa < config.TENTATIVAS and respostas_ruins <= RETENTATIVAS_RESPOSTA_RUIM:
         try:
             r = requests.post(
                 config.OPENROUTER_URL,
@@ -312,6 +359,7 @@ def chamar_vlm(jpeg: bytes, contexto_herdado: str, chave_api: str) -> tuple[dict
             )
             if r.status_code in STATUS_RETENTAVEIS:
                 time.sleep(2**tentativa + 1)
+                tentativa += 1
                 continue
             # 401/402/404 não são retentáveis: chave inválida, crédito zerado
             # ou slug de modelo errado. Falhar rápido e com a mensagem da API.
@@ -322,11 +370,20 @@ def chamar_vlm(jpeg: bytes, contexto_herdado: str, chave_api: str) -> tuple[dict
             if "choices" not in corpo:
                 raise FalhaExtracao(f"resposta sem 'choices': {json.dumps(corpo)[:400]}")
 
-            resultado = _extrair_json(corpo["choices"][0]["message"]["content"])
+            escolha = corpo["choices"][0]
+            resultado = _extrair_json(escolha["message"]["content"])
             uso = corpo.get("usage") or {}
-            resultado["_tokens_entrada"] = uso.get("prompt_tokens", 0)
+            tokens_entrada += uso.get("prompt_tokens", 0)
+            tokens_saida += uso.get("completion_tokens", 0)
             resultado["_tokens_saida"] = uso.get("completion_tokens", 0)
 
+            if _resposta_ruim(resultado, escolha):
+                ruim = resultado
+                respostas_ruins += 1
+                continue
+
+            resultado["_tokens_entrada"] = tokens_entrada
+            resultado["_tokens_saida"] = tokens_saida
             arquivo_cache.write_text(
                 json.dumps(resultado, ensure_ascii=False), encoding="utf-8"
             )
@@ -337,6 +394,18 @@ def chamar_vlm(jpeg: bytes, contexto_herdado: str, chave_api: str) -> tuple[dict
         except Exception as e:  # noqa: BLE001 — rede/JSON; registra e tenta de novo
             ultimo_erro = e
             time.sleep(2**tentativa + 1)
+            tentativa += 1
+
+    if ruim is not None:
+        # Sem cache de propósito: a próxima execução tenta esta página de novo.
+        ruim["_tokens_entrada"] = tokens_entrada
+        ruim["_tokens_saida"] = tokens_saida
+        ruim["confianca"] = min(float(ruim.get("confianca") or 0.4), 0.4)
+        ruim["observacoes"] = (
+            f"Resposta cortada ou fora do formato em {respostas_ruins} tentativa(s); "
+            f"página possivelmente incompleta. {ruim.get('observacoes') or ''}"
+        ).strip()
+        return ruim, False
 
     raise FalhaExtracao(
         f"OpenRouter falhou após {config.TENTATIVAS} tentativas: {ultimo_erro}"
@@ -396,6 +465,13 @@ def processar(caminho: Path, saida_dir: Path, verboso: bool = True) -> Documento
         "vlm" if precisa_vlm(limpo, area) else "nativo"
         for limpo, (_, _, area) in zip(limpos, brutas)
     ]
+    # Texto de página escaneada é OCR antigo embutido: passa na dupla condição
+    # e chega ao acervo com erro de grafia. Vem ANTES da terceira via, para a
+    # grade de uma folha escaneada não ser "reconstruída" a partir desse texto.
+    if formato == "pdf" and config.OCR_EMBUTIDO_VAI_PARA_VLM:
+        rotas, desviadas = desviar_ocr_embutido(rotas, formatos.paginas_escaneadas(caminho))
+        if desviadas and verboso:
+            print(f"  OCR antigo embutido: {desviadas} página(s) nativa(s) desviada(s) para o VLM")
     # Terceira via: página nativa que é planilha não pode seguir como texto
     # corrido. Só se aplica a PDF — os outros formatos não têm grade para ler.
     tabelas_md: dict[int, str] = {}

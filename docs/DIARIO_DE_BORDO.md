@@ -6,6 +6,35 @@
 
 ---
 
+## 2026-10-09 — Correção dos quatro defeitos do lote de OCR (pendências 30 a 33) (Thiago + Claude)
+
+**O que foi feito** (testes de 351 para **372 passando**, `ruff` limpo; nenhuma chamada paga):
+- **Pendência 30, lacunas de carimbo gravadas como `vazio`** (`src/solufarma/chunking.py`). Três causas, achadas ao rodar o classificador sobre as 65 observações reais do OCR que citam código de item:
+  1. `RE_CODIGO_CITADO` lia "04.01.521.ac" como "04.01.521", que não casa com célula nenhuma. Agora aceita o sufixo de letras e descarta valor pt-BR ("13.019,28", "1.796.000,00");
+  2. `RE_FRASE` partia a frase em abreviação ("UNIDADE/QUANT. está obscurecida"), deixando o código de um lado e o motivo do outro. Agora só parte antes de maiúscula ou dígito; orações separadas por ";" herdam o código da anterior;
+  3. faltavam marcadores ("impossibilitando a leitura", "não está legível", "obscurecida", "cortada").
+  - **Novo:** linha PREENCHIDA cujo valor o modelo declarou ter inferido ou lido com dúvida vira `suspeita` (antes era `ok`). É o caso da pág. 19 do Butantan hemoderivados ("foi inferido como '2,00'"). Dúvida desfeita na mesma oração ("mas os valores permaneceram legíveis") não conta;
+  - o código é procurado em qualquer célula e também colado na descrição (`18.6.35 1/2"`);
+- **Pendência 31, documento preso em `chunked`** (`src/solufarma_rag/ingestion/embeddings.py`): chunk de ruído não conta mais como pendência em `gerar_embeddings_pendentes`;
+- **Pendência 32, OCR antiga embutida tratada como texto nativo** (`formatos.paginas_escaneadas`, `extracao.desviar_ocr_embutido`, `config.OCR_EMBUTIDO_VAI_PARA_VLM`): página que é uma imagem cobrindo 85% ou mais da folha vai para o VLM mesmo tendo texto. O `triar_documentos.py` aplica a mesma regra na estimativa de custo;
+- **Pendência 33, resposta do VLM cortada indo para o cache** (`extracao.chamar_vlm`): resposta com `finish_reason = length`, no teto de 8.000 tokens ou que não é JSON é repetida (até 2 vezes) e nunca é gravada no cache. Os tokens das chamadas descartadas entram no custo;
+- **Dados regravados** para a pendência 30: `chunk_document.py` + `indexar.py` em LAQFA/CEMFAR, Butantan hemoderivados, Cristália 3ª fase e HC USP. Os chunks saíram idênticos (nenhum embedding refeito); só os status de `itens_planilha` mudaram. **Linhas marcadas para revisão no banco: 14 → 48** (LAQFA 0 → 7, Butantan 9 → 14, Cristália 0 → 1, HC USP 5 → 26). O `relatorio_lacunas.py --doc LAQFA` agora lista as 7;
+- A correção da pendência 31 foi exercitada no banco real: HC USP e LAQFA voltaram a `indexado` sozinhos após a regravação. **33 documentos `indexado`, golden set 22/22, controles 4/4.**
+
+**Aprendizados / observações:**
+- **O tamanho da pendência 32 no acervo já indexado:** 9 documentos estão com `metodo_extracao = 'nativo'` sobre folha escaneada, isto é, indexados inteiros a partir da OCR antiga (59 páginas: IMAS II, SJC-03608, FURP 2620140004961, Delta 2620130009521, SJC-01975, Biotério, Criogenia, SJC-02085, Ariston). É de lá que vêm trechos como "Tap Teenologia ern Projetos" nas provas da classificação. Há também páginas nativas soltas dentro de documentos `misto` (18 no SJC-003369, 1 no HC USP). **Nada disso foi reprocessado:** custa OCR (~US$ 2 para os 9) e muda os chunks de documentos de que o golden set depende;
+- Os 24 documentos indexados antes da migração 004 têm `status` nulo em todas as linhas de `itens_planilha` no banco (inclusive o SJC-003369, que localmente tem 8 linhas a revisar). Só entram no status ao serem reindexados;
+- Faixas ("itens 19.38.11 a 19.38.17") continuam marcando só as duas pontas;
+- A regra nova de roteamento encarece documentos escaneados com OCR embutido: cada página desviada passa a custar OCR.
+
+**Próximos passos:**
+1. Decidir se vale reextrair os 9 documentos indexados da OCR antiga (~US$ 2) e rodar o golden set depois;
+2. As 20 perguntas de validação no app em modo real;
+3. Perguntas de golden set sobre os 9 documentos novos e recalibração do piso;
+4. Preencher à mão as 12 linhas `ilegivel` e conferir as `suspeita` com `tools/relatorio_lacunas.py`.
+
+---
+
 ## 2026-10-08 — HC USP indexado: os 33 PDFs do acervo estão no banco (Thiago + Claude)
 
 **O que foi feito:**

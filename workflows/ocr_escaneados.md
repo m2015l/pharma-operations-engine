@@ -75,13 +75,38 @@ Saída:
 | Todas as páginas viraram "nativas" | boilerplate não detectado | baixar `SOLUFARMA_LIMIAR_BOILERPLATE` ou subir `SOLUFARMA_MIN_DENSIDADE` |
 | Tabela sem cabeçalho na 2ª página | carry-over quebrado | conferir se as páginas VLM contíguas ficaram no mesmo bloco |
 | `resposta não era JSON válido` nas observações | modelo saiu do formato | página fica com confiança 0.4 e entra na revisão; se for recorrente, revisar `prompts.py` |
-| Mesma mensagem, com `tokens_saida` = 8000 | a resposta bateu no teto de tokens e foi cortada (pág. 35 do Cristália 2620210005534, 07/10) | o markdown salvo é só o começo da página, em JSON cru; **não indexar o documento** antes de refazer a página |
+| `Resposta cortada ou fora do formato em N tentativa(s)` nas observações | a resposta bateu no teto de 8.000 tokens (o modelo degenera e enche o resto de espaços) ou não era JSON | desde 09/10 o `chamar_vlm` repete sozinho (até 2 vezes) e **não grava a resposta ruim no cache**. Se a mensagem aparecer, as 3 tentativas falharam: a página fica com confiança 0.4 e **o documento não deve ser indexado** antes de rodar o `extract_text.py` de novo, que tenta só essa página. Extração feita **antes de 09/10** pode ter resposta cortada no cache (`tokens_saida` = 8000): apagar a entrada em `.cache_ocr/` e rodar de novo |
+| Refazer uma página fez as seguintes serem pagas de novo | o contexto herdado da página anterior entra na chave do cache; mudou a página N, a N+1 perde o cache, e assim por diante (Cristália, 07/10: 1 página virou 15) | é o comportamento correto, só caro. Para trocar uma página isolada sem reler as demais, chamar `extracao.chamar_vlm` com a mesma imagem e o mesmo `prompts.montar_contexto` e substituir só essa página no JSON de `data/extraidos/` (feito no HC USP em 08/10) |
 | `HTTP 403 Key limit exceeded` | teto mensal da **chave** (não da conta) | openrouter.ai/settings/keys → editar a chave → Credit limit. Conferir também o saldo em Credits: limite acima do saldo não adianta |
 
 **Custo real medido (07/10, 382 páginas, `anthropic/claude-sonnet-5`):** US$ 0,022 a
 0,034 por página via VLM, contra US$ 0,016 da estimativa do `triar_documentos.py`.
 Planilhas densas ficam no topo da faixa. O painel do OpenRouter demora alguns minutos
 para contabilizar as últimas chamadas.
+
+---
+
+## Folha escaneada com OCR antigo embutido (desde 09/10)
+
+Muitos PDFs do acervo são folhas escaneadas com uma camada de texto que o scanner
+embutiu. Esse texto tem volume e densidade de texto digitado, passa na dupla
+condição do roteamento e chega ao acervo com erro de grafia ("Márcio Flávio
+Copplo", "lldemar Coppio", "Tap Teenologia ern Projetos").
+
+Agora a página que é **uma imagem cobrindo 85% ou mais da folha** vai para o VLM
+mesmo tendo texto (`formatos.paginas_escaneadas`, `extracao.desviar_ocr_embutido`).
+O CLI avisa: `OCR antigo embutido: N página(s) nativa(s) desviada(s) para o VLM`.
+
+- Página realmente digital não é afetada (medido: as 142 do Cristália Obra II seguem nativas);
+- **Isso encarece documentos novos desse tipo**: cada página desviada custa OCR
+  (~US$ 0,03). O `triar_documentos.py` já conta essas páginas na estimativa;
+- Para desligar: `SOLUFARMA_OCR_EMBUTIDO_VLM=0`. Para mudar o corte de 85%:
+  `SOLUFARMA_COBERTURA_ESCANEADA`;
+- **Os documentos indexados antes de 09/10 não foram reprocessados.** Os 9 com
+  `metodo_extracao = 'nativo'` em folha escaneada (59 páginas: IMAS II, SJC-03608,
+  FURP 2620140004961, Delta 2620130009521, SJC-01975, Biotério, Criogenia,
+  SJC-02085, Ariston) seguem com o texto da OCR antiga. Reextrair custa cerca de
+  US$ 2 e muda os chunks: rodar o golden set depois.
 
 ---
 

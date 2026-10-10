@@ -356,6 +356,16 @@ def _lotes(chunks: list, tamanho_lote: int, max_tokens: int):
         yield lote
 
 
+def _e_ruido(chunk) -> bool:
+    """Chunk sem conteúdo que valha indexar (página de carimbos, título solto).
+
+    O prefixo contextual fica fora da conta: o corpo real do chunk é o que
+    interessa para decidir.
+    """
+    corpo = chunk.conteudo.split("\n", 1)[-1].strip()
+    return len(corpo) < MIN_CARACTERES_CONTEUDO
+
+
 def gerar_embeddings_pendentes(
     repo: ChunkRepository,
     provider: EmbeddingProvider,
@@ -373,10 +383,7 @@ def gerar_embeddings_pendentes(
     indexaveis = []
     pulados = 0
     for chunk in pendentes:
-        # Remove o prefixo contextual da contagem de "ruído": o corpo real do
-        # chunk é o que interessa para decidir se vale indexar.
-        corpo = chunk.conteudo.split("\n", 1)[-1].strip()
-        if len(corpo) < MIN_CARACTERES_CONTEUDO:
+        if _e_ruido(chunk):
             pulados += 1
             continue
         indexaveis.append(chunk)
@@ -400,8 +407,11 @@ def gerar_embeddings_pendentes(
         lotes += 1
 
     # Documentos sem pendências restantes → status 'indexado' (SOP passo 3).
+    # Ruído não conta como pendência: ele nunca recebe embedding, então um único
+    # chunk só com título ("ADITIVO 1") deixava o documento em 'chunked' para
+    # sempre e o Acervo mostrava "Em processamento" (07/10, 4 documentos).
     documentos_processados = {c.documento_id for c in pendentes}
-    ainda_pendentes = repo.documentos_com_pendencias()
+    ainda_pendentes = {c.documento_id for c in repo.listar_pendentes() if not _e_ruido(c)}
     indexados = sorted(documentos_processados - ainda_pendentes)
     for documento_id in indexados:
         repo.marcar_documento_indexado(documento_id)

@@ -115,6 +115,36 @@ def _carregar_zip(caminho: Path) -> list[tuple[bytes, str, int]]:
         return saida
 
 
+def paginas_escaneadas(caminho: Path) -> set[int]:
+    """
+    Índices (base 0) das páginas de um PDF que são uma imagem de folha inteira.
+
+    Numa página assim, qualquer texto que o PDF devolva é a camada de OCR que o
+    scanner embutiu — não texto digitado. É o sinal que `extracao` usa para não
+    confiar nesse texto (ver `config.OCR_EMBUTIDO_VAI_PARA_VLM`).
+
+    Só olha a geometria das imagens; não renderiza nada.
+    """
+    doc = pymupdf.open(caminho)
+    try:
+        escaneadas: set[int] = set()
+        for i, pagina in enumerate(doc):
+            area = pagina.rect.width * pagina.rect.height
+            if not area:
+                continue
+            for imagem in pagina.get_image_info():
+                visivel = pymupdf.Rect(imagem["bbox"]) & pagina.rect
+                if visivel.is_empty:
+                    continue
+                cobertura = (visivel.width * visivel.height) / area
+                if cobertura >= config.COBERTURA_PAGINA_ESCANEADA:
+                    escaneadas.add(i)
+                    break
+        return escaneadas
+    finally:
+        doc.close()
+
+
 def carregar_paginas(caminho: Path, formato: str) -> list[tuple[bytes, str, int]]:
     """Retorna [(jpeg_bytes, texto_nativo, area_px), ...] em ordem de página."""
     if formato == "pdf":

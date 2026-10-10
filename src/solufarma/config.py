@@ -59,6 +59,19 @@ JPEG_QUALIDADE = int(os.getenv("SOLUFARMA_JPEG_QUALIDADE", "88"))
 MIN_CARACTERES_UTEIS = int(os.getenv("SOLUFARMA_MIN_CARACTERES", "220"))
 MIN_DENSIDADE = float(os.getenv("SOLUFARMA_MIN_DENSIDADE", "0.00035"))
 
+# Página que é uma imagem escaneada de folha inteira vai para o VLM mesmo
+# tendo texto: esse texto é a camada de OCR antiga embutida no PDF, e ela passa
+# na dupla condição acima com erro de grafia ("Copplo", "lldemar", "Tap
+# Teenologia ern Projetos"). Medido no acervo de 33 CATs em 08/10: o critério
+# pega a pág. 2 do HC USP e 18 páginas do CAT SJC-003369, e não toca nas 142
+# páginas digitais do Cristália Obra II. `0` volta ao comportamento antigo.
+OCR_EMBUTIDO_VAI_PARA_VLM = os.getenv("SOLUFARMA_OCR_EMBUTIDO_VLM", "1").strip().lower() not in (
+    "0", "false", "nao", "não", "",
+)
+# Fração da folha que a maior imagem precisa cobrir para a página contar como
+# escaneada. Logotipo, carimbo digital e foto de equipamento ficam bem abaixo.
+COBERTURA_PAGINA_ESCANEADA = float(os.getenv("SOLUFARMA_COBERTURA_ESCANEADA", "0.85"))
+
 # Linha presente em mais de X% das páginas é cabeçalho/rodapé/carimbo.
 LIMIAR_BOILERPLATE = float(os.getenv("SOLUFARMA_LIMIAR_BOILERPLATE", "0.55"))
 

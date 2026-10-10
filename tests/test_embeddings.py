@@ -93,6 +93,30 @@ def test_pula_chunk_que_e_ruido_de_ocr(documento, provider):
     assert relatorio.embeddados == len(chunks)
 
 
+def test_chunk_de_ruido_nao_prende_o_documento_em_chunked(documento, provider):
+    """
+    Regressão de 07/10: o ruído nunca recebe embedding, então continua na lista
+    de pendentes para sempre. Se contasse como pendência, o documento não viraria
+    'indexado' e o Acervo mostraria "Em processamento" indefinidamente.
+    """
+    repo = InMemoryChunkRepository()
+    chunks = gerar_chunks(documento)
+    ruido = chunks[0].model_copy(
+        update={
+            "chunk_index": 999,
+            "conteudo": "[Atestado LAQFA | EQUIPAMENTOS E ACESSORIOS | p. 34]\n**ADITIVO 1**",
+            "content_hash": "hash-ruido",
+        }
+    )
+    repo.upsert_chunks(chunks + [ruido])
+
+    relatorio = gerar_embeddings_pendentes(repo, provider)
+
+    assert relatorio.pulados_ruido == 1
+    assert relatorio.documentos_indexados == ["doc-001"]
+    assert "doc-001" in repo.documentos_indexados
+
+
 def test_respeita_tamanho_do_lote(documento, provider):
     repo = InMemoryChunkRepository()
     repo.upsert_chunks(gerar_chunks(documento))

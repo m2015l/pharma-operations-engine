@@ -557,21 +557,35 @@ def chunk_tabela(bloco: Bloco, doc_titulo: str, doc_id: str, seq: list[int]) -> 
 
 # Código hierárquico de item citado numa observação do VLM: "2.1", "3.10".
 # Exige ao menos um ponto: um número solto ("linha 2") é ruído demais.
-RE_CODIGO_CITADO = re.compile(r"\b\d+(?:\.\d+)+\b")
+# O sufixo de letras é o da planilha da Aeronáutica ("04.01.521.ac"): sem ele o
+# código citado virava "04.01.521", que não casa com célula nenhuma, e as 7
+# lacunas de carimbo do LAQFA/CEMFAR entraram no banco como "vazio" (07/10).
+# O `(?![.,]\d)` final descarta valor em formato pt-BR: em "transcrito como
+# '13.019,28'" o "13.019" não é código, e lido como tal impedia a oração de
+# herdar o item de que ela fala.
+RE_CODIGO_CITADO = re.compile(r"\b\d+(?:\.\d+)+(?:\.[A-Za-z]{1,3})?\b(?![.,]\d)")
 
 # Divide a observação em frases. O lookbehind exige letra ou ")" antes do ponto,
-# senão "2.1" seria partido ao meio e o código se perderia.
-RE_FRASE = re.compile(r"(?<=[A-Za-zÀ-ÿ)\]])\.\s+|;\s+")
+# senão "2.1" seria partido ao meio e o código se perderia. O lookahead exige
+# maiúscula ou dígito depois: "coluna UNIDADE/QUANT. está obscurecida" é uma
+# frase só, e partida na abreviação o código ficava de um lado e o motivo do outro.
+RE_FRASE = re.compile(r"(?<=[A-Za-zÀ-ÿ)\]])\.\s+(?=[A-ZÀ-Ý0-9(\"'])")
+# Orações da mesma frase. A oração sem código fala do item da oração anterior:
+# "o item 18.6.35 está obscurecido; foi inferido como '2,00'".
+RE_ORACAO = re.compile(r";\s+")
 
 # O modelo diz por que a célula está vazia, e o motivo muda o que fazer. Estas
-# três listas leem essa intenção. Foram derivadas das observações reais do CAT
-# SJC-003369 (páginas 5, 7, 8, 10 e 23) — não de suposição sobre como o modelo
-# escreve.
+# listas leem essa intenção. Foram derivadas das observações reais do acervo —
+# CAT SJC-003369 (páginas 5, 7, 8, 10 e 23) e, em 08/10, as 65 observações com
+# código citado dos 9 documentos do lote de OCR — não de suposição sobre como o
+# modelo escreve.
 #
 # "o valor existe no papel e eu não consegui lê-lo":
 MARCAS_ILEGIVEL = (
     "ilegív", "ilegiv", "em branco", "deixad", "não foi possível ler",
     "nao foi possivel ler", "não legível", "obstru", "encobr", "apagad",
+    "impossibilit", "não está legív", "nao esta legiv",
+    "não possui quantidade legív", "nao possui quantidade legiv",
 )
 # "está vazio no documento mesmo, não é perda":
 MARCAS_LEGITIMO = (
@@ -580,7 +594,39 @@ MARCAS_LEGITIMO = (
 )
 # "tem carimbo em cima, mas eu acho que li certo" — não é perda declarada nem
 # vazio garantido. Merece olho humano, não preenchimento cego:
-MARCAS_OBSTRUCAO = ("carimbo", "sobrepõe", "sobrepost", "selo", "rubrica", "marcas rotacionadas")
+MARCAS_OBSTRUCAO = (
+    "carimbo", "sobrepõe", "sobrepost", "selo", "rubrica", "marcas rotacionadas",
+    "obscurec", "ocult", "cortad",
+)
+# "escrevi um valor, mas não garanto": o caso mais perigoso, porque a célula sai
+# PREENCHIDA. Página 19 do Butantan hemoderivados: "foi inferido como '2,00' por
+# consistência com o item seguinte". Sem isto a linha entra como "ok".
+MARCAS_INCERTO = (
+    "inferid", "pode estar incorret", "podem estar incorret", "incerteza",
+    "interpreta", "possível confirmar", "possivel confirmar", "ler com certeza",
+)
+# ...a menos que o próprio modelo desfaça a dúvida na mesma oração: "leve
+# incerteza de leitura, mas os valores numéricos permaneceram legíveis".
+RE_REAFIRMA = re.compile(r"\bmas\b.*(?:leg[ií]ve|boa confian[çc]a)", re.IGNORECASE)
+
+# Diagnóstico mais grave não é apagado por outro mais frouxo dito depois.
+_GRAVIDADE = {"vazio": 0, "suspeita": 0, "incerta": 1, "ilegivel": 2}
+
+
+def _intencao(oracao: str) -> str | None:
+    """A classificação que uma oração da observação declara, ou None."""
+    baixa = oracao.lower()
+    # A ordem importa: "vazio no original" vence "tem carimbo na página",
+    # porque é uma afirmação sobre a célula, não sobre a página.
+    if any(m in baixa for m in MARCAS_LEGITIMO):
+        return "vazio"
+    if any(m in baixa for m in MARCAS_ILEGIVEL):
+        return "ilegivel"
+    if any(m in baixa for m in MARCAS_INCERTO) and not RE_REAFIRMA.search(oracao):
+        return "incerta"
+    if any(m in baixa for m in MARCAS_OBSTRUCAO):
+        return "suspeita"
+    return None
 
 
 def sinais_da_observacao(observacoes: str) -> dict[str, str]:
@@ -601,36 +647,49 @@ def sinais_da_observacao(observacoes: str) -> dict[str, str]:
 
     Tratar as duas iguais — o que uma busca crua por código faria — produziria
     cinco pedidos de preenchimento falsos só na página 7 deste documento.
+
+    Quatro classificações: "vazio", "ilegivel", "suspeita" (há obstrução, o
+    modelo não disse que perdeu o valor) e "incerta" (o modelo escreveu um valor
+    e declarou dúvida sobre ele — vale mesmo com a linha preenchida).
     """
     sinais: dict[str, str] = {}
     for frase in RE_FRASE.split(observacoes or ""):
-        if not frase:
-            continue
-        baixa = frase.lower()
-        codigos = RE_CODIGO_CITADO.findall(frase)
-        if not codigos:
-            continue
-        # A ordem importa: "vazio no original" vence "tem carimbo na página",
-        # porque é uma afirmação sobre a célula, não sobre a página.
-        if any(m in baixa for m in MARCAS_LEGITIMO):
-            classificacao = "vazio"
-        elif any(m in baixa for m in MARCAS_ILEGIVEL):
-            classificacao = "ilegivel"
-        elif any(m in baixa for m in MARCAS_OBSTRUCAO):
-            classificacao = "suspeita"
-        else:
-            continue
-        for codigo in codigos:
-            # Uma frase que declara ilegibilidade não é apagada por outra mais
-            # frouxa depois: fica o diagnóstico mais grave.
-            if sinais.get(codigo) != "ilegivel":
-                sinais[codigo] = classificacao
+        codigos: list[str] = []
+        for oracao in RE_ORACAO.split(frase):
+            # Oração sem código herda os da anterior, dentro da mesma frase.
+            codigos = RE_CODIGO_CITADO.findall(oracao) or codigos
+            classificacao = _intencao(oracao)
+            if not codigos or classificacao is None:
+                continue
+            for codigo in codigos:
+                # Uma frase que declara ilegibilidade não é apagada por outra
+                # mais frouxa depois: fica o diagnóstico mais grave.
+                if _GRAVIDADE[classificacao] >= _GRAVIDADE.get(sinais.get(codigo, ""), 0):
+                    sinais[codigo] = classificacao
     return sinais
 
 
 def codigos_citados(observacoes: str) -> set[str]:
     """Só os códigos que o modelo declarou ilegíveis. Atalho para os testes."""
     return {c for c, v in sinais_da_observacao(observacoes).items() if v == "ilegivel"}
+
+
+def _sinal_da_linha(celulas: list[str], sinais: dict[str, str]) -> str | None:
+    """
+    O que a observação declarou sobre ESTA linha, ou None.
+
+    O código nem sempre está sozinho na primeira coluna: há planilha com uma
+    coluna de item vazia antes dele, a observação pode citar o código CPOS da
+    segunda coluna, e há linha em que ele vem colado na descrição
+    ('18.6.35 1/2"'). Fica o sinal mais grave entre os que casarem.
+    """
+    achados = [
+        classificacao
+        for celula in (str(c).strip() for c in celulas)
+        for codigo, classificacao in sinais.items()
+        if celula == codigo or celula.startswith(codigo + " ")
+    ]
+    return max(achados, key=_GRAVIDADE.__getitem__, default=None)
 
 
 def classificar_lacuna(
@@ -647,7 +706,9 @@ def classificar_lacuna(
                   papel e não foi capturado: é o que vale preencher à mão;
       suspeita  — há carimbo sobre a região, ou a página inteira veio abaixo do
                   limiar de confiança sem identificar quais linhas. Precisa de
-                  olho humano, mas não se sabe se há valor a recuperar.
+                  olho humano, mas não se sabe se há valor a recuperar. Também
+                  é o status da linha PREENCHIDA cujo valor o modelo declarou
+                  ter inferido ou lido com dúvida.
 
     Sem essa distinção um SUM(quantidade) ignora as lacunas e devolve um total
     menor que o real, sem erro nenhum — número errado com cara de certo, que é
@@ -656,14 +717,18 @@ def classificar_lacuna(
     `sinais` vem de `sinais_da_observacao()`. Um `set` também é aceito, e aí todo
     código nele conta como ilegível — é a forma antiga, mantida para os testes.
     """
-    if all(str(c).strip() for c in celulas):
-        return "ok"
-
     if isinstance(sinais, set):
         sinais = dict.fromkeys(sinais, "ilegivel")
 
-    codigo = str(celulas[0]).strip() if celulas else ""
-    declarado = sinais.get(codigo)
+    declarado = _sinal_da_linha(celulas, sinais)
+
+    if all(str(c).strip() for c in celulas):
+        # Linha completa só deixa de ser "ok" quando o modelo duvidou do valor
+        # que ele mesmo escreveu. Carimbo por perto não basta: ele leu.
+        return "suspeita" if declarado == "incerta" else "ok"
+
+    if declarado == "incerta":
+        return "suspeita"
     if declarado:
         return declarado
     if sinais:
