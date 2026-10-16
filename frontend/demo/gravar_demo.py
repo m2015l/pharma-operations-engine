@@ -132,7 +132,7 @@ def main() -> None:
         page.wait_for_timeout(1200)
         orgao = page.get_by_label("Órgão contratante")
         mover_e_clicar(page, orgao, 200)
-        orgao.press_sequentially("FURP - Fundação para o Remédio Popular", delay=35)
+        orgao.press_sequentially("Instituto BioPharma de Pesquisa", delay=35)
         page.wait_for_timeout(600)
         mover_e_clicar(page, page.get_by_role("button", name="Enviar documento"))
         page.wait_for_selector("text=recebido", timeout=15_000)

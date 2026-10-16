@@ -1,12 +1,45 @@
+# ==========================================================================
 # Segredos e credenciais
+# ==========================================================================
 .env
+.env.*
+!.env.example
 credentials.json
 token.json
 *.pem
 *.key
 
-# Temporários e intermediários
+# ==========================================================================
+# Bancos de dados locais e dumps
+# ==========================================================================
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.sql.gz
+*.dump
+
+# ==========================================================================
+# Planilhas e dados tabulares reais (bloqueados no git)
+# ==========================================================================
+*.csv
+*.xlsx
+*.xls
+*.ods
+*.parquet
+
+# ==========================================================================
+# Dados locais e documentos — NUNCA versionar acervo real
+# ==========================================================================
+data/
+!data/.gitkeep
+!data/golden_set.json
+acesso/
+
+# Temporários, caches e intermediários
 .tmp/
+.cache_ocr/
 *.log
 *.tmp
 
@@ -21,22 +54,10 @@ env/
 .mypy_cache/
 .ruff_cache/
 
-# Dados locais — DOCUMENTOS DE CLIENTE. Nunca versionar.
-# O acervo bruto vive no Drive da Solufarma / Supabase Storage, não no git.
-data/
-!data/.gitkeep
-
-# Exceção: golden_set.json não é documento de cliente, é gabarito de teste
-# (pergunta -> páginas esperadas, derivado da auditoria). Precisa ser
-# versionado para não se perder e para toda mudança de prompt/chunking/modelo
-# ser medida contra o mesmo padrão (tools/avaliar.py).
-!data/golden_set.json
-
-# Cache de OCR (respostas pagas do OpenRouter, por hash de conteúdo)
-.cache_ocr/
-
-*.sqlite
-*.db
+# Node / Next.js
+node_modules/
+.next/
+out/
 
 # IDE / SO
 .vscode/
@@ -47,12 +68,12 @@ Thumbs.db
 # Streamlit
 .streamlit/secrets.toml
 
-# Agent skills (locais, nao versionados)
+# Agent skills e configurações locais
 .agents/
 .claude/skills/
 skills-lock.json
 
-# Frontend: dados reais de CATs (fixtures e vídeo demo) ficam fora do git
+# Frontend: fixtures locais e gravações de vídeo
 api/fixtures/demo.json
 frontend/demo/*.mp4
 frontend/demo/*.webm

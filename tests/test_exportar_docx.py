@@ -37,9 +37,9 @@ def _citacao(n: int, trecho: str = "Trecho **citado** do atestado.") -> CitacaoO
         marcador=n,
         chunk_chave=f"doc#c{n:04d}",
         documento_id="doc-1",
-        titulo_documento="SENAI CETIQT CAT 576640",
+        titulo_documento="INSTITUTO BIOPHARMA CAT 100200",
         tipo_documento="atestado",
-        orgao="SENAI CETIQT",
+        orgao="INSTITUTO BIOPHARMA",
         secao="3. Serviços > 3.1 Edificação" if n != 2 else "",
         pagina_inicio=3,
         pagina_fim=3 if n != 3 else 5,
@@ -114,8 +114,8 @@ def test_nome_do_arquivo_segue_o_padrao_no_fuso_de_sao_paulo():
     turnos = _sintetico()
     conversa = ExportarDocxIn(gerado_em=GERADO_EM, turnos=turnos)
     resposta = ExportarDocxIn(escopo="resposta", gerado_em=GERADO_EM, turnos=turnos[:1])
-    assert exportar_docx.nome_arquivo(conversa) == "consulta-solufarma-2026-09-29-1432.docx"
-    assert exportar_docx.nome_arquivo(resposta) == "resposta-solufarma-2026-09-29-1432.docx"
+    assert exportar_docx.nome_arquivo(conversa) == "consulta-pharma-ops-2026-09-29-1432.docx"
+    assert exportar_docx.nome_arquivo(resposta) == "resposta-pharma-ops-2026-09-29-1432.docx"
 
 
 def test_conversa_sintetica_tem_cabecalho_rodape_marcadores_e_fontes():
@@ -214,7 +214,7 @@ def test_rota_devolve_docx_com_nome_no_content_disposition(cliente):
     assert r.headers["content-type"].startswith(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
-    assert 'filename="consulta-solufarma-2026-09-29-1432.docx"' in r.headers["content-disposition"]
+    assert 'filename="consulta-pharma-ops-2026-09-29-1432.docx"' in r.headers["content-disposition"]
     assert "Consulta ao acervo técnico" in _texto(_abrir(r.content))
 
 

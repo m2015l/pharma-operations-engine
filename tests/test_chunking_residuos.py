@@ -1,4 +1,4 @@
-"""Trechos-lixo de tabela (Cristália Obra II, 29/09).
+"""Trechos-lixo de tabela (Complexo Farmacêutico Industrial Obra II, 29/09).
 
 Em memorial de cabos o "#" é o símbolo de bitola ("# 1,0 mm²   1"). O
 RE_HEADING lia isso como heading markdown: cada bitola abria uma "seção", o
@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from solufarma import chunking
+from pharma_ops import chunking
 
-# Padrão real (Cristália Obra II, p. 46), com nomes e textos encurtados.
+# Padrão real (Complexo Farmacêutico Industrial Obra II, p. 46), com nomes e textos encurtados.
 MEMORIAL_CABOS = (
     "## DESCRIÇÃO\n"
     "42.2 \n"
@@ -38,7 +38,7 @@ MEMORIAL_CABOS = (
 
 
 def _doc(paginas):
-    return {"arquivo": "Cristalia Obra II.pdf", "hash_documento": "cris", "paginas": paginas}
+    return {"arquivo": "Complexo Farmacêutico Industrial Obra II.pdf", "hash_documento": "cris", "paginas": paginas}
 
 
 def test_bitola_de_cabo_nao_vira_secao():
@@ -123,7 +123,7 @@ def test_residuo_sem_anterior_e_descartado():
 
 
 def test_frase_curta_com_palavras_nao_e_residuo():
-    # Seção real com uma frase só (Hipolabor, Delta): continua chunk próprio.
+    # Seção real com uma frase só (Laboratório Farmacêutico Estadual, Delta): continua chunk próprio.
     assert not chunking._e_residuo("Os sistemas foram instalados conforme descritivo abaixo:")
 
 
@@ -146,6 +146,6 @@ def test_bloco_longo_cita_a_pagina_de_cada_pedaco(monkeypatch):
         ) else None
         if primeira is not None:
             assert c.pagina_inicio == primeira
-        assert c.texto.startswith(f"[Cristalia Obra II | DESCRIÇÃO | p. {c.pagina_inicio}]")
+        assert c.texto.startswith(f"[Complexo Farmacêutico Industrial Obra II | DESCRIÇÃO | p. {c.pagina_inicio}]")
     assert chunks[-1].pagina_fim == 15
     assert chunks[0].pagina_inicio == 10 and chunks[-1].pagina_inicio > 10

@@ -9,7 +9,7 @@ exceção é levantada em lugar nenhum.
 
 from __future__ import annotations
 
-from solufarma import extracao
+from pharma_ops import extracao
 from tests.conftest import AREA_A4_PX, CARIMBO_CAU
 
 
@@ -46,7 +46,7 @@ def test_boilerplate_detecta_o_carimbo_repetido(paginas_marca_dagua):
     """
     boilerplate = extracao.detectar_boilerplate(paginas_marca_dagua)
     assert boilerplate, "o carimbo repetido deveria ter sido detectado"
-    assert any("576640" in linha for linha in boilerplate)
+    assert any("100200" in linha for linha in boilerplate)
 
 
 def test_boilerplate_nao_remove_conteudo_de_pagina_unica(paginas_marca_dagua):
@@ -90,19 +90,19 @@ def test_assinatura_pega_variante_de_diagramacao_do_carimbo():
     """
     boilerplate = {
         (
-            "Certidão nº 576640/2020 - 01/09/2020, 18:04 - "
-            "Chave de Impressão: 3035566A189DW5W2DWBZ"
+            "Certidão nº 100200/2020 - 01/09/2020, 18:04 - "
+            "Chave de Impressão: 0000000A000AA0A0AAA0"
         )
     }
     assinaturas = extracao.extrair_assinaturas(boilerplate)
-    assert "3035566A189DW5W2DWBZ" in assinaturas
+    assert "0000000A000AA0A0AAA0" in assinaturas
 
     variantes = [
-        "Chave de Impressão: 3035566A189DW5W2DWBZ",
+        "Chave de Impressão: 0000000A000AA0A0AAA0",
         (
             "A autenticidade desta Certidão pode ser verificada em: "
             "https://siccau.caubr.gov.br/app/view/sight/externo?form=Servicos, "
-            "com a chave: 3035566A189DW5W2DWBZ"
+            "com a chave: 0000000A000AA0A0AAA0"
         ),
     ]
     for variante in variantes:
@@ -115,15 +115,15 @@ def test_assinatura_nao_engole_codigo_de_material():
     com assinatura de carimbo — apagar uma linha de planilha seria pior que
     deixar o carimbo passar.
     """
-    boilerplate = {"Certidão nº 576640 - Chave de Impressão: 3035566A189DW5W2DWBZ"}
+    boilerplate = {"Certidão nº 100200 - Chave de Impressão: 0000000A000AA0A0AAA0"}
     assinaturas = extracao.extrair_assinaturas(boilerplate)
 
     linhas_reais = [
         "| #240MM2 COR VERDE (FASE) | M | 900,00 |",
         "| QDC-4P-PIL | CJ | 1,00 |",
         "| ESTRUTURA METALICA ASTM A-588 GRB | KG | 2.821,00 |",
-        "Número do RRT: 8014430 Tipo do RRT: SIMPLES",
-        "CNPJ: 07.746.677/0001-12",
+        "Número do RRT: 1002001 Tipo do RRT: SIMPLES",
+        "CNPJ: 11.222.333/0001-81",
     ]
     for linha in linhas_reais:
         assert extracao.limpar(linha, boilerplate, assinaturas) == linha, (
@@ -155,8 +155,8 @@ def test_documento_todo_escaneado_vira_um_bloco_unico():
 #
 # A dupla condição mede quanto texto a página tem, não de onde ele veio. A
 # camada de OCR que o scanner embute no PDF tem volume e densidade de texto
-# digitado: passava por nativa e chegava ao acervo como "Márcio Flávio Copplo"
-# (SS WHITE) e "lldemar Coppio" (pág. 2 do HC USP).
+# digitado: passava por nativa e chegava ao acervo como "Carlos Eduardo Silva"
+# (Indústria Odontológica) e "Roberto Almeida Santos" (pág. 2 do HUC).
 
 
 def test_pagina_escaneada_com_ocr_embutido_vai_para_o_vlm():
@@ -167,7 +167,7 @@ def test_pagina_escaneada_com_ocr_embutido_vai_para_o_vlm():
 
 
 def test_pagina_digital_continua_nativa():
-    """As 142 páginas do Cristália Obra II não podem virar custo de OCR."""
+    """As 142 páginas do Complexo Farmacêutico Industrial Obra II não podem virar custo de OCR."""
     rotas = ["nativo"] * 5
     ajustadas, desviadas = extracao.desviar_ocr_embutido(rotas, escaneadas=set())
     assert ajustadas == rotas
@@ -200,12 +200,12 @@ def _pdf_de_teste(tmp_path):
 
 
 def test_detecta_so_a_folha_que_e_imagem_inteira(tmp_path):
-    from solufarma import formatos
+    from pharma_ops import formatos
 
     assert formatos.paginas_escaneadas(_pdf_de_teste(tmp_path)) == {1}
 
 
 def test_logotipo_nao_faz_a_pagina_contar_como_escaneada(tmp_path):
-    from solufarma import formatos
+    from pharma_ops import formatos
 
     assert 2 not in formatos.paginas_escaneadas(_pdf_de_teste(tmp_path))

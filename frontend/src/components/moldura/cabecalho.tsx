@@ -16,7 +16,7 @@ const ITENS = [
 ];
 
 /**
- * Header no padrão do sistema Contratos: branco, logo | nome do módulo à
+ * Header no padrão corporativo: branco, logo | nome do módulo à
  * esquerda, navegação em botões outline à direita (o ativo preenchido em
  * verde-petróleo) e borda inferior de 2 px #124443.
  */

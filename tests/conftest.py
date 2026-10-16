@@ -1,7 +1,7 @@
 """
 Fixtures dos quatro invariantes do CLAUDE.md.
 
-São SINTÉTICAS por ora — o `SENAI_CETIQT_CAT_576640.pdf` ainda não está no
+São SINTÉTICAS por ora — o `INSTITUTO BIOPHARMA_CAT_100200.pdf` ainda não está no
 repositório. Cada uma reproduz numericamente a condição descrita no CLAUDE.md
 (347 caracteres de carimbo em área A4, tabela sem cabeçalho na página seguinte,
 etc.), mas nenhuma prova que o documento REAL se comporta como esperado.
@@ -19,10 +19,10 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from solufarma_rag.db.models import Chunk, DocumentoParaChunking, PaginaDocumento
-from solufarma_rag.db.repository import InMemoryChunkRepository
-from solufarma_rag.ingestion.chunking import gerar_chunks
-from solufarma_rag.ingestion.embeddings import FakeEmbeddingProvider
+from pharma_rag.db.models import Chunk, DocumentoParaChunking, PaginaDocumento
+from pharma_rag.db.repository import InMemoryChunkRepository
+from pharma_rag.ingestion.chunking import gerar_chunks
+from pharma_rag.ingestion.embeddings import FakeEmbeddingProvider
 
 # A4 renderizada com lado maior = 1500px (config.LADO_MAIOR_PX).
 A4_ALTURA_PX = 1500
@@ -33,9 +33,9 @@ AREA_A4_PX = A4_ALTURA_PX * A4_LARGURA_PX  # ~1,59M px²
 # Passa em MIN_CARACTERES_UTEIS (220) e reprova em MIN_DENSIDADE — que é
 # exatamente o ponto do invariante 2.
 CARIMBO_CAU = (
-    "Certidão nº 576640/2020 - 01/09/2020, 18:04 - Chave de Impressão: 3035566A189DW5W2DWBZ "
+    "Certidão nº 100200/2020 - 01/09/2020, 18:04 - Chave de Impressão: 0000000A000AA0A0AAA0 "
     "O atestado neste ato registrado foi emitido em 01/09/2020, e contém 60 folhas vinculado "
-    "à Certidão De Acervo Técnico Com Atestado nº 576640, emitida em 01/09/2020 "
+    "à Certidão De Acervo Técnico Com Atestado nº 100200, emitida em 01/09/2020 "
     "Este documento encontra-se registrado no Conselho de Arquitetura e Urbanismo do Brasil,"
 )
 
@@ -46,7 +46,7 @@ def zip_disfarcado(tmp_path: Path) -> Path:
     INVARIANTE 1 — extensão mente.
 
     Arquivo com sufixo `.pdf` cujos bytes são um ZIP com 3 JPEGs, igual ao
-    documento do SENAI. Nomes fora de ordem alfabética (2, 10, 1) para o teste
+    documento do Instituto BioPharma. Nomes fora de ordem alfabética (2, 10, 1) para o teste
     também cobrir a ordenação numérica.
     """
     destino = tmp_path / "documento.pdf"
@@ -72,7 +72,7 @@ def paginas_marca_dagua() -> list[str]:
     INVARIANTE 2 — texto nativo pode ser só marca d'água.
 
     60 páginas: as duas primeiras com texto real (o PDF nativo do SICCAU), as
-    58 seguintes só com o carimbo. É o formato exato do CAT do SENAI.
+    58 seguintes só com o carimbo. É o formato exato do CAT do Instituto BioPharma.
     """
     reais = [
         "CERTIDÃO DE ACERVO TÉCNICO COM ATESTADO\n" + ("conteúdo real da página. " * 120),
@@ -152,7 +152,7 @@ def prosa_hierarquica() -> list[dict]:
 def documento_extraido(prosa_hierarquica, tabela_dividida) -> dict:
     """JSON de extração completo, no formato que o chunking consome."""
     return {
-        "arquivo": "SENAI_CETIQT_CAT_576640.pdf",
+        "arquivo": "INSTITUTO BIOPHARMA_CAT_100200.pdf",
         "hash_documento": "abc123def456",
         "n_paginas": 3,
         "formato_detectado": "zip_imagens",
@@ -161,11 +161,11 @@ def documento_extraido(prosa_hierarquica, tabela_dividida) -> dict:
 
 
 # ===========================================================================
-# Fixtures da frente RAG & Agente (pacote solufarma_rag)
+# Fixtures da frente RAG & Agente (pacote pharma_rag)
 #
 # Convivem com as fixtures de extração/chunking acima sem colisão de nome.
-# Enquanto o port do pacote para `src/solufarma/` não acontece (item 14 do
-# PLANO_PROJETO), estas fixtures importam de `solufarma_rag`.
+# Enquanto o port do pacote para `src/pharma_ops/` não acontece (item 14 do
+# PLANO_PROJETO), estas fixtures importam de `pharma_rag`.
 # ===========================================================================
 
 PAGINA_1 = """\
@@ -260,7 +260,7 @@ def provider() -> FakeEmbeddingProvider:
 @pytest.fixture
 def repo_indexado(documento, provider) -> InMemoryChunkRepository:
     """Repositório com o documento de exemplo já chunkado e embeddado."""
-    from solufarma_rag.ingestion.embeddings import gerar_embeddings_pendentes
+    from pharma_rag.ingestion.embeddings import gerar_embeddings_pendentes
 
     repo = InMemoryChunkRepository()
     repo.upsert_chunks(gerar_chunks(documento))

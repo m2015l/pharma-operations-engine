@@ -1,5 +1,5 @@
 """
-Regex da triagem por conteúdo (`solufarma.triagem`) com textos SINTÉTICOS.
+Regex da triagem por conteúdo (`pharma_ops.triagem`) com textos SINTÉTICOS.
 
 Cada texto imita um dos layouts reais vistos no lote do Drive (28-29/09):
 CREA-SP novo (com pontilhado de formulário e OCR antigo), CAU (SICCAU),
@@ -9,40 +9,40 @@ atestado corrido. Nenhum depende de PDF em disco.
 
 from __future__ import annotations
 
-from solufarma import triagem
-from solufarma.triagem import ALTA, MEDIA, NAO
+from pharma_ops import triagem
+from pharma_ops.triagem import ALTA, MEDIA, NAO
 
 CREA_SP_NOVO = """\
 Pagina 1/1
 CAT COM REGISTRO DE ATESTADO
 Resolução No. 1.025, de 30 de outubro de 2009
-262O1 30007911
-Profissional: ILDEMAR COPPIO ................................................................
-Registro: 601349247-SP ............. RNP: 2605082830 ...............
-Empresa Contratada: TEP TECNOLOGIA EM ENGENHARIA LTDA ......... ..........................
-Contratante: CENTRO NACIONAL DE PESQLJISAS EM ENERGIA E MATERIAlS - CNPEM .......CNPJ: 01.576.817/0001-75...
-Endereço ca Obra/serviço:RUA GIUSEPPE MAXIMO SCOLFARO .......................No.: 10000..
+262O2 40000101
+Profissional: ROBERTO ALMEIDA SANTOS ................................................................
+Registro: 000000002-SP ............. RNP: 2600000002 ...............
+Empresa Contratada: ENTERPRISE VENDOR HUB ENGENHARIA LTDA ......... ..........................
+Contratante: CENTRO NACIONAL DE BIOTECNOLOGIA - CNBIO .......CNPJ: 44.555.666/0001-14...
+Endereço ca Obra/serviço:AVENIDA DA TECNOLOGIA, 1000
 Complemento: POLO II ......... Bairro: CIDADE UNIVERSITARIA ........
-Cidade: Carnpinas ...........................uF SP CEP: 13083100. PAlS: BRASIL .........
+Cidade: Carnpinas ...........................uF SP CEP: 01000000. PAlS: BRASIL .........
 Data de inlcio: 15108/2012 Conclusão Efeilva: 27/01/2013 ....... ...Coordenadas
 Atividade Técnica: 1) Execução, Instalaçoes, lnstalaçSo ElAtrica. 1541,70 metro quadrado ....
 lnformaçães Complementares
-Certidão de Acervo Tecnico No.2620130007911
+Certidão de Acervo Tecnico No.2620240000101
 """
 
 CAU = """\
 Conselho de Arquitetura e Urbanismo
 CERTIDÃO DE ACERVO TÉCNICO COM ATESTADO
-Nº 0000000522936
-Profissional: ILZA MARIA COPPIO SATTELMAYER
+Nº 0000000100300
+Profissional: ANA PAULA OLIVEIRA
 Título do Profissional: Arquiteto e Urbanista
-Descricao: Construção do Centro de Manipulação Farmacêutica da Aeronáutica (CEMFAR), incluindo \
+Descricao: Construção do Centro de Manipulação Farmacêutica Central (LQC), incluindo \
 demolições e remoções diversas
-Empresa contratada: SOLUFARMA DO BRASIL ENGENHARIA LTDA - ME
-CNPJ: 07.746.677/0001-12
+Empresa contratada: PHARMA OPERATIONS ENGENHARIA LTDA
+CNPJ: 11.222.333/0001-81
  DADOS DO CONTRATO
-Contratante: LABORATÓRIO QUÍMICO-FARMACÊUTICO DA AERONÁUTICA
-CPF/CNPJ: 00394429009914
+Contratante: LABORATORIO QUIMICO CENTRAL
+CPF/CNPJ: 55666777000125
 Cidade: RIO DE JANEIRO
 Bairro: GALEÃO
 UF: RJ
@@ -51,20 +51,20 @@ Data de término da atividade: 2019-05-20
  ATIVIDADE TÉCNICA REALIZADA
  2.1.1 - Execução de obra , 642.42 m² - metro quadrado
  ENDEREÇO DA OBRA/SERVIÇO
-ESTRADA DO GALEÃO
+ESTRADA INDUSTRIAL, 300
 """
 
 CREA_RJ_ANTIGO = """\
 CERPIDAO DE AC2RVO TECNICO
-CERTIDAO No. 758012010
-MARCIO FLAVIO COPPIO ............................................................
-EXECUTANTE.: TEP - TECNOLOGIA EN PROJETOS DE ENG LTDA ......Reg.: 2)05201155 .....
-Contratante: FIOCRUZ-FUNDACAO OSWALDO CRUZ ......................................
+CERTIDAO No. 100012024
+CARLOS EDUARDO SILVA ............................................................
+EXECUTANTE.: ENTERPRISE VENDOR HUB ENGENHARIA LTDA ......Reg.: 2)05201155 .....
+Contratante: FNSP-FUNDACAO NACIONAL DE SAUDE PUBLICA ......................................
 InforinacaoComplementar ........................................................
 ExECuçAo DE CABINE DE CRIOGENIA [CRIOPRESERVACAO] DE CONCENTRADO VIRAL COM
 NITROGENIO LIQUIDO A -160 0C
 No. Contrato: 124/20009 ...........
-Endereco da Obra: AVENIDA BRASIL 4365 SL 65A ....................................
+Endereco da Obra: AVENIDA CENTRAL 1000
 """
 
 # CREA-SP antigo: rótulos numa coluna, valores depois (o texto sai "descolado").
@@ -72,8 +72,8 @@ CREA_SP_ANTIGO_COLUNAS = """\
 CERTIDAO DE ACERVO -CAT
 CERTIDAO N°:
 Profissional
-MARC!O FLAVIO COPPIO
-Local dix obra/serviço Rua Adherbal Stresser, 84 - Jd. Arpoador.
+CARLOS EDUARDO SILVA
+Local dix obra/serviço Rua Exemplo, 10 - Centro
 Cidade
 Valor
 Periodo
@@ -82,22 +82,22 @@ Contratada
 CREASP No
 R$ 198.550,00 Uunho/2007).
 04/06/2007 a 22/11/2007.
-Ariston - !ndOstrias Qulmicas e Farmacêuticas Ltda.
-Tep Teonoloqia em Projetos de Engenharia Ltda.
+Laboratório Químico Central - !ndOstrias Qulmicas e Farmacêuticas Ltda.
+Enterprise Vendor Hub Engenharia Ltda.
 ATESTADO DE CAPACIDADE TECNICA
-Atestamos Para os devidos fins e efeitos, que a empresa TEP - Tecnologia em Projetos de
-Engenharia LTDA., corn sede no rnunicIpio de São José dos Campos, inscrita no CNPJ sob o
-n 2. 02.905.709/0001-61
-ARISTON - INDUSTRIAS QUIMICAS E FARMACEUTICAS LTDA
+Atestamos Para os devidos fins e efeitos, que a empresa Enterprise Vendor Hub - Engenharia e
+Projetos LTDA., corn sede no rnunicIpio de São José dos Campos, inscrita no CNPJ sob o
+n 2. 22.333.444/0001-92
+LABORATORIO QUIMICO CENTRAL - INDUSTRIAS QUIMICAS E FARMACEUTICAS LTDA
 """
 
 ATESTADO_CONSORCIO = """\
 ATESTADO DE CAPACIDADE TÉCNICA
-Atestamos a quem possa Interessar que o Consórcio CTM, sediado em São José dos Campos - SP
-composto pela TEP TECNOLOGIA EM ENGENHARIA LTDA com participação de 35%, através dos \
+Atestamos a quem possa Interessar que o Consórcio Gama, sediado em São José dos Campos - SP
+composto pela ENTERPRISE VENDOR HUB ENGENHARIA LTDA com participação de 35%, através dos \
 responsáveis técnicos abaixo relacionados:
-Engenheiro Industrial-Mecânico: Márcio Flávio Copplo
-Contrato nº20/2017 assinado com FUNDAÇÃO OSWALDO CRUZ, através da unidade FARMANGUINHOS.
+Engenheiro Industrial-Mecânico: Carlos Eduardo Silva
+Contrato nº20/2017 assinado com FUNDACAO NACIONAL DE SAUDE PUBLICA, através da unidade COMPLEXO FARMACEUTICO.
 A contratada executou no período de 17/04/2017 a 17/06/2018, pelo valor de R$ 23.732.320,06 \
 os serviços de projeto executivo para as obras de adequações físicas do Prédio 70
 """
@@ -122,8 +122,8 @@ def test_limpar_texto_remove_nul():
 
 
 def test_formatar_cnpj_tolera_barra_lida_como_1():
-    assert triagem.formatar_cnpj("45.186.05310001-87") == "45.186.053/0001-87"
-    assert triagem.formatar_cnpj("33173097000193") == "33.173.097/0001-93"
+    assert triagem.formatar_cnpj("66.777.88810001-36") == "66.777.888/0001-36"
+    assert triagem.formatar_cnpj("77888999000147") == "77.888.999/0001-47"
     assert triagem.formatar_cnpj("123") is None
 
 
@@ -133,58 +133,58 @@ def test_formatar_cnpj_tolera_barra_lida_como_1():
 def test_crea_sp_novo_campos_estruturados():
     md = _md(CREA_SP_NOVO)
     assert md.tipo.valor == "CAT"
-    assert (md.numero_cat.valor, md.numero_cat.confianca) == ("2620130007911", ALTA)
-    assert md.orgao.valor == "CNPEM" and md.orgao.confianca == ALTA
-    assert md.contratante_cnpj.valor == "01.576.817/0001-75"
-    assert md.executante_grupo.valor == "TEP" and md.executante_grupo.confianca == ALTA
-    assert md.responsavel_tecnico.valor == "Ildemar Coppio"
+    assert (md.numero_cat.valor, md.numero_cat.confianca) == ("2620240000101", ALTA)
+    assert md.orgao.valor == "Centro Nacional de Biotecnologia" and md.orgao.confianca == ALTA
+    assert md.contratante_cnpj.valor == "44.555.666/0001-14"
+    assert md.executante_grupo.valor == "Enterprise Vendor Hub" and md.executante_grupo.confianca == ALTA
+    assert md.responsavel_tecnico.valor == "Roberto Almeida Santos"
     assert md.periodo.valor == "15/08/2012 a 27/01/2013"
     assert "Carnpinas/SP" in md.local.valor
     assert "1541,70" in md.objeto.valor
 
 
 def test_crea_sp_novo_numero_so_no_cabecalho_com_ocr_trocando_zero():
-    texto = CREA_SP_NOVO.replace("Certidão de Acervo Tecnico No.2620130007911\n", "")
+    texto = CREA_SP_NOVO.replace("Certidão de Acervo Tecnico No.2620240000101\n", "")
     md = _md(texto)
-    assert md.numero_cat.valor == "2620130007911"
+    assert md.numero_cat.valor == "2620240000101"
     assert md.numero_cat.confianca == MEDIA
 
 
 # --- CAU -----------------------------------------------------------------------------
 
 
-def test_cau_solufarma_executante_e_datas_iso():
+def test_cau_principal_executante_e_datas_iso():
     md = _md(CAU)
-    assert md.numero_cat.valor == "522936"  # zeros à esquerda removidos
-    assert md.orgao.valor == "LAQFA/CEMFAR"
-    assert md.executante_grupo.valor == "Solufarma"
-    assert md.executante_cnpj.valor == triagem.SOLUFARMA_CNPJ
-    assert md.contratante_cnpj.valor == "00.394.429/0099-14"
+    assert md.numero_cat.valor == "100300"  # zeros à esquerda removidos
+    assert md.orgao.valor == "Laboratório Químico Central"
+    assert md.executante_grupo.valor == "Pharma Operations"
+    assert md.executante_cnpj.valor == triagem.EMPRESA_PRINCIPAL_CNPJ
+    assert md.contratante_cnpj.valor == "55.666.777/0001-25"
     assert md.periodo.valor == "22/01/2018 a 20/05/2019"
     assert md.local.valor.endswith("RIO DE JANEIRO/RJ")
     assert md.objeto.valor.startswith("Construção do Centro de Manipulação")
-    assert md.responsavel_tecnico.valor == "Ilza Maria Coppio Sattelmayer"
+    assert md.responsavel_tecnico.valor == "Ana Paula Oliveira"
 
 
 def test_carimbo_cau_numero_com_ano():
-    md = _md("Certidão nº 576640/2020 - 01/09/2020, 18:04 - Chave de Impressão")
-    assert md.numero_cat.valor == "576640/2020"
+    md = _md("Certidão nº 100200/2020 - 01/09/2020, 18:04 - Chave de Impressão")
+    assert md.numero_cat.valor == "100200/2020"
 
 
 # --- CREA-RJ antigo ------------------------------------------------------------------
 
 
-def test_crea_rj_antigo_fiocruz_criogenia():
+def test_crea_rj_antigo_fnsp_criogenia():
     md = _md(CREA_RJ_ANTIGO)
-    assert md.numero_cat.valor == "758012010"
-    assert md.orgao.valor == "FIOCRUZ"
-    assert md.executante_grupo.valor == "TEP"
+    assert md.numero_cat.valor == "100012024"
+    assert md.orgao.valor == "Fundação Nacional de Saúde Pública"
+    assert md.executante_grupo.valor == "Enterprise Vendor Hub"
     assert "CABINE DE CRIOGENIA" in md.objeto.valor
 
 
 def test_crea_rj_numero_com_ocr_lendo_n_como_m():
-    md = _md("CERTIDAO DE ACERVO TECNICO\nCERTIDAO Mo. 4305/2010\n")
-    assert md.numero_cat.valor == "4305/2010"
+    md = _md("CERTIDAO DE ACERVO TECNICO\nCERTIDAO Mo. 1305/2024\n")
+    assert md.numero_cat.valor == "1305/2024"
 
 
 # --- CREA-SP antigo (colunas) ---------------------------------------------------------
@@ -196,30 +196,30 @@ def test_crea_sp_antigo_nao_confunde_rotulo_com_valor():
     assert md.numero_cat.confianca == NAO  # "CERTIDAO N°:" vazio no original
     # "Contratante" é seguido do rótulo "Contratada": não pode virar valor.
     assert md.contratante.valor is None
-    assert md.orgao.valor == "Ariston" and md.orgao.confianca == MEDIA
-    assert md.executante_grupo.valor == "TEP"
+    assert md.orgao.valor == "Laboratório Químico Central" and md.orgao.confianca == MEDIA
+    assert md.executante_grupo.valor == "Enterprise Vendor Hub"
     assert md.periodo.valor == "04/06/2007 a 22/11/2007"
-    assert md.responsavel_tecnico.valor == "Marcio Flavio Coppio"
+    assert md.responsavel_tecnico.valor == "Carlos Eduardo Silva"
     assert "Valor" not in (md.local.valor or "")
 
 
 # --- atestado ---------------------------------------------------------------------------
 
 
-def test_atestado_consorcio_com_tep():
+def test_atestado_consorcio_com_coligada():
     md = _md(ATESTADO_CONSORCIO)
     assert md.tipo.valor == "atestado de capacidade técnica"
-    assert md.executante.valor.startswith("Consórcio CTM")
-    assert md.executante_grupo.valor == "consórcio com TEP"
-    assert md.orgao.valor == "FIOCRUZ"
-    assert md.responsavel_tecnico.valor == "Márcio Flávio Copplo"
+    assert md.executante.valor.startswith("Consórcio Gama")
+    assert md.executante_grupo.valor == "consórcio com Enterprise Vendor Hub"
+    assert md.orgao.valor == "Fundação Nacional de Saúde Pública"
+    assert md.responsavel_tecnico.valor == "Carlos Eduardo Silva"
     assert md.periodo.valor == "17/04/2017 a 17/06/2018"
     assert md.objeto.valor.startswith("os serviços de projeto executivo")
 
 
 def test_classificar_executante():
-    assert triagem.classificar_executante("SOLUFARMA DO BRASIL ENGENHARIA LTDA") == "Solufarma"
-    assert triagem.classificar_executante("Tep - Tecnologia em Projetos de Engenharia") == "TEP"
+    assert triagem.classificar_executante("PHARMA OPERATIONS ENGENHARIA LTDA") == "Pharma Operations"
+    assert triagem.classificar_executante("Enterprise Vendor Hub") == "Enterprise Vendor Hub"
     assert triagem.classificar_executante("MPD Engenharia Ltda") is None
 
 
@@ -235,45 +235,45 @@ def test_texto_vazio_nao_quebra():
 def test_titulo_sugerido_vem_do_conteudo():
     md = _md(CREA_SP_NOVO)
     titulo = md.titulo_sugerido.valor
-    assert titulo.startswith("CAT 2620130007911 — CNPEM — ")
-    assert titulo.endswith("(executante: TEP)")
+    assert titulo.startswith("CAT 2620240000101 — Centro Nacional de Biotecnologia — ")
+    assert titulo.endswith("(executante: Enterprise Vendor Hub)")
 
 
 # --- nome do arquivo x conteúdo --------------------------------------------------------------
 
 
 def test_analisar_nome():
-    r = triagem.analisar_nome("BUTANTAN CAT SJC-02542 Implantação planta industrial Rev00.pdf")
-    assert r == {"orgaos": ["Instituto Butantan"], "numero_cat": "SJC-02542"}
-    r = triagem.analisar_nome("FIOCRUZ CAT 7580-2010 Cabine de criogenia Rev00.pdf")
-    assert r["numero_cat"] == "7580-2010"
+    r = triagem.analisar_nome("BIOPHARMA CAT SJC-02542 Implantação planta industrial Rev00.pdf")
+    assert r == {"orgaos": ["Instituto BioPharma"], "numero_cat": "SJC-02542"}
+    r = triagem.analisar_nome("FNSP CAT 1000-2024 Cabine de criogenia Rev00.pdf")
+    assert r["numero_cat"] == "1000-2024"
 
 
 def test_numeros_batem():
-    assert triagem.numeros_batem("SJC-02085", "SJC-02085")
-    assert not triagem.numeros_batem("SJC-02542", "SJC-02085")
-    assert triagem.numeros_batem("0000000238897", "238897")
-    assert triagem.numeros_batem("4305-2010", "4305/2010")
-    assert triagem.numeros_batem("576640", "576640/2020")
-    assert triagem.numeros_batem("7580-2010", "758012010")
-    assert not triagem.numeros_batem("52669-2020", "758012010")
-    assert not triagem.numeros_batem("ABC-01916", "2620140004961")
+    assert triagem.numeros_batem("SJC-10002", "SJC-10002")
+    assert not triagem.numeros_batem("SJC-02542", "SJC-10002")
+    assert triagem.numeros_batem("0000000100302", "100302")
+    assert triagem.numeros_batem("1305-2024", "1305/2024")
+    assert triagem.numeros_batem("100200", "100200/2020")
+    assert triagem.numeros_batem("1000-2024", "100012024")
+    assert not triagem.numeros_batem("10669-2024", "100012024")
+    assert not triagem.numeros_batem("ABC-01916", "2620240000103")
 
 
 def test_confrontar_nome_detecta_troca():
-    # Caso real de 28/09: arquivo "CNPEM ..." com conteúdo do Butantan.
+    # Caso de troca: arquivo "CNBIO ..." com conteúdo do BioPharma.
     md = _md(
-        CREA_SP_ANTIGO_COLUNAS.replace("Ariston", "Instituto Butantan").replace(
-            "ARISTON", "INSTITUTO BUTANTAN"
+        CREA_SP_ANTIGO_COLUNAS.replace("Laboratório Químico Central", "Instituto BioPharma").replace(
+            "LABORATORIO QUIMICO CENTRAL", "INSTITUTO BIOPHARMA"
         )
     )
-    r = triagem.confrontar_nome("CNPEM CAT 2620130007911 Construção prédio Imas II.pdf", md)
+    r = triagem.confrontar_nome("CNBIO CAT 2620240000101 Construção prédio Bloco B.pdf", md)
     assert r["veredito"] == "trocado"
 
 
 def test_confrontar_nome_bate():
     md = _md(CREA_SP_NOVO)
-    r = triagem.confrontar_nome("CNPEM CAT 2620130007911 Construção prédio Imas II.pdf", md)
+    r = triagem.confrontar_nome("CNBIO CAT 2620240000101 Construção prédio Bloco B.pdf", md)
     assert r["veredito"] == "bate"
     assert len(r["motivos"]) == 2
 
@@ -284,7 +284,7 @@ def test_confrontar_nome_inconclusivo_sem_nada_comparavel():
     assert r["veredito"] == "inconclusivo"
 
 
-def test_fiotec_e_fiocruz_sao_compativeis():
-    md = _md(CREA_RJ_ANTIGO.replace("758012010", "52669/2020"))
-    r = triagem.confrontar_nome("FIOTEC CIPBR CAT 52669-2020 Planta.pdf", md)
+def test_faps_e_fnsp_sao_compativeis():
+    md = _md(CREA_RJ_ANTIGO.replace("100012024", "10669/2024"))
+    r = triagem.confrontar_nome("FAPS FNSP CAT 10669-2024 Planta.pdf", md)
     assert r["veredito"] == "bate"

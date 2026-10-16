@@ -50,7 +50,7 @@ def chamadas(monkeypatch, tmp_path):
         def etapa(envio):
             feitas.append(chave)
             if chave == "triagem":
-                envio.titulo = "CAT 123 — Instituto Butantan — Biotério"
+                envio.titulo = "CAT 123 — Instituto BioPharma — Biotério"
             if chave == "cadastro":
                 envio.documento_id = "00000000-0000-0000-0000-000000000001"
             return f"{chave} ok"
@@ -65,7 +65,7 @@ def chamadas(monkeypatch, tmp_path):
 
 
 def _enviar(cliente, conteudo=PDF, **form):
-    dados = {"orgao": "Instituto Butantan", **form}
+    dados = {"orgao": "Instituto BioPharma", **form}
     return cliente.post("/upload", data=dados, files={"arquivo": ("cat 123.pdf", conteudo, "application/pdf")})
 
 
@@ -84,7 +84,7 @@ def test_modo_real_guarda_o_pdf_e_roda_as_etapas_em_ordem(monkeypatch, chamadas)
     assert status["estado"] == "concluido"
     assert [e["estado"] for e in status["etapas"]] == ["ok"] * len(ORDEM)
     assert [e["chave"] for e in status["etapas"]] == ORDEM
-    assert status["titulo"] == "CAT 123 — Instituto Butantan — Biotério"
+    assert status["titulo"] == "CAT 123 — Instituto BioPharma — Biotério"
     assert status["documento_id"].endswith("0001")
 
     lista = cliente.get("/uploads").json()
@@ -147,7 +147,7 @@ def test_guardar_nao_sobrescreve_arquivo_diferente_com_o_mesmo_nome(tmp_path):
 def _envio(tmp_path) -> ingestao.Envio:
     caminho = tmp_path / "nome_trocado.pdf"
     caminho.write_bytes(PDF)
-    return ingestao.criar_envio(caminho, "nome_trocado.pdf", "SENAI CETIQT", "atestado")
+    return ingestao.criar_envio(caminho, "nome_trocado.pdf", "INSTITUTO BIOPHARMA", "atestado")
 
 
 def test_triagem_usa_o_titulo_do_conteudo_e_avisa_custo_de_ocr(monkeypatch, tmp_path):
@@ -155,12 +155,12 @@ def test_triagem_usa_o_titulo_do_conteudo_e_avisa_custo_de_ocr(monkeypatch, tmp_
     falso.triar = lambda caminho: {
         "paginas_ocr": 3,
         "custo_ocr_estimado_usd": 0.012,
-        "metadados": {"titulo_sugerido": {"valor": "CAT 576640 — SENAI CETIQT — Laboratório"}},
+        "metadados": {"titulo_sugerido": {"valor": "CAT 100200 — INSTITUTO BIOPHARMA — Laboratório"}},
     }
     monkeypatch.setitem(sys.modules, "triar_documentos", falso)
     envio = _envio(tmp_path)
     detalhe = ingestao.etapa_triagem(envio)
-    assert envio.titulo == "CAT 576640 — SENAI CETIQT — Laboratório"
+    assert envio.titulo == "CAT 100200 — INSTITUTO BIOPHARMA — Laboratório"
     assert "3 página(s) precisam de OCR" in detalhe
 
 
@@ -170,12 +170,12 @@ def test_triagem_sem_titulo_no_conteudo_nao_usa_so_o_nome_do_arquivo(monkeypatch
     monkeypatch.setitem(sys.modules, "triar_documentos", falso)
     envio = _envio(tmp_path)
     detalhe = ingestao.etapa_triagem(envio)
-    assert envio.titulo == "SENAI CETIQT — nome trocado"
+    assert envio.titulo == "INSTITUTO BIOPHARMA — nome trocado"
     assert "confira" in detalhe
 
 
 def test_chunks_recebem_o_titulo_da_triagem(monkeypatch, tmp_path):
-    from solufarma import chunking
+    from pharma_ops import chunking
 
     recebido = {}
 

@@ -1,2 +1,3 @@
 [mcp_servers.supabase]
-url = "https://mcp.supabase.com/mcp?project_ref=bktnfumgfsweasznwwhn&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching"
+# Replace <SUPABASE_PROJECT_REF> with your project ref (see SUPABASE_PROJECT_REF in .env.example).
+url = "https://mcp.supabase.com/mcp?project_ref=<SUPABASE_PROJECT_REF>&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching"

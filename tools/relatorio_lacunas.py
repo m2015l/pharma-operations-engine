@@ -2,7 +2,7 @@
 
 Uso:
     python tools/relatorio_lacunas.py                  # todos os documentos
-    python tools/relatorio_lacunas.py --doc BUTANTAN   # filtra por nome
+    python tools/relatorio_lacunas.py --doc BIOPHARMA  # filtra por nome
     python tools/relatorio_lacunas.py --exportar lacunas.json   # arquivo para preencher
     python tools/relatorio_lacunas.py --aplicar lacunas.json    # devolve os valores
 

@@ -1,6 +1,6 @@
 ---
 name: registro-projeto
-description: Registra o progresso do trabalho no projeto Solufarma - atualiza o diário de bordo, marca checkboxes do plano e cria ADRs de decisões. Use ao final de uma sessão de trabalho, quando o usuário pedir para "registrar o progresso", "atualizar o diário" ou "documentar a decisão".
+description: Registra o progresso do trabalho no projeto Pharma Operations Platform - atualiza o diário de bordo, marca checkboxes do plano e cria ADRs de decisões. Use ao final de uma sessão de trabalho, quando o usuário pedir para "registrar o progresso", "atualizar o diário" ou "documentar a decisão".
 ---
 
 # Registro de Progresso do Projeto

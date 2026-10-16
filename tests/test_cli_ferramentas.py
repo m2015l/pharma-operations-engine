@@ -12,9 +12,9 @@ import types
 import httpx
 import pytest
 
-from solufarma_rag.db.models import ChunkComScore
-from solufarma_rag.db.repository import InMemoryChunkRepository
-from solufarma_rag.ingestion.embeddings import FakeEmbeddingProvider, gerar_embeddings_pendentes
+from pharma_rag.db.models import ChunkComScore
+from pharma_rag.db.repository import InMemoryChunkRepository
+from pharma_rag.ingestion.embeddings import FakeEmbeddingProvider, gerar_embeddings_pendentes
 from tests.falsos import carregar_ferramenta
 
 # --- avaliar.py ---------------------------------------------------------------
@@ -129,8 +129,8 @@ def test_parser_perguntar(perguntar):
 
 def test_filtros_vazios_nao_viram_filtro(perguntar):
     assert perguntar.montar_filtros(None, "") == perguntar.FiltrosBusca()
-    f = perguntar.montar_filtros("Butantan", "atestado")
-    assert (f.orgao, f.tipo_documento) == ("Butantan", "atestado")
+    f = perguntar.montar_filtros("BioPharma", "atestado")
+    assert (f.orgao, f.tipo_documento) == ("BioPharma", "atestado")
 
 
 def test_mostrar_busca_sem_resultado_avisa_do_piso(perguntar, capsys):

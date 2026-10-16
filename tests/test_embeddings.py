@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from solufarma_rag.db.repository import InMemoryChunkRepository
-from solufarma_rag.ingestion.chunking import gerar_chunks
-from solufarma_rag.ingestion.embeddings import (
+from pharma_rag.db.repository import InMemoryChunkRepository
+from pharma_rag.ingestion.chunking import gerar_chunks
+from pharma_rag.ingestion.embeddings import (
     FakeEmbeddingProvider,
     gerar_embeddings_pendentes,
 )
@@ -104,7 +104,7 @@ def test_chunk_de_ruido_nao_prende_o_documento_em_chunked(documento, provider):
     ruido = chunks[0].model_copy(
         update={
             "chunk_index": 999,
-            "conteudo": "[Atestado LAQFA | EQUIPAMENTOS E ACESSORIOS | p. 34]\n**ADITIVO 1**",
+            "conteudo": "[Atestado LQC | EQUIPAMENTOS E ACESSORIOS | p. 34]\n**ADITIVO 1**",
             "content_hash": "hash-ruido",
         }
     )

@@ -7,15 +7,15 @@ Só ORQUESTRA o que já existe — nenhuma lógica de extração/RAG é reescrit
                      Se a estimativa de páginas de OCR passar do teto por envio
                      (UPLOAD_MAX_PAGINAS_OCR, padrão 60), o envio PARA aqui, sem
                      gastar, "aguardando aprovação" (POST /uploads/{id}/aprovar).
-    2. extração      solufarma.extracao.processar  (PÁGINA ESCANEADA = OCR VIA VLM, PAGO)
-    3. chunks        solufarma.chunking.chunkar_documento(doc, titulo=<da triagem>)
+    2. extração      pharma_ops.extracao.processar  (PÁGINA ESCANEADA = OCR VIA VLM, PAGO)
+    3. chunks        pharma_ops.chunking.chunkar_documento(doc, titulo=<da triagem>)
     4. cadastro      Storage (tools/upload_documento.enviar) +
-                     solufarma_rag.ingestion.indexacao.indexar_documento — o MESMO
+                     pharma_rag.ingestion.indexacao.indexar_documento — o MESMO
                      roteiro do tools/indexar.py (método de extração por página,
                      reindexação sem órfãos, título igual ao dos chunks)
     5. embeddings    gerar_embeddings_pendentes restrito a ESTE documento (RepoRestrito,
                      o mesmo do generate_embeddings.py --documento-id) — PAGO
-    6. classificação solufarma.classificacao via LLM (PAGO, ~US$ 0,003). Falha SUAVE:
+    6. classificação pharma_ops.classificacao via LLM (PAGO, ~US$ 0,003). Falha SUAVE:
                      se o LLM falhar, o documento já está indexado e buscável; a
                      etapa fica "pendente" com a instrução de rodar
                      tools/classificar_documentos.py depois.
@@ -166,7 +166,7 @@ def etapa_triagem(envio: Envio) -> str:
 
 def etapa_extracao(envio: Envio) -> str:
     _caminhos_import()
-    from solufarma import extracao
+    from pharma_ops import extracao
 
     doc = extracao.processar(envio.caminho, PASTA_EXTRAIDOS, verboso=False)
     envio.contexto["extracao"] = asdict(doc)
@@ -175,7 +175,7 @@ def etapa_extracao(envio: Envio) -> str:
 
 def etapa_chunks(envio: Envio) -> str:
     _caminhos_import()
-    from solufarma.chunking import chunkar_documento
+    from pharma_ops.chunking import chunkar_documento
 
     chunks, itens = chunkar_documento(envio.contexto["extracao"], titulo=envio.titulo)
     envio.contexto["chunks"] = [asdict(c) for c in chunks]
@@ -188,8 +188,8 @@ def etapa_cadastro(envio: Envio) -> str:
     import httpx
     import upload_documento
 
-    from solufarma_rag.db.repository import criar_conexao
-    from solufarma_rag.ingestion.indexacao import (
+    from pharma_rag.db.repository import criar_conexao
+    from pharma_rag.ingestion.indexacao import (
         EXTRACAO_DESCONHECIDA,
         indexar_documento,
         metodo_extracao,
@@ -236,8 +236,8 @@ def etapa_cadastro(envio: Envio) -> str:
 
 def etapa_embeddings(envio: Envio) -> str:
     _caminhos_import()
-    from solufarma_rag.db.repository import SupabaseChunkRepository, criar_conexao
-    from solufarma_rag.ingestion.embeddings import (
+    from pharma_rag.db.repository import SupabaseChunkRepository, criar_conexao
+    from pharma_rag.ingestion.embeddings import (
         RepoRestrito,
         criar_provedor,
         gerar_embeddings_pendentes,
@@ -262,9 +262,9 @@ def etapa_classificacao(envio: Envio) -> str:
     try:
         import classificar_documentos
 
-        from solufarma import classificacao as cl
-        from solufarma_rag.agent.llm import OpenRouterLLM
-        from solufarma_rag.db.repository import criar_conexao
+        from pharma_ops import classificacao as cl
+        from pharma_rag.agent.llm import OpenRouterLLM
+        from pharma_rag.db.repository import criar_conexao
 
         modelo = os.getenv("CLASSIFICACAO_MODELO") or classificar_documentos.MODELO_PADRAO
         conn = criar_conexao()

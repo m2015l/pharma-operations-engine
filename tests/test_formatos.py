@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from solufarma import formatos
+from pharma_ops import formatos
 
 
 def test_zip_disfarcado_de_pdf_e_detectado_como_zip(zip_disfarcado):
-    """O caso do SENAI: sufixo .pdf, bytes de ZIP."""
+    """O caso do Instituto BioPharma: sufixo .pdf, bytes de ZIP."""
     assert zip_disfarcado.suffix == ".pdf"
     assert formatos.sniff(zip_disfarcado) == "zip_imagens"
 

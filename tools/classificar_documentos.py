@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 tools/classificar_documentos.py — Classificação + resumo de cada documento via LLM
-(item 19 do plano; lógica em `src/solufarma/classificacao.py`).
+(item 19 do plano; lógica em `src/pharma_ops/classificacao.py`).
 
 Lê os chunks do documento no Supabase (texto já extraído — nada de PDF/OCR),
 chama o LLM uma vez por documento, valida a saída em código e grava
@@ -34,14 +34,14 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 from dotenv import load_dotenv
 
-from solufarma import classificacao as cl
+from pharma_ops import classificacao as cl
 
 for _fluxo in (sys.stdout, sys.stderr):
     if hasattr(_fluxo, "reconfigure"):
         _fluxo.reconfigure(encoding="utf-8", errors="replace")
 
-# Escolhido em 29/09 comparando com o texto em 2 documentos (CAT SJC-02085 com
-# OCR ruidoso + atestado dos Vestiários/FIOCRUZ). gemini-2.5-flash-lite custa
+# Escolhido em 29/09 comparando com o texto em 2 documentos (CAT 100200 com
+# OCR ruidoso + atestado dos Vestiários/Instituto BioPharma). gemini-2.5-flash-lite custa
 # ~40% disso e acertou os fatos (valor, período, executante), mas errou mais nos
 # vocabulários que viram filtro (vacina -> "farmacêutica", "hidráulica" sem
 # evidência, CLP sem "automação"). Diferença: ~US$ 0,003 por documento.
@@ -105,7 +105,7 @@ def main() -> int:
     args = ap.parse_args()
 
     load_dotenv(RAIZ / ".env")
-    from solufarma_rag.db.repository import criar_conexao
+    from pharma_rag.db.repository import criar_conexao
 
     modelo = args.modelo or os.getenv("CLASSIFICACAO_MODELO") or MODELO_PADRAO
     preco_ent, preco_sai = _precos(modelo)
@@ -134,7 +134,7 @@ def main() -> int:
     if args.dry_run:
         return 0
 
-    from solufarma_rag.agent.llm import OpenRouterLLM
+    from pharma_rag.agent.llm import OpenRouterLLM
 
     llm = OpenRouterLLM(model=modelo, json_mode=True, temperatura=0)
     gasto, relatorio = 0.0, []

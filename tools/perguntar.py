@@ -1,8 +1,8 @@
 """Faz uma pergunta ao acervo — o CLI que fecha o ciclo do RAG.
 
 Uso:
-    python tools/perguntar.py "a Solufarma já implantou laboratório?"
-    python tools/perguntar.py "..." --orgao "SENAI CETIQT"    # com filtro
+    python tools/perguntar.py "a Pharma Operations Platform já implantou laboratório?"
+    python tools/perguntar.py "..." --orgao "Instituto BioPharma"    # com filtro
     python tools/perguntar.py "..." --so-busca                # sem LLM, sem custo
     python tools/perguntar.py                                 # modo interativo
 
@@ -25,15 +25,15 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from solufarma_rag.agent.agent import AgenteLicitacoes
-from solufarma_rag.agent.llm import criar_llm
-from solufarma_rag.db.repository import (
+from pharma_rag.agent.agent import AgenteLicitacoes
+from pharma_rag.agent.llm import criar_llm
+from pharma_rag.db.repository import (
     FiltrosBusca,
     SupabaseChunkRepository,
     criar_conexao,
 )
-from solufarma_rag.ingestion.embeddings import criar_provedor
-from solufarma_rag.retrieval.hybrid_search import HybridSearcher
+from pharma_rag.ingestion.embeddings import criar_provedor
+from pharma_rag.retrieval.hybrid_search import HybridSearcher
 
 # O console do Windows abre em cp1252 e derruba o processo com
 # UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,
@@ -78,7 +78,7 @@ def _mostrar_resposta(agente: AgenteLicitacoes, pergunta: str, historico: list[d
         return resposta
 
     # I10 (PRECISÃO.md): chunks diferentes que compartilham seção e página
-    # ficam com a mesma linha ("SENAI CETIQT · · p.1-2" três vezes, turno 3.5)
+    # ficam com a mesma linha ("Instituto BioPharma · · p.1-2" três vezes, turno 3.5)
     # — sem discriminador é indistinguível de bug, mesmo não sendo. O início
     # do trecho (já truncado em Citacao.trecho) desempata visualmente.
     identidades = [

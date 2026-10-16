@@ -24,7 +24,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from solufarma_rag.db.repository import criar_conexao
+from pharma_rag.db.repository import criar_conexao
 
 # O console do Windows abre em cp1252 e derruba o processo com
 # UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,
@@ -35,7 +35,7 @@ for _fluxo in (sys.stdout, sys.stderr):
         _fluxo.reconfigure(encoding="utf-8", errors="replace")
 
 
-MIGRACOES_DIR = RAIZ / "src" / "solufarma_rag" / "db" / "migrations"
+MIGRACOES_DIR = RAIZ / "src" / "pharma_rag" / "db" / "migrations"
 # Só os arquivos numerados entram, em ordem lexicográfica (= ordem de criação).
 # `rascunho_busca_hibrida.sql` fica de fora de propósito: o rodapé da 001 explica
 # por que a RPC não vai para o banco.
@@ -179,15 +179,15 @@ def fumaca(conn) -> bool:
     Usa dados sintéticos com um prefixo reconhecível e apaga no final, inclusive
     se algo falhar no meio — nunca deixa lixo no banco do cliente.
     """
-    from solufarma_rag.db.models import Chunk
-    from solufarma_rag.db.repository import FiltrosBusca, SupabaseChunkRepository
-    from solufarma_rag.ingestion.embeddings import (
+    from pharma_rag.db.models import Chunk
+    from pharma_rag.db.repository import FiltrosBusca, SupabaseChunkRepository
+    from pharma_rag.ingestion.embeddings import (
         FakeEmbeddingProvider,
         gerar_embeddings_pendentes,
     )
-    from solufarma_rag.retrieval.hybrid_search import HybridSearcher
+    from pharma_rag.retrieval.hybrid_search import HybridSearcher
 
-    MARCA = "SMOKE-TEST-SOLUFARMA"
+    MARCA = "SMOKE-TEST-PHARMA-OPS"
     ok = True
 
     try:

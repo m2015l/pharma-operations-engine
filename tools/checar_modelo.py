@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import requests
 
-from solufarma import config
+from pharma_ops import config
 
 # O console do Windows abre em cp1252 e derruba o processo com
 # UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,

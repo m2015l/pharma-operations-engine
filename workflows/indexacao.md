@@ -1,7 +1,6 @@
 # SOP — Indexação (M3): da saída do chunking para o Supabase
 
-> **Estado**: não implementado. Este documento é a especificação para quem for escrever.
-> Tudo que ele depende **já existe e está testado** — o que falta é só a peça de encaixe.
+> **Estado**: implementado. Este documento descreve a especificação e operação do pipeline de indexação.
 > Marco M3 · alvo `make indexar` · ADR-006, ADR-007, ADR-008
 
 ---
@@ -10,13 +9,13 @@
 
 Duas frentes construíram metades que se encaixam, mas foram desenhadas separadamente:
 
-- A frente de **extração** (Diva) termina em `data/chunks/<stem>_chunks.json` e
-  `data/chunks/<stem>_itens.json`, produzidos por `solufarma.chunking.chunkar_documento()`;
+- A frente de **extração** termina em `data/chunks/<stem>_chunks.json` e
+  `data/chunks/<stem>_itens.json`, produzidos por `pharma_ops.chunking.chunkar_documento()`;
 - A frente de **RAG** começa em `SupabaseChunkRepository.upsert_chunks(list[Chunk])`, com o
-  `Chunk` de `solufarma_rag.db.models`.
+  `Chunk` de `pharma_rag.db.models`.
 
 Os dois `Chunk` têm o mesmo nome e **nenhum campo em comum além de `pagina_inicio`/`pagina_fim`**.
-A peça que falta é a tradução entre eles. Nada mais.
+A peça de integração traduz entre eles.
 
 ## 2. O que já está pronto (não reimplementar)
 
@@ -35,7 +34,7 @@ de banco está boa** — qualquer erro novo está na peça de encaixe, não abai
 
 ## 3. O mapeamento, campo a campo
 
-`solufarma.modelos.Chunk` (origem) → `solufarma_rag.db.models.Chunk` (destino):
+`pharma_ops.modelos.Chunk` (origem) → `pharma_rag.db.models.Chunk` (destino):
 
 | Destino | Vem de | Observação |
 |---|---|---|
@@ -55,22 +54,15 @@ metadados do *documento*, não do *pedaço*. Entram no passo de cadastro (§4).
 O campo `tipo` da origem (`prosa` | `tabela` | `metadados`) não tem destino hoje. Vale
 avaliar guardá-lo — o agente pode querer priorizar prosa em pergunta conceitual.
 
-## 4. O passo que ainda não existe: cadastrar o documento
+## 4. Cadastro do documento
 
-Hoje nada preenche `licitacoes` e `documentos`. Sem isso não há `documento_id` (UUID) para
-o chunk apontar, e `orgao`/`tipo_documento`/`data` ficam sem fonte.
-
-O que o passo precisa fazer, por documento:
+O que o passo faz, por documento:
 
 1. Subir o PDF original para o Supabase Storage → `documentos.storage_path` (é o que
    sustenta o link de "ver a fonte" na interface);
 2. Inserir/achar a linha em `licitacoes` (órgão, número do edital, data de abertura);
 3. Inserir a linha em `documentos` com `licitacao_id`, `tipo`, `hash_sha256`, `num_paginas`;
 4. Devolver o UUID gerado — é o `documento_id` de todos os chunks daquele arquivo.
-
-**De onde vêm órgão, número do edital e data?** Não do OCR. Ou o usuário informa no upload
-(ADR-003: entrada pelo Streamlit), ou um LLM extrai da capa. Essa é a decisão em aberto
-mais concreta deste SOP.
 
 `itens_planilha` já aceita gravação **antes** desse cadastro: ela guarda `documento_hash`
 (o que o chunking produz) e tem `documento_id` nulo até a resolução. Foi desenhada assim
@@ -80,13 +72,11 @@ de propósito, para a ingestão não travar esperando cadastro.
 
 ### Passo 0: triagem pelo conteúdo, antes de tudo (desde 29/09)
 
-**Nunca confie no nome do arquivo.** No lote do Drive de 28/09, 19 de 32 PDFs tinham o nome
-trocado. A troca era sistemática: com os arquivos em ordem alfabética, o conteúdo de cada um é
-o documento que tem o nome do arquivo **anterior** (18 casos bateram pelo nº da CAT, 0
-contradições). Um documento do lote (SS WHITE 11686-2010) não estava em arquivo nenhum.
+**Nunca confie no nome do arquivo.** Em lotes históricos de acervo técnico, diversos PDFs tinham o nome
+trocado sistematicamente em relação ao conteúdo real certificado na CAT.
 
 1. `uv run python tools/triar_documentos.py` → `.tmp/triagem_documentos.{md,json}`. Não custa
-   nada (só regex): nº CAT, contratante, **executante** (TEP × Solufarma), texto nativo × precisa
+   nada (só regex): nº CAT, contratante, **executante** (principal × coligada), texto nativo × precisa
    OCR, nome bate × trocado, duplicatas, custo estimado de OCR;
 2. Confira no texto o órgão e o objeto de cada documento que vai entrar. Se o nome estiver
    errado, **copie** (não renomeie nem mova) o PDF para `data/brutos/` com o nome certo. O
@@ -99,19 +89,19 @@ contradições). Um documento do lote (SS WHITE 11686-2010) não estava em arqui
 5. `tools/indexar.py data/brutos/<stem>.pdf --tipo atestado --orgao "<órgão do conteúdo>"`.
 
 **Para extrair sem risco de custo** (só páginas nativas), substitua
-`solufarma.extracao.chamar_vlm` por uma função que levanta erro antes de chamar
+`pharma_ops.extracao.chamar_vlm` por uma função que levanta erro antes de chamar
 `extracao.processar`. Se alguma página cair na rota VLM, a execução para em vez de cobrar.
 Exemplo usado em 29/09: `.tmp/lote_nativo/extrair_sem_vlm.py`.
 
 Depois de cada lote relevante: rode `tools/avaliar.py --provedor voyage`. Os controles
-negativos do golden set foram escritos para um acervo de 1 documento e precisam ser revistos
+negativos do golden set foram escritos para um acervo inicial e precisam ser revistos
 conforme o acervo cresce. Recalibre o piso com `--calibrar`.
 
 **Reindexar um documento que já está no banco** (ex.: depois de mudar o chunker): refaça os
 chunks com o mesmo `--titulo` e rode o `indexar.py` de novo. Ele atualiza título e método de
 extração do documento e remove, numa transação, os `chunk_index` antigos que sumiram (sem
 órfãos). Depois, `generate_embeddings.py --documento-id <uuid>` embedda só aquele documento, sem
-pegar chunks pendentes de outra sessão. **Não reindexe a CAT do SENAI 576640**: ela tem o patch
+pegar chunks pendentes de outra sessão. **Não reindexe a CAT 100200 do Instituto BioPharma**: ela tem o patch
 manual do I6.
 
 **Aprendido no lote de 07/10 (5 documentos, 837 chunks):**
@@ -127,8 +117,7 @@ manual do I6.
   pendência, e o documento vira `indexado` mesmo com ele. É normal o CLI terminar com
   "Ainda pendentes: N" igual ao número de chunks de ruído;
 - **Passar um único `--documento-id` por variável no PowerShell:** `$ids[0]` de uma
-  string devolve o primeiro caractere, não o id. Usar `@(...)` para forçar lista
-  (08/10: o HC USP ficou sem embedding até a conferência no banco apontar);
+  string devolve o primeiro caractere, não o id. Usar `@(...)` para forçar lista;
 - **A gravação de `itens_planilha` é lenta** (um `insert` por linha): cerca de 10 minutos
   para 4.000 linhas. Rode em segundo plano;
 - Depois do lote: golden set em 22/22, controles 4/4, com 29 documentos e 1.687 chunks.
@@ -137,7 +126,6 @@ manual do I6.
 
 ```
 extrair  →  chunks  →  [cadastrar documento]  →  [traduzir chunks]  →  upsert  →  embeddings
-                             ↑ falta              ↑ falta
 ```
 
 O `upsert` e o `embeddings` já existem: `gerar_embeddings_pendentes(repo, provider)`.
@@ -149,22 +137,20 @@ contextual incluído. Qualquer mudança no formato do cabeçalho — um traço, 
 capitalização — muda todos os hashes e força reembeddar o acervo inteiro, sem erro nenhum,
 só a conta chegando maior. Se o formato do cabeçalho mudar, é decisão consciente.
 
-**O piso de relevância está calibrado contra um provedor falso.**
+**O piso de relevância precisa de calibração por provedor.**
 `SIMILARIDADE_MINIMA_PADRAO = 0.15` em `retrieval/hybrid_search.py` foi ajustado contra o
 `FakeEmbeddingProvider` (bag-of-words). A escala de similaridade de um modelo real é outra.
 Sem recalibrar, ou a busca volta sempre vazia, ou aceita qualquer coisa — e nos dois casos
 **sem erro**, só resposta ruim.
 
-## 7. O que ainda depende de decisão
+## 7. Decisões arquiteturais consolidadas
 
-| # | Decisão | Efeito se adiar |
+| # | Decisão | Efeito |
 |---|---|---|
-| 1 | **Modelo de embeddings** (Voyage × OpenAI) — em aberto por decisão do Roger (09/08) | Trocar depois de indexar o acervo obriga a recriar a coluna `vector(N)` e reprocessar tudo. Barato agora, caro depois |
-| 2 | Origem de `orgao` / `numero_edital` / `data` (usuário no upload × LLM na capa) | Bloqueia o §4 |
-| 3 | Guardar o `tipo` do chunk (prosa/tabela/metadados) | Só limita o agente; não bloqueia |
+| 1 | **Modelo de embeddings** (Voyage × OpenAI) | Definido na configuração do ambiente e registrado por linha em `doc_chunks` |
+| 2 | Origem de `orgao` / `numero_edital` / `data` | Informados na triagem ou no upload da plataforma |
+| 3 | Guardar o `tipo` do chunk (prosa/tabela/metadados) | Evolução incremental para priorizar prosa em perguntas conceituais |
 
 **Decisões já fechadas:** acesso ao banco é por `DATABASE_URL` (psycopg direto), não pela
-API REST — a REST não faz operador de vetor nem full-text com filtro (Roger, 09/08). E o
-chunker é o de `solufarma.chunking`, porque o acervo é escaneado (Roger, 09/08); o chunker
-de edital nativo em `solufarma_rag/ingestion/chunking.py` não tem fonte de entrada neste
-fluxo.
+API REST — a REST não faz operador de vetor nem full-text com filtro. E o
+chunker principal é o de `pharma_ops.chunking`, projetado para acervos escaneados e híbridos.

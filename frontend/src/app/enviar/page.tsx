@@ -13,8 +13,8 @@ import { api, type Envio, type UploadResultado } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const LIMITE_MB = 50;
-// O acervo é só de resultado final: atestados de capacidade técnica e CATs
-// (decisão do Roger com o gerente, 29/09). Editais e atas não entram.
+// O acervo é só de resultado final: atestados de capacidade técnica e CATs.
+// Editais e atas não entram.
 const TIPO = "atestado";
 // Intervalo de consulta ao progresso enquanto houver envio em andamento.
 const POLL_MS = 2000;
@@ -173,7 +173,7 @@ export default function PaginaEnviar() {
                 id="orgao"
                 value={orgao}
                 onChange={(e) => setOrgao(e.target.value)}
-                placeholder="Ex.: Instituto Butantan"
+                placeholder="Ex.: Instituto BioPharma"
                 className="h-10 bg-folha"
               />
               <p className="text-xs text-grafite">

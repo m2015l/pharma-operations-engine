@@ -1,6 +1,6 @@
 ---
 name: rag-licitacoes
-description: Guia de implementação do pipeline RAG do projeto Solufarma - chunking de editais, embeddings, busca híbrida no pgvector, citação de fontes e avaliação de qualidade do retrieval. Use ao implementar ou revisar qualquer parte do pipeline de RAG, base vetorial ou lógica do agente de licitações.
+description: Guia de implementação do pipeline RAG da Pharma Operations Platform - chunking de editais, embeddings, busca híbrida no pgvector, citação de fontes e avaliação de qualidade do retrieval. Use ao implementar ou revisar qualquer parte do pipeline de RAG, base vetorial ou lógica do agente de licitações.
 ---
 
 # RAG para Licitações — Guia de Implementação
@@ -28,7 +28,7 @@ Regras e padrões para o pipeline RAG do projeto. Consulte `docs/ARQUITETURA.md`
 
 ## Avaliação (fazer desde o início, não no final)
 
-- Manter um conjunto de perguntas-teste com respostas esperadas (golden set) baseado em casos reais da Solufarma;
+- Manter um conjunto de perguntas-teste com respostas esperadas (golden set) baseado em casos reais da Pharma Operations Platform;
 - Métricas mínimas: o chunk correto está no top-k? (recall) / a resposta cita a fonte certa? / a resposta contradiz o acervo?
 - Rodar o golden set a cada mudança de prompt, chunking ou modelo — registrar resultados no `DIARIO_DE_BORDO.md`.
 

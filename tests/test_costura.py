@@ -8,7 +8,7 @@ cabeçalho de coluna, e "quanto de cabo #240MM2 foi fornecido" não recupera nad
 
 from __future__ import annotations
 
-from solufarma import chunking
+from pharma_ops import chunking
 
 
 def test_tabela_dividida_vira_um_bloco_so(tabela_dividida):

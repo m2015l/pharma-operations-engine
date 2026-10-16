@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from datetime import date
 
-from solufarma_rag.db.models import Chunk, ChunkComScore
-from solufarma_rag.db.repository import FiltrosBusca
-from solufarma_rag.retrieval.hybrid_search import HybridSearcher
-from solufarma_rag.retrieval.langchain_retriever import (
-    SolufarmaRetriever,
+from pharma_rag.db.models import Chunk, ChunkComScore
+from pharma_rag.db.repository import FiltrosBusca
+from pharma_rag.retrieval.hybrid_search import HybridSearcher
+from pharma_rag.retrieval.langchain_retriever import (
+    PharmaOperationsRetriever,
     chunk_para_documento,
 )
 
@@ -46,7 +46,7 @@ def test_data_vira_iso_ou_none(fazer_chunk):
 def test_invoke_devolve_documentos_do_acervo(repo_indexado, provider):
     """Caminho completo: invoke() do LangChain → busca híbrida → Documents."""
     searcher = HybridSearcher(repo=repo_indexado, provider=provider)
-    retriever = SolufarmaRetriever(searcher=searcher, top_k=3)
+    retriever = PharmaOperationsRetriever(searcher=searcher, top_k=3)
 
     docs = retriever.invoke("autoclave horizontal esterilização")
 
@@ -57,13 +57,13 @@ def test_invoke_devolve_documentos_do_acervo(repo_indexado, provider):
 
 def test_respeita_top_k(repo_indexado, provider):
     searcher = HybridSearcher(repo=repo_indexado, provider=provider)
-    assert len(SolufarmaRetriever(searcher=searcher, top_k=1).invoke("autoclave")) == 1
+    assert len(PharmaOperationsRetriever(searcher=searcher, top_k=1).invoke("autoclave")) == 1
 
 
 def test_repassa_filtros_ao_searcher(repo_indexado, provider):
     """Filtro que não casa deve zerar o resultado — prova que ele chega na busca."""
     searcher = HybridSearcher(repo=repo_indexado, provider=provider)
-    retriever = SolufarmaRetriever(
+    retriever = PharmaOperationsRetriever(
         searcher=searcher, filtros=FiltrosBusca(orgao="Órgão Inexistente")
     )
 
@@ -72,10 +72,10 @@ def test_repassa_filtros_ao_searcher(repo_indexado, provider):
 
 def test_acervo_vazio_devolve_lista_vazia(provider):
     """O agente depende disso para dizer 'não encontrei' em vez de inventar."""
-    from solufarma_rag.db.repository import InMemoryChunkRepository
+    from pharma_rag.db.repository import InMemoryChunkRepository
 
     searcher = HybridSearcher(repo=InMemoryChunkRepository(), provider=provider)
-    assert SolufarmaRetriever(searcher=searcher).invoke("qualquer coisa") == []
+    assert PharmaOperationsRetriever(searcher=searcher).invoke("qualquer coisa") == []
 
 
 def test_aceita_qualquer_searcher_com_buscar(fazer_chunk):
@@ -85,7 +85,7 @@ def test_aceita_qualquer_searcher_com_buscar(fazer_chunk):
         def buscar(self, consulta, filtros=None, top_k=5):
             return [ChunkComScore(chunk=fazer_chunk(0, "resultado do stub"), score=1.0)]
 
-    docs = SolufarmaRetriever(searcher=SearcherStub()).invoke("pergunta")
+    docs = PharmaOperationsRetriever(searcher=SearcherStub()).invoke("pergunta")
     assert [d.page_content for d in docs] == ["resultado do stub"]
 
 

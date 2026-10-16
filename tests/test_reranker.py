@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from types import SimpleNamespace
 
-from solufarma_rag.db.models import ChunkComScore
-from solufarma_rag.retrieval.hybrid_search import HybridSearcher
-from solufarma_rag.retrieval.reranker import VoyageReranker, criar_reranker
+from pharma_rag.db.models import ChunkComScore
+from pharma_rag.retrieval.hybrid_search import HybridSearcher
+from pharma_rag.retrieval.reranker import VoyageReranker, criar_reranker
 
 
 class ClienteFalso:

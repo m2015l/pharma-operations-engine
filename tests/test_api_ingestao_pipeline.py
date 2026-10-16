@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from solufarma_rag.db.repository import InMemoryChunkRepository
+from pharma_rag.db.repository import InMemoryChunkRepository
 from tests.falsos import ConexaoFalsa
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -25,7 +25,7 @@ sys.path.insert(0, str(RAIZ / "api"))
 import ingestao
 
 PDF = b"%PDF-1.4\n%%EOF\n"
-TITULO = "CAT 123 — Instituto Butantan — Biotério"
+TITULO = "CAT 123 — Instituto BioPharma — Biotério"
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def envio(tmp_path, monkeypatch):
     monkeypatch.setattr(ingestao, "_ENVIOS", {})
     caminho = tmp_path / "x.pdf"
     caminho.write_bytes(PDF)
-    e = ingestao.criar_envio(caminho, "x.pdf", "Instituto Butantan", "atestado")
+    e = ingestao.criar_envio(caminho, "x.pdf", "Instituto BioPharma", "atestado")
     e.titulo = TITULO
     return e
 
@@ -57,7 +57,7 @@ def banco(monkeypatch):
     upload.enviar = lambda client, url, chave, pdf: ("h/x.pdf", "a" * 64)
     monkeypatch.setitem(sys.modules, "upload_documento", upload)
 
-    from solufarma_rag.db import repository
+    from pharma_rag.db import repository
 
     # cadastrar_documento: select documento (None) → select licitação (None) →
     # insert licitação → insert documento.
@@ -110,7 +110,7 @@ def test_cadastro_sem_trechos_falha_com_mensagem_clara(envio, banco):
 
 
 def test_embeddings_so_do_documento_enviado(envio, banco, monkeypatch, fazer_chunk):
-    from solufarma_rag.ingestion import embeddings
+    from pharma_rag.ingestion import embeddings
 
     monkeypatch.setattr(embeddings, "criar_provedor", lambda nome: embeddings.FakeEmbeddingProvider())
     corpo = "corpo com texto suficiente para passar do filtro de ruído"
@@ -131,8 +131,8 @@ def test_embeddings_so_do_documento_enviado(envio, banco, monkeypatch, fazer_chu
 
 
 def test_classificacao_falha_suave_quando_o_llm_recusa(envio, banco, monkeypatch):
-    from solufarma import classificacao as cl
-    from solufarma_rag.agent import llm
+    from pharma_ops import classificacao as cl
+    from pharma_rag.agent import llm
 
     class LLM403:
         def __init__(self, *a, **k):
@@ -151,8 +151,8 @@ def test_classificacao_falha_suave_quando_o_llm_recusa(envio, banco, monkeypatch
 
 
 def test_classificacao_ok_grava_e_resume(envio, banco, monkeypatch):
-    from solufarma import classificacao as cl
-    from solufarma_rag.agent import llm
+    from pharma_ops import classificacao as cl
+    from pharma_rag.agent import llm
 
     gravado = {}
     monkeypatch.setattr(llm, "OpenRouterLLM", lambda **k: object())
@@ -161,7 +161,7 @@ def test_classificacao_ok_grava_e_resume(envio, banco, monkeypatch):
         cl,
         "classificar_documento",
         lambda *a, **k: cl.Resultado(
-            {"executante_grupo": {"valor": "solufarma"}, "disciplinas": [{"valor": "hvac"}]},
+            {"executante_grupo": {"valor": "principal"}, "disciplinas": [{"valor": "hvac"}]},
             "Resumo.",
             [],
             {"custo_usd": 0.0031},
@@ -171,7 +171,7 @@ def test_classificacao_ok_grava_e_resume(envio, banco, monkeypatch):
     envio.documento_id = "doc-1"
 
     detalhe = ingestao.etapa_classificacao(envio)
-    assert detalhe == "executante: solufarma · disciplinas: hvac · US$ 0.0031"
+    assert detalhe == "executante: principal · disciplinas: hvac · US$ 0.0031"
     assert gravado == {"doc": "doc-1", "resumo": "Resumo."}
 
 

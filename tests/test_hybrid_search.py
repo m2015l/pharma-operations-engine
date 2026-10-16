@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from solufarma_rag.db.repository import FiltrosBusca
-from solufarma_rag.retrieval.hybrid_search import RRF_K, HybridSearcher, fundir_rrf
+from pharma_rag.db.repository import FiltrosBusca
+from pharma_rag.retrieval.hybrid_search import RRF_K, HybridSearcher, fundir_rrf
 
 
 def test_rrf_soma_parcelas_dos_dois_rankings(fazer_chunk):
@@ -88,7 +88,7 @@ def test_reranker_injetado_reordena_resultados(repo_indexado, provider):
 
 
 def test_busca_em_acervo_vazio_retorna_lista_vazia(provider):
-    from solufarma_rag.db.repository import InMemoryChunkRepository
+    from pharma_rag.db.repository import InMemoryChunkRepository
 
     searcher = HybridSearcher(repo=InMemoryChunkRepository(), provider=provider)
 

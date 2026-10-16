@@ -37,7 +37,7 @@ ERRO = RGBColor(0xB4, 0x23, 0x18)
 FONTE = "Lato"
 
 AVISO = (
-    "Resposta gerada por IA a partir do acervo da Solufarma. "
+    "Resposta gerada por IA a partir do acervo da Pharma Operations Platform. "
     "Confira sempre no documento original antes de usar."
 )
 MAX_TRECHO = 400
@@ -62,7 +62,7 @@ def _local(dt: datetime) -> datetime:
 
 def nome_arquivo(corpo: ExportarDocxIn) -> str:
     prefixo = "resposta" if corpo.escopo == "resposta" else "consulta"
-    return f"{prefixo}-solufarma-{_local(corpo.gerado_em):%Y-%m-%d-%H%M}.docx"
+    return f"{prefixo}-pharma-ops-{_local(corpo.gerado_em):%Y-%m-%d-%H%M}.docx"
 
 
 # --------------------------------------------------------------------------
@@ -267,7 +267,7 @@ def _preparar(doc) -> None:
         cab.add_run().add_picture(str(LOGO), height=Cm(0.75))
         separador = cab.add_run("   |   Licitações")
     else:
-        separador = cab.add_run("SOLUFARMA ENGENHARIA · Licitações")
+        separador = cab.add_run("PHARMA OPERATIONS PLATFORM · Licitações")
     _fonte_run(separador, 12, PETROLEO)
     separador.bold = True
     _borda_inferior(cab)
@@ -402,13 +402,13 @@ def gerar(corpo: ExportarDocxIn) -> bytes:
     singular = corpo.escopo == "resposta"
     quando = _local(corpo.gerado_em)
 
-    # Sem autor (Roger, 29/09): o template do python-docx grava "python-docx".
+    # Sem autor: o template do python-docx grava "python-docx".
     props = doc.core_properties
     props.author = ""
     props.last_modified_by = ""
     props.comments = ""
     props.title = "Resposta do acervo técnico" if singular else "Consulta ao acervo técnico"
-    props.subject = "Licitações · Solufarma"
+    props.subject = "Licitações · Pharma Operations Platform"
     props.created = props.modified = quando
 
     titulo = doc.add_paragraph()

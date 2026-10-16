@@ -1,6 +1,6 @@
 ---
 name: ocr-ingestao
-description: Guia do pipeline de OCR e ingestão de documentos do projeto Solufarma - triagem de PDFs nativos vs escaneados, extração de texto, controle de qualidade e carga no Supabase. Use ao implementar ou depurar rotinas de OCR, ingestão de editais/atas/resultados ou tratamento do acervo histórico.
+description: Guia do pipeline de OCR e ingestão de documentos da Pharma Operations Platform - triagem de PDFs nativos vs escaneados, extração de texto, controle de qualidade e carga no Supabase. Use ao implementar ou depurar rotinas de OCR, ingestão de editais/atas/resultados ou tratamento do acervo histórico.
 ---
 
 # OCR e Ingestão do Acervo — Guia de Implementação

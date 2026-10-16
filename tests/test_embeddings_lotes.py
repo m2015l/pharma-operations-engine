@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from solufarma_rag.ingestion.embeddings import _lotes
+from pharma_rag.ingestion.embeddings import _lotes
 
 
 def _c(chars: int):

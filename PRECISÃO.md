@@ -2,7 +2,7 @@
 
 ## 1. O que este arquivo é
 
-As evidências são as 4 sessões / 20 turnos registrados em `docs/auditorias/2026-08-17_conversas_rag.md`, produzidos por um agente que interpretou uma analista de licitações e não teve acesso nem ao acervo nem ao código. Cada afirmação factual dessas respostas foi conferida linha a linha contra `.tmp/acervo_indexado.md` (os 161 trechos indexados, texto integral) e contra o código do pipeline; toda suspeita de falha de busca foi reproduzida com `uv run python tools/perguntar.py "..." --so-busca` (custo zero) e com consultas diretas ao Supabase. Avaliação feita em 2026-08-17, com o acervo no estado de hoje: um único documento, a CAT nº 576640 do SENAI CETIQT, 60 páginas.
+As evidências são as 4 sessões / 20 turnos registrados em `docs/auditorias/2026-08-17_conversas_rag.md`, produzidos por um agente que interpretou uma analista de licitações e não teve acesso nem ao acervo nem ao código. Cada afirmação factual dessas respostas foi conferida linha a linha contra `.tmp/acervo_indexado.md` (os 161 trechos indexados, texto integral) e contra o código do pipeline; toda suspeita de falha de busca foi reproduzida com `uv run python tools/perguntar.py "..." --so-busca` (custo zero) e com consultas diretas ao Supabase. Avaliação feita em 2026-08-17, com o acervo no estado inicial: um único documento, a CAT nº 100200 do Instituto BioPharma, 60 páginas.
 
 Nenhum número deste arquivo é estimado, salvo onde está escrito "estimativa".
 
@@ -22,11 +22,11 @@ Nenhum número deste arquivo é estimado, salvo onde está escrito "estimativa".
 | 2.3 | Prazo total com aditivos | OK | — | 180 + 30 + 60 = 270 dias. Correto. A "contradição" com o turno 1.1 (que disse "+90 dias") é aparente: 30+60 = 90. Problema de apresentação, não de fato. |
 | 2.4 | Quantos pontos de consumo de gases e capacidade da central | recuperação | **alta** | Recusou o número de pontos. Ele está no acervo, p.45: 144 reguladores de 2º estágio em parede + 167 em totem = **311 postos de utilização**, mais 28 reguladores de 1º estágio. O trecho não foi recuperado. Recusa falsa com cara de honestidade. |
 | 2.5 | 160 bar faz sentido para ar comprimido? | OK (prolixo) | baixa | Todos os números conferem, inclusive os 210 bar (que estão nos dois trechos citados) e os 30–150 psi. Ressalva bem feita. Mas são 5 blocos para uma dúvida pontual. |
-| 3.1 | Quem assinou como responsável técnico | OK | — | Quatro nomes, CREA/CAU e vistos, todos exatos. RRT individual da arquiteta, correto. |
-| 3.2 | Número do CAT e da ART | OK, com nuance | média | CAT 576640/2020, RRT 8014430 SIMPLES de 13/03/2019, CAU/SP 06/07/2020 — tudo confere. A explicação "RRT é do CAU, ART é do CREA" é conhecimento geral sem citação: útil, mas fora da regra 1 do system prompt. |
+| 3.1 | Quem assinou como responsável técnico | OK | — | Quatro nomes, CREA/CAU e vistos, todos exatos. RRT individual, correto. |
+| 3.2 | Número do CAT e da ART | OK, com nuance | média | CAT 100200/2020, RRT 1002001 SIMPLES de 13/03/2019, CAU/SP 06/07/2020 — tudo confere. A explicação "RRT é do CAU, ART é do CREA" é conhecimento geral sem citação: útil, mas fora da regra 1 do system prompt. |
 | 3.3 | Contratante, CNPJ e vigência | recuperação | **alta** | Recusou. Em `--so-busca` a mesma pergunta devolve exatamente os trechos certos. Falha antes da busca, não na busca. |
 | 3.4 | Contratante e vigência (sem CNPJ) | OK | — | Correto e completo. Mostra que a informação sempre esteve lá. |
-| 3.5 | Ficha para o envelope de habilitação | ancoragem parcial | média | Ficha excelente e integralmente ancorada. Mas omitiu duas coisas materiais que estavam no contexto ou no acervo: os **5.655,00 m²** certificados (no mesmo trecho p.1-2 que ela citou) e o **valor global ajustado de R$ 12.994.398,92** (informou só o original de R$ 9.120.045,54). Três fontes exibidas como "p.1-2" idênticas. |
+| 3.5 | Ficha para o envelope de habilitação | ancoragem parcial | média | Ficha excelente e integralmente ancorada. Mas omitiu duas coisas materiais que estavam no contexto ou no acervo: os **5.655,00 m²** certificados (no mesmo trecho p.1-2 que ela citou) e o **valor global ajustado de R$ 8.750.000,00** (informou só o original de R$ 6.500.000,00). Três fontes exibidas como "p.1-2" idênticas. |
 | 4.1 | Temos atestado de obra hospitalar / gases medicinais? | OK (recusa correta) | — | Conferido: "hospital" e "medicinal" não aparecem em nenhum dos 161 trechos. Recusa certa, com a aproximação de gases especiais bem sinalizada. |
 | 4.2 | E aquela obra de 2021 pro governo do estado? | OK (recusa correta) | — | Conferido: só existe um documento no acervo. Recusa certa. |
 | 4.3 | Sala limpa ISO 7 + manutenção predial 5 anos | recuperação | **alta** | A parte de manutenção predial e de ISO 14644/ISO 7 é recusa correta (não existe no acervo). Mas afirmou que o atestado "não traz essa nomenclatura" de sala limpa — traz: "A.6.1. Portas padrão sala limpa" (p.11) e "LUMINÁRIA RETANGULAR SALA LIMPA ... 121 PÇ" (planilha). A analista concluiu que precisa de outro documento com base numa afirmação falsa. |
@@ -53,7 +53,7 @@ tools/perguntar.py "contratante cnpj vigencia do contrato" --so-busca
   -> 5 trechos, todos corretos
 ```
 
-O turno 1.3 diz "o edital que eu tenho aqui"; o 3.3 diz "envelope de habilitação". São exatamente as perguntas que induzem o interpretador a preencher o filtro. O mesmo vale para `orgao`: o valor gravado é `SENAI CETIQT`, e `--orgao "SENAI/CETIQT"` (a forma escrita no corpo do documento) também devolve zero.
+O turno 1.3 diz "o edital que eu tenho aqui"; o 3.3 diz "envelope de habilitação". São exatamente as perguntas que induzem o interpretador a preencher o filtro. O mesmo vale para `orgao`: o valor gravado é `Instituto BioPharma`, e `--orgao "Instituto/BioPharma"` também devolve zero.
 
 Agrava: no `agent.py`, o nó de refinamento troca a `consulta` mas **mantém `interpretacao.filtros` intactos** (`self.searcher.buscar(nova_consulta, interpretacao.filtros, self.top_k)`). Se o filtro é o que zerou, refinar não tem como salvar — é uma segunda chamada paga que nasce condenada.
 
@@ -87,22 +87,22 @@ Quatro respostas afirmam, sobre o acervo, algo que só era verdade sobre os 5 tr
 ### P6. A camada de metadados da CAT (p.1-2) é quase invisível para a busca
 **Turnos: 1.2, 1.3, 1.4 (e a omissão do 3.5).**
 
-Os chunks 1, 2 e 3 são a certidão do CAU: chave-valor puro, sem nenhum heading de markdown emitido pelo OCR. Consequência em cadeia: `caminho_secao` vazio → `secao` vazia no banco → o cabeçalho contextual vira só `[SENAI CETIQT CAT 576640 ... | p. 1]`, sem nenhum termo temático → o embedding é dominado pelo boilerplate jurídico da resolução do CAU. É por isso que **os dados mais fortes para licitação do documento inteiro** — 5.655,00 m² de execução de obra, 5.655,00 m² de reforma de edificação, 23.537 kg de estrutura metálica, 625,00 m² de recuperação paisagística, contrato C2 003B-2018, CNPJ do contratante — só aparecem em consultas muito dirigidas, e nunca nas perguntas naturais sobre área.
+Os chunks 1, 2 e 3 são a certidão do CAU: chave-valor puro, sem nenhum heading de markdown emitido pelo OCR. Consequência em cadeia: `caminho_secao` vazio → `secao` vazia no banco → o cabeçalho contextual vira só `[Instituto BioPharma CAT 100200 ... | p. 1]`, sem nenhum termo temático → o embedding é dominado pelo boilerplate jurídico da resolução do CAU. É por isso que **os dados mais fortes para licitação do documento inteiro** — 5.655,00 m² de execução de obra, 5.655,00 m² de reforma de edificação, 23.537 kg de estrutura metálica, 625,00 m² de recuperação paisagística, contrato C1 001A-2024, CNPJ do contratante — só aparecem em consultas muito dirigidas, e nunca nas perguntas naturais sobre área.
 
 ### P7. Chunks de planilha herdam a seção errada
 **Turnos: 2.4, 2.5.**
 
-O chunk que contém os quantitativos de GASES e de HIDRÁULICA está rotulado `SENAI CETIQT > EQUIPAMENTOS E QUADROS ELÉTRICOS - (MDO) > FORNECIMENTO E MONTAGEM DE QUADRO DE DISTRIBUIÇÃO DE CIRCUITOS ELÉTRICOS (QDC)`. Motivo: as divisões `| GASES | | |` e `| HIDRÁULICA | | |` são **linhas de tabela**, e `parsear_blocos` (`src/solufarma/chunking.py`) só empilha headings markdown (`RE_HEADING`). O rótulo errado entra no cabeçalho contextual, ou seja, **entra no embedding**, empurrando o chunk para longe de perguntas sobre gases — e no turno 2.5 a analista viu uma fonte sobre quadro elétrico sustentando uma frase sobre compressor.
+O chunk que contém os quantitativos de GASES e de HIDRÁULICA está rotulado `Instituto BioPharma > EQUIPAMENTOS E QUADROS ELÉTRICOS - (MDO) > FORNECIMENTO E MONTAGEM DE QUADRO DE DISTRIBUIÇÃO DE CIRCUITOS ELÉTRICOS (QDC)`. Motivo: as divisões `| GASES | | |` e `| HIDRÁULICA | | |` são **linhas de tabela**, e `parsear_blocos` (`src/pharma_ops/chunking.py`) só empilha headings markdown (`RE_HEADING`). O rótulo errado entra no cabeçalho contextual, ou seja, **entra no embedding**, empurrando o chunk para longe de perguntas sobre gases — e no turno 2.5 a analista viu uma fonte sobre quadro elétrico sustentando uma frase sobre compressor.
 
 ### P8. A exibição das fontes parece quebrada mesmo quando não está
 **Turnos: 1.2, 1.5, 2.2, 3.5, 4.1.**
 
-Dois defeitos somados. (a) A lista mostra só os marcadores citados, então a numeração sai com buracos ([1],[3],[5]); a analista registrou isso como "faltou a fonte [4]". (b) A linha exibida é `orgao · secao · p.X-Y`, e chunks diferentes com a mesma seção e página ficam idênticos — no 3.5 foram três fontes escritas exatamente como "SENAI CETIQT · · p.1-2". Nada disso é alucinação, mas destrói a confiança na rastreabilidade, que é o argumento central do produto.
+Dois defeitos somados. (a) A lista mostra só os marcadores citados, então a numeração sai com buracos ([1],[3],[5]); a analista registrou isso como "faltou a fonte [4]". (b) A linha exibida é `orgao · secao · p.X-Y`, e chunks diferentes com a mesma seção e página ficam idênticos — no 3.5 foram três fontes escritas exatamente como "Instituto BioPharma · · p.1-2". Nada disso é alucinação, mas destrói a confiança na rastreabilidade, que é o argumento central do produto.
 
 ### P9. `itens_planilha` existe, tem 807 linhas e nunca é consultada
 **Turnos: 2.1, 2.4.**
 
-A tabela está criada, populada e indexada. `AgenteLicitacoes` só recebe um `searcher`. As duas piores respostas de quantitativo do teste são exatamente as que um `select` resolveria. O próprio código já reconhece o problema (`src/solufarma/chunking.py`, `extrair_linhas_tabela`: "uma planilha de quantitativos precisa de SQL, não de busca vetorial").
+A tabela está criada, populada e indexada. `AgenteLicitacoes` só recebe um `searcher`. As duas piores respostas de quantitativo do teste são exatamente as que um `select` resolveria. O próprio código já reconhece o problema (`src/pharma_ops/chunking.py`, `extrair_linhas_tabela`: "uma planilha de quantitativos precisa de SQL, não de busca vetorial").
 
 ### P10. Concisão: o sistema já sabe fazer, quando pedem
 **Bom: 1.5, 3.5. Ruim: 2.5, 4.3, 4.5.**
@@ -119,7 +119,7 @@ Ordenadas por confiabilidade ganha dividida por esforço. As quatro primeiras s�
 
 ### I1. Parar de gerar filtros estruturados na interpretação
 
-**Onde:** `src/solufarma_rag/agent/prompts.py`, bloco `PROMPT_INTERPRETAR`.
+**Onde:** `src/pharma_rag/agent/prompts.py`, bloco `PROMPT_INTERPRETAR`.
 
 **O que fazer:** enquanto o acervo não tiver metadados confiáveis e um vocabulário fechado de tipos que inclua os tipos reais, o campo `filtros` só destrói recall. Substituir o bloco inteiro por:
 
@@ -157,15 +157,15 @@ Pergunta do usuário:
 
 **Evidência:** turnos 1.3 e 3.3 — duas recusas totais sobre informação que está no acervo e que a busca crua encontra em primeiro lugar.
 
-**Como verificar:** refazer `"tem certeza desse numero? o edital que eu tenho aqui pede comprovacao de pelo menos 3000 m2 de area construida, da pra confirmar se bate?"` e `"quem foi o contratante oficialmente, o cnpj deles, e a vigencia do contrato pra eu colocar no envelope de habilitacao"`. As duas devem deixar de responder "não encontrei nada". A primeira deve passar a citar áreas por pavimento (com I6, deve citar 5.655,00 m²); a segunda deve dar contratante, CNPJ 03.851.105/0001-42 e vigência 07/02/2019–06/02/2020, igual ao turno 3.4.
+**Como verificar:** refazer `"tem certeza desse numero? o edital que eu tenho aqui pede comprovacao de pelo menos 3000 m2 de area construida, da pra confirmar se bate?"` e `"quem foi o contratante oficialmente, o cnpj deles, e a vigencia do contrato pra eu colocar no envelope de habilitacao"`. As duas devem deixar de responder "não encontrei nada". A primeira deve passar a citar áreas por pavimento (com I6, deve citar 5.655,00 m²); a segunda deve dar contratante, CNPJ 33.444.555/0001-03 e vigência 07/02/2019–06/02/2020, igual ao turno 3.4.
 
-**Risco:** perde-se a filtragem por órgão e por período, que vai ser necessária quando o acervo tiver dezenas de documentos. Isto é uma medida para o acervo de hoje. Registre a reversão como pendência ligada ao momento em que o segundo documento entrar, e nessa hora reintroduza os filtros com um enum de `tipo_documento` gerado a partir de `select distinct tipo from documentos`, não escrito à mão.
+**Risco:** perde-se a filtragem por órgão e por período, que vai ser necessária quando o acervo tiver dezenas de documentos. Isto é uma medida para o acervo inicial. Registre a reversão como pendência ligada ao momento em que o segundo documento entrar, e nessa hora reintroduza os filtros com um enum de `tipo_documento` gerado a partir de `select distinct tipo from documentos`, não escrito à mão.
 
 ---
 
 ### I2. Relaxar filtros no refinamento, não só a consulta
 
-**Onde:** `src/solufarma_rag/agent/agent.py`, método `responder`, dentro do `while not resultados`.
+**Onde:** `src/pharma_rag/agent/agent.py`, método `responder`, dentro do `while not resultados`.
 
 **O que fazer:** trocar a linha de rebusca para descartar os filtros na segunda tentativa:
 
@@ -187,7 +187,7 @@ Pergunta do usuário:
 
 ### I3. Separar "não está nos trechos" de "não está no acervo"
 
-**Onde:** `src/solufarma_rag/agent/prompts.py`, blocos `SYSTEM_AGENTE` (regra 3) e `PROMPT_RESPONDER`.
+**Onde:** `src/pharma_rag/agent/prompts.py`, blocos `SYSTEM_AGENTE` (regra 3) e `PROMPT_RESPONDER`.
 
 **O que fazer:** em `SYSTEM_AGENTE`, substituir a regra 3 por:
 
@@ -213,7 +213,7 @@ que a lista que você deu é completa.
 
 **Evidência:** turnos 1.4, 2.1, 2.4 e 4.3 — quatro afirmações de ausência que são falsas contra o acervo real, três delas de gravidade alta.
 
-**Como verificar:** refazer `"quais quantitativos de servico aparecem nesse atestado do senai cetiqt? tipo m2 de piso, forro, essas coisas"`. A frase "não encontrei no acervo quantitativos adicionais de piso/forro" deve sumir e dar lugar a uma ressalva de escopo. E refazer a de sala limpa: a frase "o atestado não traz essa nomenclatura técnica" deve virar "não apareceu nos trechos recuperados".
+**Como verificar:** refazer `"quais quantitativos de servico aparecem nesse atestado? tipo m2 de piso, forro, essas coisas"`. A frase "não encontrei no acervo quantitativos adicionais de piso/forro" deve sumir e dar lugar a uma ressalva de escopo. E refazer a de sala limpa: a frase "o atestado não traz essa nomenclatura técnica" deve virar "não apareceu nos trechos recuperados".
 
 **Risco:** as respostas ficam um pouco mais hedgeadas e menos assertivas, e o usuário pode ler isso como o sistema "não ter certeza de nada". Contrapeso: combinar com I10, que exige o número direto na primeira linha — a ressalva vai para o fim, não para o começo.
 
@@ -221,7 +221,7 @@ que a lista que você deu é completa.
 
 ### I4. Subir `top_k` de 5 para 8
 
-**Onde:** `src/solufarma_rag/retrieval/hybrid_search.py`, `TOP_K_PADRAO = 5` → `TOP_K_PADRAO = 8`; e `tools/perguntar.py`, `p.add_argument("--top-k", type=int, default=5, ...)` → `default=8`.
+**Onde:** `src/pharma_rag/retrieval/hybrid_search.py`, `TOP_K_PADRAO = 5` → `TOP_K_PADRAO = 8`; e `tools/perguntar.py`, `p.add_argument("--top-k", type=int, default=5, ...)` → `default=8`.
 
 **O que fazer:** trocar os dois valores. Não mexer em `CANDIDATOS_PADRAO` (o pool já é 40 por ramo, sobra folga).
 
@@ -235,7 +235,7 @@ que a lista que você deu é completa.
 
 ### I5. Quebrar pergunta com múltiplos assuntos em várias buscas
 
-**Onde:** `src/solufarma_rag/agent/prompts.py` (`PROMPT_INTERPRETAR`) e `src/solufarma_rag/agent/agent.py` (`_interpretar` + `responder`).
+**Onde:** `src/pharma_rag/agent/prompts.py` (`PROMPT_INTERPRETAR`) e `src/pharma_rag/agent/agent.py` (`_interpretar` + `responder`).
 
 **O que fazer:** trocar `"consulta": "<string>"` por `"consultas": ["<string>", ...]` (1 a 3 itens), com a instrução:
 
@@ -257,7 +257,7 @@ No agente, buscar cada consulta com `top_k` próprio e unir os resultados dedupl
 
 ### I6. Reindexar a folha de rosto da CAT como bloco de metadados com seção sintética
 
-**Onde:** `src/solufarma/chunking.py` (`parsear_blocos` / `cabecalho_contextual`) ou, mais barato, na etapa de OCR que gera o markdown das páginas 1-2.
+**Onde:** `src/pharma_ops/chunking.py` (`parsear_blocos` / `cabecalho_contextual`) ou, mais barato, na etapa de OCR que gera o markdown das páginas 1-2.
 
 **O que fazer:** duas mudanças, nesta ordem de preferência.
 
@@ -273,7 +273,7 @@ No agente, buscar cada consulta com `top_k` próprio e unir os resultados dedupl
 
 Descartar do embedding (mantendo no texto de exibição) o parágrafo de "INFORMAÇÕES IMPORTANTES", que é lei genérica do CAU e não diz nada sobre esta obra.
 
-**Evidência:** turnos 1.2, 1.3, 1.4 e a omissão do 3.5. Nenhuma pergunta natural sobre área recupera este trecho. Medido: `--so-busca "qual a area total construida da obra do senai cetiqt, somando todos os pavimentos" --top-k 8` não traz a p.1-2; só `"atividade tecnica realizada execucao de reforma de edificacao area"` traz, e na posição 7.
+**Evidência:** turnos 1.2, 1.3, 1.4 e a omissão do 3.5. Nenhuma pergunta natural sobre área recupera este trecho. Medido: `--so-busca "qual a area total construida da obra, somando todos os pavimentos" --top-k 8` não traz a p.1-2; só `"atividade tecnica realizada execucao de reforma de edificacao area"` traz, e na posição 7.
 
 **Como verificar:** depois de reindexar, `--so-busca "area total construida da obra"` deve trazer o chunk da atividade técnica no top 3. Depois, na chamada paga, a pergunta dos 3.000 m² deve responder "sim, bate — a CAT certifica 5.655,00 m² de execução de obra e de reforma de edificação", que é o número que a comissão de licitação vai aceitar, em vez de uma soma de tabelas de pavimento.
 
@@ -283,7 +283,7 @@ Descartar do embedding (mantendo no texto de exibição) o parágrafo de "INFORM
 
 ### I7. Corrigir a seção herdada em planilhas
 
-**Onde:** `src/solufarma/chunking.py`, função `parsear_blocos`.
+**Onde:** `src/pharma_ops/chunking.py`, função `parsear_blocos`.
 
 **O que fazer:** tratar como divisão de seção a linha de tabela em que só a primeira célula tem conteúdo e ela está em caixa alta — o padrão `| GASES | | |`, `| HIDRÁULICA | | |`, `| VÁLVULAS/EQUIPAMENTOS - ( MDO ) | | |`. Quando reconhecida, empilhar como subseção no `caminho_secao` em vez de deixar o bloco herdar o heading anterior.
 
@@ -297,7 +297,7 @@ Descartar do embedding (mantendo no texto de exibição) o parágrafo de "INFORM
 
 ### I8. Reescrever a pergunta com o histórico antes de interpretar
 
-**Onde:** `src/solufarma_rag/agent/agent.py` (assinatura de `responder`, novo nó) e `prompts.py` (novo prompt).
+**Onde:** `src/pharma_rag/agent/agent.py` (assinatura de `responder`, novo nó) e `prompts.py` (novo prompt).
 
 **O que fazer:** aceitar `historico: list[dict] | None` em `responder` e, quando houver, rodar antes do `_interpretar`:
 
@@ -322,7 +322,7 @@ O `tools/perguntar.py` em modo interativo já tem o laço; basta acumular os par
 
 **Evidência:** turnos 1.2 ("e a área disso"), 2.4 ("o sistema de gases que vc mencionou antes"), 4.5 ("aquilo lá"). Nos três a busca partiu de uma pergunta sem referente.
 
-**Como verificar:** em modo interativo, perguntar 1.1 e depois "e a área disso, quantos m2 tinha a obra?". A consulta gerada deve conter "SENAI CETIQT" e "área construída", e o retrieval deve trazer as tabelas de área mais o bloco da atividade técnica.
+**Como verificar:** em modo interativo, perguntar 1.1 e depois "e a área disso, quantos m2 tinha a obra?". A consulta gerada deve conter "Instituto BioPharma" e "área construída", e o retrieval deve trazer as tabelas de área mais o bloco da atividade técnica.
 
 **Risco:** mais uma chamada de LLM por turno (custo e latência). E o modo de falha novo é ruim: uma reescrita que enfia contexto errado numa pergunta que mudou de assunto contamina o retrieval sem deixar rastro. Por isso o prompt manda devolver a pergunta intacta na dúvida — e vale registrar em log a pergunta original e a reescrita, sempre.
 
@@ -330,7 +330,7 @@ O `tools/perguntar.py` em modo interativo já tem o laço; basta acumular os par
 
 ### I9. Ligar `itens_planilha` a um caminho de consulta
 
-**Onde:** `src/solufarma_rag/db/repository.py` (novo método) e `agent.py` (nova dependência opcional).
+**Onde:** `src/pharma_rag/db/repository.py` (novo método) e `agent.py` (nova dependência opcional).
 
 **O que fazer:** expor um `buscar_itens_planilha(termo, documento_id=None)` que faz `ilike` sobre `array_to_string(celulas, ' ')` e devolve as linhas com página e seção. Injetar no agente e chamar quando a pergunta contiver marcadores de quantidade ("quanto", "quantos", "quantitativo", "total de", "m²", "unidades"). O resultado entra no contexto como trechos numerados normais, para continuar rastreável por [n].
 
@@ -384,9 +384,9 @@ Sobre os buracos na numeração ([1],[3],[5]): eles são consequência correta d
 
 ## 6. Limites desta avaliação
 
-- **Um documento, um tipo.** O acervo inteiro é uma CAT de arquiteto com atestado e planilhas anexas. Nada aqui foi testado contra edital, ata ou resultado de licitação — que são os tipos que o sistema foi desenhado para atender. Padrões como P6 (folha de rosto invisível) e P7 (seção herdada em planilha) são reais neste documento e plausíveis em outros, mas não medidos.
+- **Um documento, um tipo.** O acervo inicial era uma CAT com atestado e planilhas anexas. Nada aqui foi testado contra edital, ata ou resultado de licitação — que são os tipos adicionais suportados pelo sistema. Padrões como P6 (folha de rosto invisível) e P7 (seção herdada em planilha) são reais neste documento e plausíveis em outros, mas não medidos.
 - **Vinte turnos, uma persona, uma sessão de teste.** Frequências não são estatística. P3 (pergunta multi-assunto) tem exatamente uma ocorrência; chamei de anedota no texto e mantenho.
 - **`--so-busca` não reproduz o que o agente busca.** A ferramenta busca com a **pergunta crua**; o agente busca com a **consulta reescrita pelo interpretador** e com os filtros. Todas as reproduções deste arquivo são, portanto, aproximações — e no caso dos turnos 1.3 e 3.3 são aproximações *favoráveis ao sistema*, o que só reforça a conclusão: se a pergunta crua acha e o agente não achou, o problema está entre a pergunta e a busca. Mas não observei diretamente nenhuma consulta gerada, porque isso exigiria chamada paga.
 - **O piso 0,474 foi calibrado contra este único documento** e contra `openai/text-embedding-3-large` em 1024 dimensões. Ele não sobrevive à troca de modelo de embedding nem, provavelmente, à entrada de um acervo com dezenas de documentos. Recalibre com `tools/avaliar.py --calibrar` quando qualquer um dos dois mudar.
-- **Nenhuma instrução deste arquivo foi aplicada e medida.** Não houve segunda rodada. As seções "como verificar" são hipóteses testáveis, não resultados. Onde eu pude medir sem gastar chamada paga (top_k, filtros, presença de termos no acervo), medi e disse o número; onde a verificação exige chamada paga, está escrito como verificação a fazer.
+- **Nenhuma instrução deste arquivo foi aplicada e medida antes desta revisão.** As seções "como verificar" são hipóteses testáveis. Onde se pôde medir sem gastar chamada paga (top_k, filtros, presença de termos no acervo), mediu-se e registrou-se o número; onde a verificação exige chamada paga, está escrito como verificação a fazer.
 - **Não avaliei latência, custo por pergunta nem o comportamento do fluxo `analise_edital`** — nenhum dos 20 turnos enviou um edital para análise, então o `PROMPT_ANALISE_EDITAL_SUFIXO` está completamente sem cobertura de teste.

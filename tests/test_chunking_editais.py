@@ -6,8 +6,8 @@ from datetime import date
 
 import pytest
 
-from solufarma_rag.db.models import Chunk, DocumentoParaChunking, PaginaDocumento
-from solufarma_rag.ingestion.chunking import estimar_tokens, gerar_chunks
+from pharma_rag.db.models import Chunk, DocumentoParaChunking, PaginaDocumento
+from pharma_rag.ingestion.chunking import estimar_tokens, gerar_chunks
 
 
 def test_gera_chunks_com_metadados_obrigatorios(documento):

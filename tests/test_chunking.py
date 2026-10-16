@@ -3,14 +3,14 @@ INVARIANTE 4 — a saída do OCR é Markdown estruturado.
 
 Se a hierarquia `A.1.1 vinílicos` chegasse como texto corrido, o caminho de
 seção seria irrecuperável e todo chunk perderia o contexto que faz a busca
-"acabamento de piso SENAI CETIQT" encontrar o trecho certo.
+"acabamento de piso INSTITUTO BIOPHARMA" encontrar o trecho certo.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from solufarma import chunking
+from pharma_ops import chunking
 
 
 def test_caminho_de_secao_reflete_a_hierarquia(prosa_hierarquica):
@@ -46,9 +46,9 @@ def test_heading_de_mesmo_nivel_substitui_o_irmao():
 
 def test_cabecalho_contextual_carrega_documento_secao_e_pagina():
     cab = chunking.cabecalho_contextual(
-        "SENAI CETIQT CAT 576640", ["A. Arquitetura", "A.1.1 vinílicos"], 8
+        "INSTITUTO BIOPHARMA CAT 100200", ["A. Arquitetura", "A.1.1 vinílicos"], 8
     )
-    assert "SENAI CETIQT CAT 576640" in cab
+    assert "INSTITUTO BIOPHARMA CAT 100200" in cab
     assert "A. Arquitetura > A.1.1 vinílicos" in cab
     assert "p. 8" in cab
 
@@ -62,7 +62,7 @@ def test_chunk_de_tabela_repete_o_cabecalho_em_cada_janela(tabela_dividida, monk
 
     blocos = chunking.parsear_blocos(chunking.costurar(tabela_dividida))
     tabela = next(b for b in blocos if b.tipo == "tabela")
-    chunks = chunking.chunk_tabela(tabela, "SENAI CETIQT", "abc123", [0])
+    chunks = chunking.chunk_tabela(tabela, "INSTITUTO BIOPHARMA", "abc123", [0])
 
     assert chunks, "a tabela deveria gerar ao menos um chunk"
     for c in chunks:
@@ -77,7 +77,7 @@ def test_janela_orfa_volta_para_o_chunk_anterior(monkeypatch):
     linhas = ["| Descrição | Un | Qtd |", "|---|---|---|"]
     linhas += [f"| ITEM {i} | M | {i}00,00 |" for i in range(7)]  # 5 + 2 órfãs
 
-    from solufarma.modelos import Bloco
+    from pharma_ops.modelos import Bloco
 
     bloco = Bloco("tabela", linhas, ["Planilha"], 44, 44)
     chunks = chunking.chunk_tabela(bloco, "doc", "h", [0])
@@ -222,7 +222,7 @@ def test_ids_de_chunk_sao_unicos(documento_extraido):
 # -- I6/P6 (PRECISÃO.md): rótulo em caixa alta na prosa como seção ----------
 #
 # Reproduz, com dados trocados, a folha de rosto da CAT do CAU (p.1-2 da CAT
-# 576640, `.tmp/acervo_indexado.md`, não versionado): blocos chave-valor
+# 100200, `.tmp/acervo_indexado.md`, não versionado): blocos chave-valor
 # encabeçados por linhas soltas em caixa alta, com espaço nas pontas, sem
 # heading markdown. Antes, tudo virava um bloco sem `caminho_secao` e a área
 # certificada ficava escondida no meio (P6). Os rótulos de CATs do CREA

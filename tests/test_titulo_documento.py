@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from solufarma import chunking, cli
+from pharma_ops import chunking, cli
 
 RAIZ = Path(__file__).resolve().parents[1]
-TITULO_REAL = "Atestado Ariston Indústrias Químicas - vapor puro"
+TITULO_REAL = "Atestado Laboratório Químico Central Indústrias Químicas - vapor puro"
 
 
 def _carregar_indexar():
@@ -31,8 +31,8 @@ def _carregar_indexar():
 
 def test_sem_titulo_usa_nome_do_arquivo_como_fallback(documento_extraido):
     chunks, _ = chunking.chunkar_documento(documento_extraido)
-    assert all(c.documento == "SENAI CETIQT CAT 576640" for c in chunks)
-    assert all(c.texto.startswith("[SENAI CETIQT CAT 576640 |") for c in chunks)
+    assert all(c.documento == "INSTITUTO BIOPHARMA CAT 100200" for c in chunks)
+    assert all(c.texto.startswith("[INSTITUTO BIOPHARMA CAT 100200 |") for c in chunks)
 
 
 def test_titulo_explicito_vai_para_o_cabecalho_de_todo_chunk(documento_extraido):
@@ -41,7 +41,7 @@ def test_titulo_explicito_vai_para_o_cabecalho_de_todo_chunk(documento_extraido)
     for c in chunks:
         assert c.documento == TITULO_REAL
         assert c.texto.startswith(f"[{TITULO_REAL} |")
-        assert "SENAI CETIQT CAT 576640" not in c.texto.split("]")[0]
+        assert "INSTITUTO BIOPHARMA CAT 100200" not in c.texto.split("]")[0]
 
 
 def test_titulo_no_json_de_extracao_e_respeitado(documento_extraido):
@@ -58,21 +58,21 @@ def test_parametro_tem_precedencia_sobre_json(documento_extraido):
 
 def test_titulo_em_branco_cai_no_fallback(documento_extraido):
     chunks, _ = chunking.chunkar_documento(documento_extraido, titulo="   ")
-    assert {c.documento for c in chunks} == {"SENAI CETIQT CAT 576640"}
+    assert {c.documento for c in chunks} == {"INSTITUTO BIOPHARMA CAT 100200"}
 
 
 # --- CLI de chunks -----------------------------------------------------------
 
 
 def test_cli_chunks_grava_titulo(tmp_path, documento_extraido):
-    entrada = tmp_path / "SENAI_CETIQT_CAT_576640.json"
+    entrada = tmp_path / "INSTITUTO BIOPHARMA_CAT_100200.json"
     entrada.write_text(json.dumps(documento_extraido), encoding="utf-8")
     saida = tmp_path / "chunks"
 
     rc = cli.main_chunks([str(entrada), "--saida", str(saida), "--titulo", TITULO_REAL])
 
     assert rc == 0
-    gravados = json.loads((saida / "SENAI_CETIQT_CAT_576640_chunks.json").read_text("utf-8"))
+    gravados = json.loads((saida / "INSTITUTO BIOPHARMA_CAT_100200_chunks.json").read_text("utf-8"))
     assert {c["documento"] for c in gravados} == {TITULO_REAL}
 
 
@@ -102,7 +102,7 @@ def test_indexar_titulo_igual_ao_dos_chunks_passa(indexar):
 
 
 def test_indexar_recusa_titulo_divergente(indexar):
-    chunks = [{"documento": "CRISTALIA ATESTADO OBRA II"}]
+    chunks = [{"documento": "COMPLEXO FARMACEUTICO INDUSTRIAL ATESTADO OBRA II"}]
     with pytest.raises(indexar.TituloDivergente, match="Re-gere os chunks"):
         indexar.resolver_titulo(TITULO_REAL, chunks)
 

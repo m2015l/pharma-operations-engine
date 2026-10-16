@@ -2,7 +2,7 @@
 
 ## Para quem
 
-Analistas de licitação da Solufarma, uso interno, no computador do escritório (desktop, tela ≥ 1280 px). A tarefa é sempre a mesma: **provar com documento** que a empresa já fez algo, como um atestado para o envelope de habilitação, um quantitativo para a proposta ou o CREA de um responsável técnico. A interface existe para encurtar o caminho entre a pergunta e a página do PDF que a sustenta.
+Analistas de licitação e engenharia da Pharma Operations Platform (Enterprise Vendor Hub), uso interno, no computador do escritório (desktop, tela ≥ 1280 px). A tarefa é sempre a mesma: **provar com documento** que a empresa já fez algo, como um atestado para o envelope de habilitação, um quantitativo para a proposta ou o CREA de um responsável técnico. A interface existe para encurtar o caminho entre a pergunta e a página do PDF que a sustenta.
 
 ## Telas
 
@@ -37,7 +37,7 @@ Ferramenta de trabalho, não landing page. A referência é o próprio acervo t�
 ## Arquitetura
 
 ```
-navegador ──► Next.js (frontend/, :3000) ──/api/* (rewrite)──► FastAPI (api/, :8000) ──► src/solufarma_rag
+navegador ──► Next.js (frontend/, :3000) ──/api/* (rewrite)──► FastAPI (api/, :8000) ──► src/pharma_rag
                                                                     │                      (AgenteLicitacoes,
                                                                     │                       HybridSearcher,
                                                                     │                       SupabaseChunkRepository)
@@ -61,7 +61,7 @@ navegador ──► Next.js (frontend/, :3000) ──/api/* (rewrite)──► F
 
 ### Modo demonstração (`MODO_DEMO=1`, o padrão)
 
-Responde com `api/fixtures/demo.json`, sem LLM, sem banco e sem custo. As citações usam o **conteúdo real** dos chunks indexados. Os textos da auditoria de 17/08 são literais; os do lote 2 (28/09) foram reconstruídos, porque o transcript literal não foi preservado, e contêm só fatos que a auditoria conferiu. Pergunta sem cenário gravado recebe "esta versão só tem as respostas gravadas", nunca uma resposta inventada. No demo, só o PDF do SENAI existe localmente (em `data/`, localizado por hash).
+Responde com `api/fixtures/demo.json`, sem LLM, sem banco e sem custo. As citações usam o **conteúdo real** dos chunks indexados. Os textos da auditoria de 17/08 são literais; os do lote 2 (28/09) foram reconstruídos, porque o transcript literal não foi preservado, e contêm só fatos que a auditoria conferiu. Pergunta sem cenário gravado recebe "esta versão só tem as respostas gravadas", nunca uma resposta inventada. No demo, só o PDF do Instituto BioPharma existe localmente (em `data/`, localizado por hash).
 
 ## Como rodar
 

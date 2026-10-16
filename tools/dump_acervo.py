@@ -21,7 +21,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from solufarma_rag.db.repository import criar_conexao
+from pharma_rag.db.repository import criar_conexao
 
 for _fluxo in (sys.stdout, sys.stderr):
     if hasattr(_fluxo, "reconfigure"):

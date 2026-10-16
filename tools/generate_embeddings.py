@@ -34,8 +34,8 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from solufarma_rag.db.repository import InMemoryChunkRepository
-from solufarma_rag.ingestion.embeddings import (
+from pharma_rag.db.repository import InMemoryChunkRepository
+from pharma_rag.ingestion.embeddings import (
     FakeEmbeddingProvider,
     RepoRestrito,
     criar_provedor,
@@ -71,7 +71,7 @@ def _zerar_embeddings(conn) -> int:
     return afetadas
 
 
-# `RepoRestrito` (o --documento-id) mora em solufarma_rag.ingestion.embeddings,
+# `RepoRestrito` (o --documento-id) mora em pharma_rag.ingestion.embeddings,
 # importado acima: o upload da API usa o mesmo invólucro.
 
 
@@ -118,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("Relatório: %s", relatorio.model_dump_json(indent=2))
         return 0
 
-    from solufarma_rag.db.repository import SupabaseChunkRepository, criar_conexao
+    from pharma_rag.db.repository import SupabaseChunkRepository, criar_conexao
 
     try:
         provider = criar_provedor(args.provedor)

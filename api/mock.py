@@ -24,10 +24,10 @@ FIXTURES = Path(__file__).with_name("fixtures") / "demo.json"
 
 # Palavras que identificam cada documento do acervo (texto normalizado).
 _ASSUNTOS = {
-    "senai": ("senai", "cetiqt", "isi "),
-    "ariston": ("ariston", "vapor puro"),
-    "butantan": ("butantan", "bioterio"),
-    "fiocruz": ("fiocruz", "manguinhos", "criogenia"),
+    "biopharma": ("biopharma", "instituto biopharma", "isi "),
+    "farmaceutico": ("farmaceutico", "vapor puro"),
+    "biotecnologia": ("biotecnologia", "bioterio"),
+    "imunobiologicos": ("imunobiologicos", "instituto", "criogenia"),
 }
 
 
@@ -83,11 +83,11 @@ def escolher_cenario(pergunta: str, historico: list[Turno]) -> str | None:
     # Atributo de um documento já em pauta ("e o valor disso?") vem antes do
     # assunto: é o caso em que o histórico decide a resposta.
     atributos = (
-        ((r"responsavel", r"assinou"), {"butantan": "responsavel_butantan", "senai": "responsavel_senai"}),
-        ((r"\bvalor", r"quanto custou", r"\bpreco"), {"ariston": "valor_ariston", "senai": "valor_senai"}),
-        ((r"\barea", r"\bm2\b", r"metragem"), {"senai": "area_senai"}),
-        ((r"\bprazo", r"aditivo"), {"senai": "prazo_senai"}),
-        ((r"escopo", r"detalh"), {"butantan": "escopo_butantan"}),
+        ((r"responsavel", r"assinou"), {"biotecnologia": "responsavel_biotecnologia", "biopharma": "responsavel_biopharma"}),
+        ((r"\bvalor", r"quanto custou", r"\bpreco"), {"farmaceutico": "valor_farmaceutico", "biopharma": "valor_biopharma"}),
+        ((r"\barea", r"\bm2\b", r"metragem"), {"biopharma": "area_biopharma"}),
+        ((r"\bprazo", r"aditivo"), {"biopharma": "prazo_biopharma"}),
+        ((r"escopo", r"detalh"), {"biotecnologia": "escopo_biotecnologia"}),
     )
     for padroes, por_assunto in atributos:
         if _tem(p, *padroes) and assunto in por_assunto:
@@ -145,7 +145,7 @@ def responder(pergunta: str, historico: list[Turno]) -> RespostaOut:
     )
 
 
-_SUGERIDOS = {"laboratorio", "vapor_puro", "farmaceuticas", "escopo_butantan", "rodoviaria"}
+_SUGERIDOS = {"laboratorio", "vapor_puro", "farmaceuticas", "escopo_biotecnologia", "rodoviaria"}
 
 
 def sugestoes() -> list[str]:

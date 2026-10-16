@@ -1,5 +1,5 @@
 def main():
-    print("Hello from solufarma-mod-2!")
+    print("Hello from pharma-operations-engine!")
 
 
 if __name__ == "__main__":

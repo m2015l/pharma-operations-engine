@@ -8,11 +8,11 @@ import types
 
 import pytest
 
-from solufarma_rag.db.repository import InMemoryChunkRepository
+from pharma_rag.db.repository import InMemoryChunkRepository
 from tests.falsos import ConexaoFalsa, carregar_ferramenta
 
 STEM = "CAT 123 Teste"
-TITULO = "Câmara Fria (CAT SJC-01975)"
+TITULO = "Câmara Fria (CAT SJC-10001)"
 
 
 @pytest.fixture
@@ -49,9 +49,9 @@ def test_detectar_extracao_le_o_json_do_stem(indexar, tmp_path):
 
 
 def test_parser_padroes(indexar):
-    args = indexar.construir_parser().parse_args(["x.pdf", "--orgao", "FURP"])
+    args = indexar.construir_parser().parse_args(["x.pdf", "--orgao", "LFE"])
     assert (args.pdf, args.orgao, args.tipo, args.titulo, args.dry_run) == (
-        "x.pdf", "FURP", "edital", None, False,
+        "x.pdf", "LFE", "edital", None, False,
     )
 
 

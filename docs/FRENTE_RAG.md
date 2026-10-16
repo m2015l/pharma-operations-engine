@@ -10,7 +10,7 @@
 
 ## 1. Em uma frase
 
-O pacote `src/solufarma_rag/` transforma documentos de licitação em chunks indexados e responde perguntas sobre eles citando as fontes. **Nada depende de Supabase ou de chaves de API para rodar**: toda dependência externa é um Protocol com implementação fake.
+O pacote `src/pharma_rag/` transforma documentos de licitação em chunks indexados e responde perguntas sobre eles citando as fontes. **Nada depende de Supabase ou de chaves de API para rodar**: toda dependência externa é um Protocol com implementação fake.
 
 ## 2. Como rodar (do zero, 2 minutos)
 
@@ -18,7 +18,7 @@ O pacote `src/solufarma_rag/` transforma documentos de licitação em chunks ind
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install pydantic pytest ruff
 
-.venv/Scripts/python.exe -m pytest              # 56 testes, ~0.2s, sem rede
+.venv/Scripts/python.exe -m pytest              # testes offline, sem rede
 .venv/Scripts/python.exe -m ruff check src/ tests/ tools/
 ```
 
@@ -28,17 +28,17 @@ Os CLIs (framework WAT):
 # Chunking de um documento já extraído (JSON de entrada descrito no --help)
 .venv/Scripts/python.exe tools/chunk_document.py documento.json > chunks.json
 
-# Pipeline de embeddings — só --dry-run funciona até o Supabase existir
+# Pipeline de embeddings — --dry-run funciona sem banco
 .venv/Scripts/python.exe tools/generate_embeddings.py --dry-run
 ```
 
-> Python local usado: 3.14. `requirements.txt` tem a lista completa do projeto;
+> `requirements.txt` tem a lista completa do projeto;
 > para rodar só os testes bastam `pydantic`, `pytest` e `ruff`.
 
 ## 3. Mapa do código
 
 ```
-src/solufarma_rag/
+src/pharma_rag/
 ├── config.py              Lê .env (Supabase, chaves, modelos). Sem pydantic-settings.
 ├── text_utils.py          normalizar() e tokenizar() — espelham unaccent+FTS do Postgres.
 ├── db/
@@ -63,31 +63,31 @@ src/solufarma_rag/
     ├── citations.py       Monta contexto numerado e resolve [n] → chunk → documento → página
     └── llm.py             Protocol LLMClient + FakeLLM (testes) / AnthropicLLM (produção)
 
-tests/                     64 testes offline. conftest.py tem as fixtures compartilhadas.
+tests/                     Testes offline. conftest.py tem as fixtures compartilhadas.
 tools/                     CLIs finos sobre o pacote (chunk_document, generate_embeddings,
                            setup_supabase)
 ```
 
 ## 4. O padrão que sustenta tudo: dependências injetáveis
 
-Como Supabase e chaves de LLM ainda não existem, cada fronteira externa é um `Protocol`:
+Cada fronteira externa é um `Protocol`:
 
 | Fronteira | Protocol | Fake (testes) | Real (produção) |
 |---|---|---|---|
 | Banco de dados | `ChunkRepository` | `InMemoryChunkRepository` | `SupabaseChunkRepository` (✅ validado contra o banco real — `--smoke`) |
-| Embeddings | `EmbeddingProvider` | `FakeEmbeddingProvider` | `criar_provedor_openai()` → `LangChainEmbeddingProvider` (escrito, sem chave) |
-| LLM | `LLMClient` | `FakeLLM` | `AnthropicLLM` (escrito, sem chave) |
+| Embeddings | `EmbeddingProvider` | `FakeEmbeddingProvider` | `criar_provedor_openai()` / `criar_provedor_voyage()` → `LangChainEmbeddingProvider` |
+| LLM | `LLMClient` | `FakeLLM` | `AnthropicLLM` / `OpenRouterLLM` |
 | Busca | `Searcher` | `SearcherStub` (em `tests/test_agent.py`) | `HybridSearcher` |
 
-Consequência prática: **quando as credenciais chegarem, nenhum código de domínio muda** — troca-se o `InMemoryChunkRepository` pelo `SupabaseChunkRepository` e o fake de embeddings pelo real.
+Consequência prática: **nenhum código de domínio muda entre teste e produção** — troca-se o `InMemoryChunkRepository` pelo `SupabaseChunkRepository` e o fake de embeddings pelo real.
 
 ## 5. Decisões de design que não são óbvias no código
 
-**Chunking conta caracteres, não tokens.** `estimar_tokens` é `len // 4`; somar isso peça por peça subestima o total (cada peça perde até 3 caracteres no arredondamento) e o erro acumula. Era a causa de chunks 14% acima do teto. Ver `_orcamento_corpo_chars` em [chunking.py](../src/solufarma_rag/ingestion/chunking.py).
+**Chunking conta caracteres, não tokens.** `estimar_tokens` é `len // 4`; somar isso peça por peça subestima o total (cada peça perde até 3 caracteres no arredondamento) e o erro acumula. Era a causa de chunks 14% acima do teto. Ver `_orcamento_corpo_chars` em [chunking.py](../src/pharma_rag/ingestion/chunking.py).
 
 **O prefixo contextual entra no orçamento do chunk.** Cada chunk começa com `[Edital PE 045/2023 – Órgão – Seção: X]` para o embedding carregar contexto. Esse prefixo conta no `token_count`, então sai do orçamento do corpo — e ele cresce com o tamanho do nome do órgão.
 
-**A busca tem piso de similaridade** (`SIMILARIDADE_MINIMA_PADRAO = 0.15`). Sem ele, a busca vetorial devolve sempre os k mais próximos por mais irrelevantes que sejam: o agente nunca conseguiria dizer "não encontrei no acervo", e responderia qualquer pergunta com contexto aleatório. **Este valor foi calibrado contra o provedor fake e PRECISA ser recalibrado com embeddings reais.**
+**A busca tem piso de similaridade** (`SIMILARIDADE_MINIMA_PADRAO = 0.15`). Sem ele, a busca vetorial devolve sempre os k mais próximos por mais irrelevantes que sejam: o agente nunca conseguiria dizer "não encontrei no acervo", e responderia qualquer pergunta com contexto aleatório. **Este valor padrão foi calibrado contra o provedor fake e é recalibrado em produção com embeddings reais.**
 
 **O provedor fake usa 1024 dimensões, igual à produção.** Não é simetria estética: com 64 dimensões, colisões de hash davam similaridade alta a textos sem nenhuma palavra em comum (`"inexistente zzz"` pontuava acima de `"autoclave"` contra um edital de autoclaves), o que invertia o resultado dos testes de relevância.
 
@@ -112,30 +112,26 @@ Toda afirmação do agente deve referenciar `[n]`, que resolve para chunk → do
 
 > **Para a frente de Interface:** `contrato_citacao_ok == False` significa resposta **não confiável** — não deve ser exibida como resposta normal ao usuário.
 
-## 7. O que ficou faltando (e por quê)
+## 7. Evolução e Integração
 
-| Item | Por que não foi feito | Dono |
+| Item | Estado | Responsável |
 |---|---|---|
-| **Ponte chunking → Supabase** | Especificada em [workflows/indexacao.md](../workflows/indexacao.md), não implementada. É o que falta para o M3 rodar ponta a ponta | Frente RAG |
-| `tools/verify_index.py` | `setup_supabase.py --check --smoke` já cobre schema e repositório; falta o de qualidade do retrieval, que depende do golden set | Frente RAG |
-| Reranker concreto (Haiku) | O hook injetável existe; falta chave de API | Frente RAG |
-| **Golden set de avaliação** | Depende de casos reais da Solufarma. **É a lacuna mais séria** — a skill `rag-licitacoes` pede avaliação desde o início, e sem ela toda mudança de prompt/chunking é feita no escuro | Frente RAG ↔ Cliente |
+| **Ponte chunking → Supabase** | Especificada em [workflows/indexacao.md](../workflows/indexacao.md) e implementada em `ingestion/cadastro.py` e `ingestion/traducao.py` | Frente RAG |
+| `tools/setup_supabase.py --check --smoke` | Valida schema e repositório contra o banco real | Frente RAG |
+| Reranker concreto (Voyage `rerank-2.5`) | Integrado após fusão RRF (ADR-011) | Frente RAG |
+| **Golden set de avaliação** | Implementado em `data/golden_set.json` e avaliado via `tools/avaliar.py` | Frente RAG |
 
 ## 8. Decisões de banco já fechadas (06/08/26)
 
-As duas lacunas de DDL que bloqueavam o repositório foram resolvidas em [001_schema_inicial.sql](../src/solufarma_rag/db/migrations/001_schema_inicial.sql):
+As duas lacunas de DDL que bloqueavam o repositório foram resolvidas em [001_schema_inicial.sql](../src/pharma_rag/db/migrations/001_schema_inicial.sql):
 
 1. **`content_hash` + `embedding_content_hash` em `doc_chunks`.** São dois campos, não um: o primeiro é o hash do conteúdo atual, o segundo é o hash do que foi de fato embeddado. Pendente = `embedding is null OR os dois diferem`. Com um campo só não dá para saber se o embedding está velho.
 2. **`orgao` e `data` continuam só em `licitacoes`**, acessados por JOIN — sem duplicar escrita. `FiltrosBusca` não mudou: no Supabase os filtros viram cláusulas SQL sobre o JOIN, e o `aceita()` em Python segue servindo só ao repositório em memória.
 
 **RLS ligado, sem policies.** Tudo em `public` é publicado pela API REST do Supabase; sem RLS a publishable key (que vai no frontend) lê e escreve o acervo. O backend passa por conexão direta, que não é afetada. Policies para `authenticated` entram quando houver login.
 
-## 9. Por onde continuar
+## 9. Operação contínua
 
-1. ~~Aplicar o schema e validar o repositório~~ → feito em 09/08. `make banco` (ou
-   `python tools/setup_supabase.py --check --smoke`) reconfere schema e repositório
-   contra o banco real a qualquer momento;
-2. **Escrever a ponte chunking → Supabase** — especificação completa, com mapeamento campo a
-   campo e armadilhas, em [workflows/indexacao.md](../workflows/indexacao.md);
-4. Com as chaves de LLM: trocar os fakes pelos reais e **recalibrar o piso de similaridade**;
-5. Montar o golden set com casos reais e passar a rodá-lo a cada mudança de prompt ou chunking.
+1. `make banco` (ou `python tools/setup_supabase.py --check --smoke`) reconfere schema e repositório contra o banco real a qualquer momento;
+2. Indexação e tradução seguem o fluxo documentado em [workflows/indexacao.md](../workflows/indexacao.md);
+3. Ao alterar modelos de embedding ou expandir o acervo, recalibrar o piso de similaridade e rodar `tools/avaliar.py` contra o golden set.

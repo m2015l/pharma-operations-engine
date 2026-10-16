@@ -1,4 +1,4 @@
-"""Backend real: o agente que já existe (`src/solufarma_rag`) contra o Supabase.
+"""Backend real: o agente que já existe (`src/pharma_rag`) contra o Supabase.
 
 Monta as mesmas peças que `tools/perguntar.py` — SupabaseChunkRepository →
 HybridSearcher → AgenteLicitacoes — uma vez por processo. Nada de lógica de
@@ -30,11 +30,11 @@ _LOCK = threading.Lock()
 
 @lru_cache(maxsize=1)
 def _pecas():
-    from solufarma_rag.agent.agent import AgenteLicitacoes
-    from solufarma_rag.agent.llm import criar_llm
-    from solufarma_rag.db.repository import SupabaseChunkRepository, criar_conexao
-    from solufarma_rag.ingestion.embeddings import criar_provedor
-    from solufarma_rag.retrieval.hybrid_search import HybridSearcher
+    from pharma_rag.agent.agent import AgenteLicitacoes
+    from pharma_rag.agent.llm import criar_llm
+    from pharma_rag.db.repository import SupabaseChunkRepository, criar_conexao
+    from pharma_rag.ingestion.embeddings import criar_provedor
+    from pharma_rag.retrieval.hybrid_search import HybridSearcher
 
     conn = criar_conexao()
     repo = SupabaseChunkRepository(conn=conn)
@@ -107,7 +107,7 @@ def url_assinada(storage_path: str) -> str:
     """
     import httpx
 
-    from solufarma_rag.config import get_settings
+    from pharma_rag.config import get_settings
 
     cfg = get_settings()
     if not cfg.supabase_url or not cfg.supabase_secret_key:

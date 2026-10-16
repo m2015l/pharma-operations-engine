@@ -1,7 +1,7 @@
-"""API fina sobre o agente de licitações da Solufarma.
+"""API fina sobre o agente de licitações da Pharma Operations Platform.
 
     MODO_DEMO=1  →  fixtures gravadas (api/fixtures/demo.json): sem LLM, sem banco, custo zero
-    MODO_DEMO=0  →  agente real (src/solufarma_rag) + Supabase: CADA PERGUNTA É CHAMADA PAGA
+    MODO_DEMO=0  →  agente real (src/pharma_rag) + Supabase: CADA PERGUNTA É CHAMADA PAGA
 
 Rodar (da raiz do projeto):
     MODO_DEMO=1 uv run --with-requirements api/requirements.txt uvicorn main:app --app-dir api --port 8000
@@ -10,7 +10,7 @@ Os endpoints são `def` (não `async def`) de propósito: o agente e o psycopg s
 síncronos, e o FastAPI roda `def` num threadpool — `async def` aqui bloquearia
 o event loop durante a chamada ao LLM.
 
-Credenciais: lidas do `.env` da raiz pelo `solufarma_rag.config`, só no modo
+Credenciais: lidas do `.env` da raiz pelo `pharma_rag.config`, só no modo
 real. Nenhuma chave sai deste processo; o navegador recebe no máximo uma URL
 assinada de 10 minutos.
 """
@@ -44,7 +44,7 @@ from schemas import (
     UploadOut,
 )
 
-from solufarma_rag.db.models import TIPOS_DOCUMENTO
+from pharma_rag.db.models import TIPOS_DOCUMENTO
 
 MODO_DEMO = os.getenv("MODO_DEMO", "1").strip().lower() not in ("0", "false", "nao", "não", "")
 # Latência artificial do modo demo, para a tela de "consultando o acervo" ser vista.
@@ -62,7 +62,7 @@ else:
     backend = mock
 
 app = FastAPI(
-    title="Solufarma — API do assistente de licitações",
+    title="Pharma Operations Platform — API de Inteligência de Licitações",
     version="0.1.0",
     description="Camada HTTP sobre `AgenteLicitacoes`. Modo atual: "
     + ("DEMO (fixtures)" if MODO_DEMO else "REAL (chamadas pagas)"),

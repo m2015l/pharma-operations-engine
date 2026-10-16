@@ -1,5 +1,5 @@
 """
-Classificação/sumarização de documentos (`solufarma.classificacao`) — offline,
+Classificação/sumarização de documentos (`pharma_ops.classificacao`) — offline,
 com `FakeLLM` e chunks sintéticos que imitam o layout real (cabeçalho
 contextual do chunker, OCR ruidoso de CAT do CREA-SP + atestado anexo).
 """
@@ -10,8 +10,8 @@ import json
 
 import pytest
 
-from solufarma import classificacao as cl
-from solufarma_rag.agent.llm import FakeLLM
+from pharma_ops import classificacao as cl
+from pharma_rag.agent.llm import FakeLLM
 
 CHUNKS = [
     cl.ChunkEntrada(
@@ -20,11 +20,11 @@ CHUNKS = [
         pagina_fim=1,
         content_hash="h1",
         conteudo=(
-            "[Trocadores de Calor PW e WFI (CAT SJC-02085) | p. 1]\n"
+            "[Trocadores de Calor PW e WFI (CAT SJC-10002) | p. 1]\n"
             "CERTIDAO DL ACERVO TECNICO — CAT\n"
-            "CERTIDAO N°: SJC-02085\n"
-            "Contratada\nTep Tecnologia emPrôjètos de Engenharia Ltda.\n"
-            "R$ 497:12000 (Julho/2006)\nInstituto Buthntari.\n"
+            "CERTIDAO N°: SJC-10002\n"
+            "Contratada\nEnterprise  Vendor Hub Engenhária Ltda.\n"
+            "R$ 497:12000 (Julho/2006)\nInstituto BioPhrma.\n"
         ),
     ),
     cl.ChunkEntrada(
@@ -34,14 +34,14 @@ CHUNKS = [
         secao="ATESTADO DE CAPACIDADE TECNICA",
         content_hash="h2",
         conteudo=(
-            "[Trocadores de Calor PW e WFI (CAT SJC-02085) | ATESTADO | p. 2]\n"
-            "Atestamos que a empresa TEP TECNOLOGIA EM PROJETOS DE ENGENHARIA LTDA. corn "
+            "[Trocadores de Calor PW e WFI (CAT SJC-10002) | ATESTADO | p. 2]\n"
+            "Atestamos que a empresa Enterprise Vendor Hub Engenharia Ltda. corn "
             "sede no municIpio de São José dos Campos, inscrita no CNPJ sob o n°. "
-            "02.905.709/0001-61, executou o projeto executivo, montagem e comissionamento "
+            "22.333.444/0001-92, executou o projeto executivo, montagem e comissionamento "
             "do sistema de trocadores de calor para os tanques de agua PW e WFI, da nova "
             "planta de produção de vacina contra Influenza. Capacidade de 4500 L/h.\n"
             "Valor do Contrato: R$ 497.120,00\nPerlodo de Execuçâo: Julho a Setembro/2006\n"
-            "FUNDAcAO BUTANTAN\n"
+            "FUNDACAO BIOPHARMA\n"
         ),
     ),
 ]
@@ -49,19 +49,19 @@ CHUNKS = [
 
 def resposta_boa(**sobrescreve) -> str:
     dados = {
-        "tipo_documento": {"valor": "cat", "pagina": 1, "trecho": "CERTIDAO N°: SJC-02085"},
-        "numero_documento": {"valor": "SJC-02085", "pagina": 1, "trecho": "SJC-02085"},
+        "tipo_documento": {"valor": "cat", "pagina": 1, "trecho": "CERTIDAO N°: SJC-10002"},
+        "numero_documento": {"valor": "SJC-10002", "pagina": 1, "trecho": "SJC-10002"},
         "orgao_contratante": {
-            "valor": "Fundação Butantan",
+            "valor": "Fundação BioPharma",
             "pagina": 2,
-            "trecho": "FUNDAcAO BUTANTAN",
+            "trecho": "FUNDACAO BIOPHARMA",
         },
         "executante": {
-            "valor": "TEP Tecnologia em Projetos de Engenharia Ltda.",
+            "valor": "Enterprise Vendor Hub Engenharia Ltda.",
             "pagina": 2,
-            "trecho": "TEP TECNOLOGIA EM PROJETOS DE ENGENHARIA LTDA",
+            "trecho": "Enterprise Vendor Hub Engenharia Ltda.",
         },
-        "executante_grupo": {"valor": "tep", "pagina": 2},
+        "executante_grupo": {"valor": "coligada", "pagina": 2},
         "consorcio_membros": [],
         "disciplinas": [
             {"valor": "agua_purificada", "pagina": 2},
@@ -89,7 +89,7 @@ def resposta_boa(**sobrescreve) -> str:
             }
         ],
         "local": {"municipio": "São Paulo", "uf": "SP", "pagina": 1},
-        "resumo": "A TEP executou o projeto, montagem e comissionamento de trocadores de calor.",
+        "resumo": "A Enterprise Vendor Hub executou o projeto, montagem e comissionamento de trocadores de calor.",
     }
     dados.update(sobrescreve)
     return json.dumps(dados, ensure_ascii=False)
@@ -129,9 +129,9 @@ def test_hash_muda_quando_texto_muda():
     assert cl.hash_conteudo(outro) != h1
 
 
-def test_pistas_da_triagem_acham_tep():
+def test_pistas_da_triagem_acham_coligada():
     pistas = cl.pistas_triagem(CHUNKS)
-    assert pistas["executante_grupo"]["valor"] == "tep"
+    assert pistas["executante_grupo"]["valor"] == "coligada"
 
 
 # --- parse ----------------------------------------------------------------------
@@ -158,7 +158,7 @@ def test_classificacao_completa_e_verificada():
     res = cl.classificar_documento(llm, CHUNKS, "titulo", modelo="fake/modelo")
     c = res.classificacao
     assert c["tipo_documento"]["valor"] == "cat"
-    assert c["executante_grupo"]["valor"] == "tep"
+    assert c["executante_grupo"]["valor"] == "coligada"
     assert c["executante"]["verificado"] is True
     assert c["valor_contrato"] == {
         "valor": 497120.0,
@@ -173,7 +173,7 @@ def test_classificacao_completa_e_verificada():
     ]
     assert c["meta"]["modelo"] == "fake/modelo"
     assert c["meta"]["hash_conteudo"] == cl.hash_conteudo(CHUNKS)
-    assert res.resumo.startswith("A TEP")
+    assert res.resumo.startswith("A Enterprise Vendor Hub")
     assert res.avisos == []
     # o prompt levou texto, pistas e as regras de "null"
     chamada = llm.chamadas[0]
@@ -194,11 +194,11 @@ def test_vocabulario_fora_da_lista_e_descartado():
     assert [d["valor"] for d in res.classificacao["disciplinas"]] == ["hvac"]
     assert res.classificacao["executante_grupo"] is None
     assert any("paisagismo" in a for a in res.avisos)
-    assert any("regex sugere 'tep'" in a for a in res.avisos)
+    assert any("regex sugere 'coligada'" in a for a in res.avisos)
 
 
 def test_pagina_fora_do_documento_vira_null():
-    llm = FakeLLM(respostas=[resposta_boa(numero_documento={"valor": "SJC-02085", "pagina": 40})])
+    llm = FakeLLM(respostas=[resposta_boa(numero_documento={"valor": "SJC-10002", "pagina": 40})])
     res = cl.classificar_documento(llm, CHUNKS)
     assert res.classificacao["numero_documento"]["pagina"] is None
     assert any("fora do documento" in a for a in res.avisos)
@@ -224,10 +224,10 @@ def test_iso_que_nao_esta_no_texto_e_descartada():
 
 
 def test_divergencia_com_regex_vira_aviso():
-    llm = FakeLLM(respostas=[resposta_boa(executante_grupo={"valor": "solufarma", "pagina": 2})])
+    llm = FakeLLM(respostas=[resposta_boa(executante_grupo={"valor": "principal", "pagina": 2})])
     res = cl.classificar_documento(llm, CHUNKS)
-    assert res.classificacao["executante_grupo"]["valor"] == "solufarma"  # não censura o LLM
-    assert any("regex disse 'tep'" in a for a in res.avisos)
+    assert res.classificacao["executante_grupo"]["valor"] == "principal"  # não censura o LLM
+    assert any("regex disse 'coligada'" in a for a in res.avisos)
 
 
 def test_campos_ausentes_ficam_null():

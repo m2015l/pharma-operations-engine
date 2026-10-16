@@ -16,16 +16,16 @@ from typing import ClassVar
 
 import pytest
 
-from solufarma import config
-from solufarma.chunking import (
+from pharma_ops import config
+from pharma_ops.chunking import (
     classificar_lacuna,
     codigos_citados,
     extrair_linhas_tabela,
     sinais_da_observacao,
 )
-from solufarma.extracao import parece_planilha
-from solufarma.formatos import inferir_cabecalho, tabela_para_markdown
-from solufarma.modelos import Bloco
+from pharma_ops.extracao import parece_planilha
+from pharma_ops.formatos import inferir_cabecalho, tabela_para_markdown
+from pharma_ops.modelos import Bloco
 
 # Texto nativo como o PyMuPDF devolve uma planilha: cada célula numa linha, a
 # quantidade a sete linhas de distância do código a que pertence.
@@ -298,7 +298,7 @@ class TestPaginaPorLinha:
 class TestIntencaoDaObservacao:
     """
     O modelo diz POR QUE a célula está vazia, e o motivo muda o que fazer. Estas
-    são as observações reais do CAT SJC-003369 — não fixtures inventadas.
+    são as observações reais do CAT SJC-10004 — não fixtures inventadas.
     """
 
     def test_ilegivel_quando_declara_perda(self):
@@ -350,7 +350,7 @@ class TestIntencaoDaObservacao:
 
 class TestObservacoesDoLoteDeOutubro:
     """
-    Regressão de 07/10: as 7 lacunas de carimbo do LAQFA/CEMFAR entraram no banco
+    Regressão de 07/10: as 7 lacunas de carimbo do LQC entraram no banco
     como "vazio" e o relatório de lacunas não listou nenhuma. Três causas, uma por
     teste abaixo. As observações são as reais, copiadas do JSON de extração.
     """

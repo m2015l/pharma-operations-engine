@@ -1,4 +1,4 @@
-"""Contratos HTTP da API — espelham `RespostaAgente`/`Citacao` (src/solufarma_rag/db/models.py).
+"""Contratos HTTP da API — espelham `RespostaAgente`/`Citacao` (src/pharma_rag/db/models.py).
 
 A API não recria lógica de RAG: estes modelos só serializam o que o agente
 já devolve, acrescentando o que a tela precisa e o agente não carrega

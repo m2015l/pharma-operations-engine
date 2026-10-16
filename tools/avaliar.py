@@ -51,13 +51,13 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from solufarma_rag.db.repository import (
+from pharma_rag.db.repository import (
     FiltrosBusca,
     SupabaseChunkRepository,
     criar_conexao,
 )
-from solufarma_rag.ingestion.embeddings import criar_provedor
-from solufarma_rag.retrieval.hybrid_search import HybridSearcher
+from pharma_rag.ingestion.embeddings import criar_provedor
+from pharma_rag.retrieval.hybrid_search import HybridSearcher
 
 # O console do Windows abre em cp1252 e derruba o processo com
 # UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,
@@ -184,7 +184,7 @@ def calibrar(repo, provider, casos: list[dict], pool: int) -> None:
     alta — 0.15 lá dentro não filtra nada, e o acervo passa a "responder"
     qualquer pergunta.
     """
-    from solufarma_rag.ingestion.embeddings import embeddar_consulta
+    from pharma_rag.ingestion.embeddings import embeddar_consulta
 
     sinais: list[tuple[float, str]] = []
     tetos_nao: list[tuple[float, str]] = []
@@ -434,7 +434,7 @@ def main(argv: list[str] | None = None) -> int:
             rotulo = "somente léxico (full-text)"
 
             def buscar(pergunta: str, top_k: int):
-                from solufarma_rag.db.models import ChunkComScore
+                from pharma_rag.db.models import ChunkComScore
 
                 brutos = repo.buscar_textual(pergunta, FiltrosBusca(), top_k)
                 return [ChunkComScore(chunk=c, score=s) for c, s in brutos]
@@ -455,7 +455,7 @@ def main(argv: list[str] | None = None) -> int:
                 calibrar(repo, provider, casos, pool=20)
                 return 0
 
-            from solufarma_rag.retrieval.reranker import criar_reranker
+            from pharma_rag.retrieval.reranker import criar_reranker
 
             extra = {"candidatos_rerank": args.pool_rerank} if args.pool_rerank else {}
             if args.calibrar_rerank:

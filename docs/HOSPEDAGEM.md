@@ -1,6 +1,6 @@
 # Hospedagem: onde colocar o assistente para a equipe usar
 
-> Roteiro de decisão para o Roger, escrito em 30/09/2026. Os preços foram consultados nesse dia nos
+> Roteiro de decisão de arquitetura de deploy, escrito em 30/09/2026. Os preços foram consultados nesse dia nos
 > sites oficiais (fontes no fim). Valores em US$ por mês, sem imposto e sem o custo de uso do LLM,
 > do OCR e dos embeddings, que é **igual em todas as opções** e depende só de quantas perguntas e
 > envios forem feitos.
@@ -29,40 +29,39 @@ qualquer opção:
 
 ---
 
-## Opção A: um PC da empresa na rede interna (Windows)
+## Opção A: um servidor da empresa na rede interna (Windows)
 
 O assistente roda num computador do escritório que fica sempre ligado. A equipe abre
 `http://<nome-ou-ip-do-pc>:3000` no navegador. Nada fica exposto à internet.
 
 **Passos**
-1. Escolher o PC: sempre ligado, sem suspensão, com pelo menos 8 GB de RAM (não usar o notebook
-   pessoal do Roger). Pedir ao responsável pela rede um **IP fixo** (reserva de DHCP no roteador)
-   ou usar o nome do PC.
-2. Clonar o repositório **fora do OneDrive** (ex.: `C:\solufarma`), copiar o `.env` e criar o
+1. Escolher o servidor: sempre ligado, sem suspensão, com pelo menos 8 GB de RAM. Pedir ao responsável pela rede um **IP fixo** (reserva de DHCP no roteador)
+   ou usar o nome da máquina.
+2. Clonar o repositório **fora do OneDrive** (ex.: `C:\pharma-ops`), copiar o `.env` e criar o
    ambiente: `uv sync` e `uv pip install -r api/requirements.txt`; no `frontend/`, `npm ci` e
    `npm run build`.
 3. Registrar dois serviços que sobem sozinhos com o Windows, via NSSM:
    ```powershell
-   nssm install SolufarmaAPI C:\solufarma\.venv\Scripts\python.exe "-m uvicorn main:app --app-dir api --host 127.0.0.1 --port 8000"
-   nssm set SolufarmaAPI AppDirectory C:\solufarma
-   nssm set SolufarmaAPI AppEnvironmentExtra MODO_DEMO=0
+   nssm install PharmaOpsAPI C:\pharma-ops\.venv\Scripts\python.exe "-m uvicorn main:app --app-dir api --host 127.0.0.1 --port 8000"
+   nssm set PharmaOpsAPI AppDirectory C:\pharma-ops
+   nssm set PharmaOpsAPI AppEnvironmentExtra MODO_DEMO=0
 
-   nssm install SolufarmaWeb "C:\Program Files\nodejs\node.exe" "node_modules\next\dist\bin\next start -H 0.0.0.0 -p 3000"
-   nssm set SolufarmaWeb AppDirectory C:\solufarma\frontend
+   nssm install PharmaOpsWeb "C:\Program Files\nodejs\node.exe" "node_modules\next\dist\bin\next start -H 0.0.0.0 -p 3000"
+   nssm set PharmaOpsWeb AppDirectory C:\pharma-ops\frontend
    ```
    `python -m uvicorn`, e não `uvicorn.exe`, porque o Controle de Aplicativo do Windows já
    bloqueou o executável gerado pelo uv (ver `frontend/CONCEITO.md`). Se o NSSM também for
    bloqueado, o plano B é o **Agendador de Tarefas**: uma tarefa "Ao iniciar o sistema", executando
    mesmo sem usuário logado, que chama um `.cmd` com os dois comandos.
 4. Liberar **só a porta 3000** no firewall, e só na rede privada/domínio:
-   `New-NetFirewallRule -DisplayName "Solufarma" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private,Domain`.
+   `New-NetFirewallRule -DisplayName "PharmaOps" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private,Domain`.
    A 8000 fica fechada (a API escuta em `127.0.0.1`).
 5. Atualizar versão: `git pull`, `npm run build`, reiniciar os dois serviços (`nssm restart ...`).
 
 **O que muda no código:** nada obrigatório. Opcional (M): gravar os envios numa tabela do
 Supabase para a lista da tela "Enviar" sobreviver a reinícios.
 
-**Custo:** US$ 0 de hospedagem se já existe um PC que fica ligado; só a energia. Um mini-PC novo
+**Custo:** US$ 0 de hospedagem se já existe um servidor interno ligado; só a energia. Um mini-PC novo
 para isso custa uma vez só (compra, não mensalidade).
 
 **Riscos**
@@ -70,10 +69,10 @@ para isso custa uma vez só (compra, não mensalidade).
   se não for separado) consegue usar. Aceitável para uso interno; conferir se o Wi-Fi de visitas é
   isolado.
 - Tráfego em HTTP sem criptografia dentro da rede local. Baixo risco num escritório pequeno.
-- Disponibilidade: depende do PC. Queda de energia, atualização do Windows que reinicia ou alguém
+- Disponibilidade: depende do servidor local. Queda de energia, atualização do Windows que reinicia ou alguém
   que desliga a máquina derrubam o sistema (os serviços voltam sozinhos quando o PC religa).
 - Acesso de fora do escritório: não existe. Se alguém precisar em home office, a saída sem expor
-  nada é uma VPN simples (ex.: Tailscale) instalada no PC servidor e no notebook da pessoa.
+  nada é uma VPN simples (ex.: Tailscale) instalada no servidor e no notebook da pessoa.
 
 **Esforço:** P (meio dia a um dia, incluindo testar a partir de outro computador).
 
@@ -141,7 +140,7 @@ pergunta; limite de corpo no upload.
 
 ## Opção C: tudo numa VM pequena, com Caddy + HTTPS + Basic Auth
 
-Uma máquina virtual Linux roda a API e o Next exatamente como no PC local. Na frente, o Caddy
+Uma máquina virtual Linux roda a API e o Next exatamente como no servidor local. Na frente, o Caddy
 (servidor web) emite o certificado HTTPS sozinho e pede usuário e senha antes de qualquer página
 ou chamada `/api`. É a opção A, só que na nuvem e acessível de qualquer lugar.
 
@@ -149,14 +148,14 @@ ou chamada `/api`. É a opção A, só que na nuvem e acessível de qualquer lug
 1. Criar a VM (sugestão: **AWS Lightsail em São Paulo, 2 GB, US$ 12/mês**, na mesma região da AWS
    em que está o Supabase). Ubuntu LTS. No firewall da Lightsail, abrir só 80, 443 e 22 (SSH,
    de preferência restrito ao IP do escritório).
-2. Apontar um domínio (ex.: `assistente.solufarma.com.br`) para o IP fixo da VM.
+2. Apontar um domínio (ex.: `assistente.pharma-ops.com.br`) para o IP fixo da VM.
 3. Instalar `uv`, Node e Caddy; clonar o repositório; copiar o `.env` (`chmod 600`);
    `npm ci && npm run build`.
 4. Criar dois serviços `systemd` (API em `127.0.0.1:8000`, Next em `127.0.0.1:3000`), com
    `Restart=always`.
 5. `Caddyfile`:
    ```
-   assistente.solufarma.com.br {
+   assistente.pharma-ops.com.br {
        basic_auth {
            equipe <hash gerado com: caddy hash-password>
        }
@@ -177,7 +176,7 @@ ligado, upload de 50 MB passa normalmente; o Caddy não tem o teto de 120 s da V
 - Hetzner CX23, 4 GB / 2 vCPU / 40 GB, na Alemanha/Finlândia: **€ 5,49/mês** (~US$ 6,50). Mais
   barata, mas longe do Supabase (cada consulta ao banco atravessa o Atlântico).
 - DigitalOcean, 2 GB / 1 vCPU: US$ 12/mês, sem região no Brasil.
-- Domínio `.com.br`: ~R$ 40/ano no Registro.br (ou um subdomínio do site que a Solufarma já tem,
+- Domínio `.com.br`: ~R$ 40/ano no Registro.br (ou um subdomínio corporativo já existente,
   custo zero).
 
 **Riscos**
@@ -193,7 +192,7 @@ ligado, upload de 50 MB passa normalmente; o Caddy não tem o teto de 120 s da V
 
 ## Comparação rápida
 
-| | A. PC interno | B. Vercel + container | C. VM + Caddy |
+| | A. Servidor interno | B. Vercel + container | C. VM + Caddy |
 |---|---|---|---|
 | Custo de hospedagem/mês | US$ 0 | ~US$ 30–45 (+20 com senha) | US$ 12 (Lightsail SP) ou ~US$ 6,50 (Hetzner) |
 | Acesso de fora do escritório | Não (só com VPN) | Sim | Sim |
@@ -208,7 +207,7 @@ ligado, upload de 50 MB passa normalmente; o Caddy não tem o teto de 120 s da V
 `CONCEITO.md` (desktop, uso interno). Custa zero, não exige nenhuma mudança de código, não expõe
 nada na internet e fica pronta em um dia.
 
-**Vá para a C** se houver necessidade real de acesso fora do escritório ou se não houver um PC
+**Vá para a C** se houver necessidade real de acesso fora do escritório ou se não houver um servidor
 confiável para ficar ligado: Lightsail em São Paulo com Caddy e Basic Auth, US$ 12/mês, sem
 mudar código. Passar de A para C depois é só repetir os mesmos passos numa VM.
 
@@ -219,16 +218,13 @@ quiser a Vercel por outros motivos.
 Em qualquer opção: limite de gasto na chave do OpenRouter antes de ligar `MODO_DEMO=0` para a
 equipe.
 
-## O que o Roger precisa decidir ou fornecer
+## Decisões operacionais de deploy
 
 1. **A equipe precisa acessar de fora do escritório?** Não → A. Sim → C (ou A + VPN).
-2. **Para a A:** qual PC vai ser o servidor (fica ligado, ≥ 8 GB de RAM) e quem da TI/rede
-   reserva um IP fixo e confirma que o Wi-Fi de visitantes é separado.
-3. **Para a C:** quem paga a conta da AWS (cartão da empresa) e qual domínio/subdomínio usar.
-   Uma senha por pessoa ou uma senha única da equipe.
+2. **Para a A:** qual servidor vai ser usado (fica ligado, ≥ 8 GB de RAM) e reserva de IP fixo na rede interna.
+3. **Para a C:** conta da AWS e qual domínio/subdomínio usar. Uma senha por pessoa ou uma senha única da equipe.
 4. **Teto de gasto mensal com LLM/OCR** para configurar o limite da chave do OpenRouter.
-5. Se o gerente aceita "senha na porta" (C) como substituto do login, ou se um endereço
-   público exige o login de verdade (reabre a F8).
+5. Avaliar se "senha na porta" (C) atende como substituto do login, ou se um endereço público exige autenticação completa (F8).
 
 ---
 

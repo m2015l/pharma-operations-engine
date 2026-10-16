@@ -1,8 +1,8 @@
 """
 Resposta do VLM cortada no teto de tokens não pode virar cache.
 
-Regressão de 07/10 e 08/10: na pág. 35 do Cristália 3ª fase e nas 16 e 193 do
-HC USP o modelo parou de escrever a tabela no meio e encheu o resto da resposta
+Regressão de 07/10 e 08/10: na pág. 35 do Complexo Farmacêutico Industrial 3ª fase e nas 16 e 193 do
+HUC o modelo parou de escrever a tabela no meio e encheu o resto da resposta
 com espaços até bater em 8.000 tokens. A página saiu pela metade, o resultado
 foi para o cache, e toda reexecução devolvia a mesma metade — de graça e sem
 aviso. Repetir a chamada resolveu nos três casos, na primeira tentativa.
@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from solufarma import config, extracao
+from pharma_ops import config, extracao
 
 JPEG = b"\xff\xd8pagina-de-teste"
 BOA = {"markdown": "| 5.14 | ISOLAMENTO | 1,00 | vb |", "confianca": 0.93, "observacoes": ""}

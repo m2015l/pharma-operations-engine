@@ -161,7 +161,7 @@ export const api = {
       throw new Error("Sem conexão com a API. Confira se ela está rodando na porta 8000.");
     }
     if (!r.ok) throw new Error(await lerErro(r));
-    return { blob: await r.blob(), nome: nomeDoArquivo(r, `${corpo.escopo}-solufarma.docx`) };
+    return { blob: await r.blob(), nome: nomeDoArquivo(r, `${corpo.escopo}-pharma-ops.docx`) };
   },
   envios: () => pedir<Envio[]>("/uploads"),
   envio: (id: string) => pedir<Envio>(`/uploads/${id}`),

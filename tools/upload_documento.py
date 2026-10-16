@@ -71,7 +71,7 @@ def montar_storage_path(caminho: Path, hash_sha256: str) -> str:
 
 
 def _credenciais() -> tuple[str, str]:
-    from solufarma_rag.config import get_settings
+    from pharma_rag.config import get_settings
 
     cfg = get_settings()
     if not cfg.supabase_url or not cfg.supabase_secret_key:

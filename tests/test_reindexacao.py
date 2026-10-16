@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from solufarma_rag.db.repository import InMemoryChunkRepository, SupabaseChunkRepository
-from solufarma_rag.ingestion.embeddings import FakeEmbeddingProvider, gerar_embeddings_pendentes
+from pharma_rag.db.repository import InMemoryChunkRepository, SupabaseChunkRepository
+from pharma_rag.ingestion.embeddings import FakeEmbeddingProvider, gerar_embeddings_pendentes
 from tests.falsos import ConexaoFalsa
 
 

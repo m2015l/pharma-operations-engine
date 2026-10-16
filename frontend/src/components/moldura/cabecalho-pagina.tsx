@@ -1,4 +1,4 @@
-/** Título grande + subtítulo cinza + ações à direita, como "Obras" no Contratos. */
+/** Título grande + subtítulo cinza + ações à direita. */
 export function CabecalhoPagina({
   titulo,
   subtitulo,

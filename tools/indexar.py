@@ -2,7 +2,7 @@
 
 Uso:
     python tools/indexar.py "data/brutos/EDITAL.pdf" \
-        --orgao "SENAI CETIQT" --tipo edital \
+        --orgao "Instituto BioPharma" --tipo edital \
         --numero-edital "PE 045/2023" --data-abertura 2023-05-10
 
     python tools/indexar.py ... --dry-run    # traduz e valida, não escreve nada
@@ -15,7 +15,7 @@ Fecha a lacuna do §5 de workflows/indexacao.md:
 Espera que `tools/chunk_document.py` já tenha rodado — lê
 `data/chunks/<stem>_chunks.json` e `<stem>_itens.json`.
 
-O roteiro de cadastro/gravação vive em `solufarma_rag.ingestion.indexacao`
+O roteiro de cadastro/gravação vive em `pharma_rag.ingestion.indexacao`
 (`indexar_documento`) e é o MESMO que o upload da API (`api/ingestao.py`) usa.
 
 Os embeddings NÃO são gerados aqui: os chunks entram com `embedding is null` e
@@ -36,16 +36,16 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 sys.path.insert(0, str(RAIZ / "tools"))
 
-from solufarma_rag.db.repository import SupabaseChunkRepository, criar_conexao
-from solufarma_rag.ingestion.cadastro import cadastrar_documento
-from solufarma_rag.ingestion.indexacao import (
+from pharma_rag.db.repository import SupabaseChunkRepository, criar_conexao
+from pharma_rag.ingestion.cadastro import cadastrar_documento
+from pharma_rag.ingestion.indexacao import (
     EXTRACAO_DESCONHECIDA,
     TituloDivergente,
     indexar_documento,
     metodo_extracao,
     resolver_titulo,
 )
-from solufarma_rag.ingestion.traducao import traduzir_chunks
+from pharma_rag.ingestion.traducao import traduzir_chunks
 
 # O console do Windows abre em cp1252 e derruba o processo com
 # UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,
@@ -56,10 +56,10 @@ for _fluxo in (sys.stdout, sys.stderr):
         _fluxo.reconfigure(encoding="utf-8", errors="replace")
 
 
-# Mesmas variáveis de ambiente de `solufarma.config`: permitem rodar o CLI de
+# Mesmas variáveis de ambiente de `pharma_ops.config`: permitem rodar o CLI de
 # uma worktree lendo o `data/` do repositório principal (que é gitignored).
-DIR_CHUNKS = Path(os.getenv("SOLUFARMA_DIR_CHUNKS", RAIZ / "data" / "chunks"))
-DIR_EXTRAIDOS = Path(os.getenv("SOLUFARMA_DIR_EXTRAIDOS", RAIZ / "data" / "extraidos"))
+DIR_CHUNKS = Path(os.getenv("PHARMA_OPS_DIR_CHUNKS", RAIZ / "data" / "chunks"))
+DIR_EXTRAIDOS = Path(os.getenv("PHARMA_OPS_DIR_EXTRAIDOS", RAIZ / "data" / "extraidos"))
 
 
 def _carregar(caminho: Path) -> list[dict]:

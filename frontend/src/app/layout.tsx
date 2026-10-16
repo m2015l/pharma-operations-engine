@@ -7,13 +7,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-// Lato: a fonte do tema Flatly, que o sistema Contratos usa. Não é variável,
+// Lato: a fonte do tema Flatly. Não é variável,
 // então os pesos são obrigatórios (300 no título grande, 400 texto, 700 destaque).
 const lato = Lato({ variable: "--font-lato", subsets: ["latin"], weight: ["300", "400", "700"] });
 
 export const metadata: Metadata = {
-  title: "Licitações · Solufarma",
-  description: "Consulta ao acervo de atestados de capacidade técnica e CATs da Solufarma Engenharia",
+  title: "Pharma Operations Platform · Enterprise Vendor Hub",
+  description: "Plataforma corporativa de inteligência operacional e validação técnica de licitações e acervo de engenharia farmacêutica",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

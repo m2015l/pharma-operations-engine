@@ -5,8 +5,8 @@ tools/triar_documentos.py — Triagem de PDFs do acervo pelo CONTEÚDO (camada 3
 Para cada PDF, sem nenhuma chamada paga (sem LLM, sem OCR/VLM, sem Supabase):
   - roteia cada página como o pipeline faria (texto nativo x precisa OCR),
     reaproveitando `extracao.precisa_vlm` e a remoção de boilerplate;
-  - extrai do texto nativo, só com regex (`solufarma.triagem`): tipo, nº da CAT,
-    contratante/órgão (+CNPJ), executante (TEP/Solufarma/outra), responsável
+  - extrai do texto nativo, só com regex (`pharma_ops.triagem`): tipo, nº da CAT,
+    contratante/órgão (+CNPJ), executante (Enterprise Vendor Hub/Pharma Operations/outra), responsável
     técnico, objeto, local, período e um título sugerido;
   - confronta órgão/nº CAT do NOME do arquivo com os do conteúdo;
   - estima o custo de OCR das páginas que não têm texto nativo útil;
@@ -35,7 +35,7 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 import pymupdf
 
-from solufarma import config, extracao, formatos, triagem
+from pharma_ops import config, extracao, formatos, triagem
 
 for _fluxo in (sys.stdout, sys.stderr):
     if hasattr(_fluxo, "reconfigure"):

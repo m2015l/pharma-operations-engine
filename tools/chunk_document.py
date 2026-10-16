@@ -2,7 +2,7 @@
 """
 tools/chunk_document.py — CLI de chunking (camada 3 do WAT).
 
-Invólucro fino: a lógica vive em `src/solufarma/chunking.py`.
+Invólucro fino: a lógica vive em `src/pharma_ops/chunking.py`.
 Não faz chamada paga — pode rodar quantas vezes quiser.
 
     uv run python tools/chunk_document.py                       # data/extraidos/
@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from solufarma.cli import main_chunks
+from pharma_ops.cli import main_chunks
 
 # O console do Windows abre em cp1252 e derruba o processo com
 # UnicodeEncodeError ao imprimir qualquer caractere fora dessa tabela (setas,

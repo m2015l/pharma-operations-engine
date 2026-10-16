@@ -1,4 +1,4 @@
-# Diário de Bordo — Solufarma Módulo 2
+﻿# Diário de Bordo — Pharma Operations Platform
 
 > Registro cronológico do trabalho. Cada sessão de trabalho relevante ganha uma entrada no topo (mais recente primeiro).
 > Formato: data, quem trabalhou, o que foi feito, o que aprendemos, próximos passos.
@@ -6,24 +6,24 @@
 
 ---
 
-## 2026-10-09 — Correção dos quatro defeitos do lote de OCR (pendências 30 a 33) (Thiago + Claude)
+## 2026-10-09 — Correção dos quatro defeitos do lote de OCR (pendências 30 a 33) (o desenvolvedor + Claude)
 
 **O que foi feito** (testes de 351 para **372 passando**, `ruff` limpo; nenhuma chamada paga):
-- **Pendência 30, lacunas de carimbo gravadas como `vazio`** (`src/solufarma/chunking.py`). Três causas, achadas ao rodar o classificador sobre as 65 observações reais do OCR que citam código de item:
+- **Pendência 30, lacunas de carimbo gravadas como `vazio`** (`src/pharma_ops/chunking.py`). Três causas, achadas ao rodar o classificador sobre as 65 observações reais do OCR que citam código de item:
   1. `RE_CODIGO_CITADO` lia "04.01.521.ac" como "04.01.521", que não casa com célula nenhuma. Agora aceita o sufixo de letras e descarta valor pt-BR ("13.019,28", "1.796.000,00");
   2. `RE_FRASE` partia a frase em abreviação ("UNIDADE/QUANT. está obscurecida"), deixando o código de um lado e o motivo do outro. Agora só parte antes de maiúscula ou dígito; orações separadas por ";" herdam o código da anterior;
   3. faltavam marcadores ("impossibilitando a leitura", "não está legível", "obscurecida", "cortada").
-  - **Novo:** linha PREENCHIDA cujo valor o modelo declarou ter inferido ou lido com dúvida vira `suspeita` (antes era `ok`). É o caso da pág. 19 do Butantan hemoderivados ("foi inferido como '2,00'"). Dúvida desfeita na mesma oração ("mas os valores permaneceram legíveis") não conta;
+  - **Novo:** linha PREENCHIDA cujo valor o modelo declarou ter inferido ou lido com dúvida vira `suspeita` (antes era `ok`). É o caso da pág. 19 do BioPharma hemoderivados ("foi inferido como '2,00'"). Dúvida desfeita na mesma oração ("mas os valores permaneceram legíveis") não conta;
   - o código é procurado em qualquer célula e também colado na descrição (`18.6.35 1/2"`);
-- **Pendência 31, documento preso em `chunked`** (`src/solufarma_rag/ingestion/embeddings.py`): chunk de ruído não conta mais como pendência em `gerar_embeddings_pendentes`;
+- **Pendência 31, documento preso em `chunked`** (`src/pharma_rag/ingestion/embeddings.py`): chunk de ruído não conta mais como pendência em `gerar_embeddings_pendentes`;
 - **Pendência 32, OCR antiga embutida tratada como texto nativo** (`formatos.paginas_escaneadas`, `extracao.desviar_ocr_embutido`, `config.OCR_EMBUTIDO_VAI_PARA_VLM`): página que é uma imagem cobrindo 85% ou mais da folha vai para o VLM mesmo tendo texto. O `triar_documentos.py` aplica a mesma regra na estimativa de custo;
 - **Pendência 33, resposta do VLM cortada indo para o cache** (`extracao.chamar_vlm`): resposta com `finish_reason = length`, no teto de 8.000 tokens ou que não é JSON é repetida (até 2 vezes) e nunca é gravada no cache. Os tokens das chamadas descartadas entram no custo;
-- **Dados regravados** para a pendência 30: `chunk_document.py` + `indexar.py` em LAQFA/CEMFAR, Butantan hemoderivados, Cristália 3ª fase e HC USP. Os chunks saíram idênticos (nenhum embedding refeito); só os status de `itens_planilha` mudaram. **Linhas marcadas para revisão no banco: 14 → 48** (LAQFA 0 → 7, Butantan 9 → 14, Cristália 0 → 1, HC USP 5 → 26). O `relatorio_lacunas.py --doc LAQFA` agora lista as 7;
-- A correção da pendência 31 foi exercitada no banco real: HC USP e LAQFA voltaram a `indexado` sozinhos após a regravação. **33 documentos `indexado`, golden set 22/22, controles 4/4.**
+- **Dados regravados** para a pendência 30: `chunk_document.py` + `indexar.py` em LQC, BioPharma hemoderivados, Complexo Farmacêutico Industrial 3ª fase e HUC. Os chunks saíram idênticos (nenhum embedding refeito); só os status de `itens_planilha` mudaram. **Linhas marcadas para revisão no banco: 14 → 48** (LQC 0 → 7, BioPharma 9 → 14, Complexo Farmacêutico Industrial 0 → 1, HUC 5 → 26). O `relatorio_lacunas.py --doc LQC` agora lista as 7;
+- A correção da pendência 31 foi exercitada no banco real: HUC e LQC voltaram a `indexado` sozinhos após a regravação. **33 documentos `indexado`, golden set 22/22, controles 4/4.**
 
 **Aprendizados / observações:**
-- **O tamanho da pendência 32 no acervo já indexado:** 9 documentos estão com `metodo_extracao = 'nativo'` sobre folha escaneada, isto é, indexados inteiros a partir da OCR antiga (59 páginas: IMAS II, SJC-03608, FURP 2620140004961, Delta 2620130009521, SJC-01975, Biotério, Criogenia, SJC-02085, Ariston). É de lá que vêm trechos como "Tap Teenologia ern Projetos" nas provas da classificação. Há também páginas nativas soltas dentro de documentos `misto` (18 no SJC-003369, 1 no HC USP). **Nada disso foi reprocessado:** custa OCR (~US$ 2 para os 9) e muda os chunks de documentos de que o golden set depende;
-- Os 24 documentos indexados antes da migração 004 têm `status` nulo em todas as linhas de `itens_planilha` no banco (inclusive o SJC-003369, que localmente tem 8 linhas a revisar). Só entram no status ao serem reindexados;
+- **O tamanho da pendência 32 no acervo já indexado:** 9 documentos estão com `metodo_extracao = 'nativo'` sobre folha escaneada, isto é, indexados inteiros a partir da OCR antiga (59 páginas: Bloco B, SJC-10003, LFE 2620240000103, Delta 2620240000102, SJC-10001, Biotério, Criogenia, SJC-10002, Laboratório Químico Central). É de lá que vêm trechos como "Tap Teenologia ern Projetos" nas provas da classificação. Há também páginas nativas soltas dentro de documentos `misto` (18 no SJC-10004, 1 no HUC). **Nada disso foi reprocessado:** custa OCR (~US$ 2 para os 9) e muda os chunks de documentos de que o golden set depende;
+- Os 24 documentos indexados antes da migração 004 têm `status` nulo em todas as linhas de `itens_planilha` no banco (inclusive o SJC-10004, que localmente tem 8 linhas a revisar). Só entram no status ao serem reindexados;
 - Faixas ("itens 19.38.11 a 19.38.17") continuam marcando só as duas pontas;
 - A regra nova de roteamento encarece documentos escaneados com OCR embutido: cada página desviada passa a custar OCR.
 
@@ -35,24 +35,24 @@
 
 ---
 
-## 2026-10-08 — HC USP indexado: os 33 PDFs do acervo estão no banco (Thiago + Claude)
+## 2026-10-08 — HUC indexado: os 33 PDFs do acervo estão no banco (o desenvolvedor + Claude)
 
 **O que foi feito:**
-- **OCR do HC USP retomado e concluído** (`tools/extract_text.py`): 296 páginas, 294 via VLM (109 vieram do cache da madrugada, 185 pagas). Custo do documento: cerca de US$ 8,30 no total. Confiança média 0,92;
+- **OCR do HUC retomado e concluído** (`tools/extract_text.py`): 296 páginas, 294 via VLM (109 vieram do cache da madrugada, 185 pagas). Custo do documento: cerca de US$ 8,30 no total. Confiança média 0,92;
 - **Páginas 16 e 193 saíram cortadas** no teto de 8.000 tokens (pendência 33). Refeitas uma a uma, reusando `formatos.carregar_paginas`, `prompts.montar_contexto` e `extracao.chamar_vlm`: a resposta ruim sai do cache, a página é relida com a mesma imagem e o mesmo contexto, e só ela é trocada no JSON de `data/extraidos/`. Saíram completas na primeira tentativa, por centavos, sem reler as páginas seguintes;
-- **Indexado:** 662 chunks (659 com embedding, 3 de ruído) e 6.259 linhas de planilha. Título: "Término da Construção do Prédio do HC Criança - HC da Faculdade de Medicina de Ribeirão Preto/USP (CAT 2620150013479)", executante TEP;
+- **Indexado:** 662 chunks (659 com embedding, 3 de ruído) e 6.259 linhas de planilha. Título: "Término da Construção do Prédio do HC Criança - HC da Faculdade de Medicina de Ribeirão Preto/USP (CAT 2620150013479)", executante Enterprise Vendor Hub;
 - **Banco: 33 documentos, 2.487 chunks (2.481 com embedding; 6 são ruído), 12.656 linhas em `itens_planilha` (14 marcadas para revisão).** Os 33 PDFs de `data/brutos/` conferem com o banco pelo hash;
 - **Golden set com o acervo completo:** `tools/avaliar.py --provedor voyage` → **22/22, controles 4/4**;
 - **OpenRouter ao fim: saldo de US$ 7,10** (US$ 35 carregados, US$ 27,90 usados).
 
 **Aprendizados / observações:**
-- **Refazer uma página pelo pipeline normal relê as seguintes** (o contexto herdado entra na chave do cache): no Cristália, 1 página custou 15. Trocar só a página no JSON evita isso. O script usado ficou fora do repositório (pasta temporária da sessão); se o problema se repetir, vale virar uma ferramenta em `tools/`;
-- O HC USP também ficou preso em `chunked` por causa de 3 chunks de ruído (pendência 31); marcado à mão com `repo.marcar_documento_indexado()`;
-- A página 2 do HC USP (folha do atestado) veio da OCR antiga embutida, com erros de grafia ("lldemar", "Fcauldade") — pendência 32;
+- **Refazer uma página pelo pipeline normal relê as seguintes** (o contexto herdado entra na chave do cache): no Complexo Farmacêutico Industrial, 1 página custou 15. Trocar só a página no JSON evita isso. O script usado ficou fora do repositório (pasta temporária da sessão); se o problema se repetir, vale virar uma ferramenta em `tools/`;
+- O HUC também ficou preso em `chunked` por causa de 3 chunks de ruído (pendência 31); marcado à mão com `repo.marcar_documento_indexado()`;
+- A página 2 do HUC (folha do atestado) veio da OCR antiga embutida, com erros de grafia ("Fcauldade", "Engenhelro") — pendência 32;
 - Páginas 269 e 271 com confiança 0,75 e 0,72; avisos de leitura incerta nas páginas 79, 91, 171, 238, 269, 271 e 287;
 - O OCR levou das 16:42 às 23:06, com falhas de conexão no meio (provável suspensão do computador). O cache segurou: nada foi pago duas vezes.
 
-**Classificação por IA (feita em seguida, mesmo dia):** `tools/classificar_documentos.py --teto-usd 0.50` em **28 documentos, US$ 0,26**. Não eram só os 9 novos: os 13 do lote de 29/09 nunca tinham sido classificados e 6 tinham o texto alterado pela reindexação de 30/09. **Os 33 estão classificados.** Por executante: **7 Solufarma** (SENAI, vestiários do CTM, pass-through, Hipolabor, LAQFA/CEMFAR, Hangar Anápolis, LAFIQ), **4 consórcio** (Prédio 70 do CTM, FURP ABC-01916 com MPD-TEP, CAR-1023 Butantan, e Hospital da Ilha com a Solufarma em 50%) e **22 TEP**. O Hipolabor (CAT 1420180002485) é da Solufarma e não constava assim no diário. Em 6 documentos o trecho citado como prova do executante ficou com `verificado: false` (validação em código não achou o trecho literal no texto).
+**Classificação por IA (feita em seguida, mesmo dia):** `tools/classificar_documentos.py --teto-usd 0.50` em **28 documentos, US$ 0,26**. Não eram só os 9 novos: os 13 do lote de 29/09 nunca tinham sido classificados e 6 tinham o texto alterado pela reindexação de 30/09. **Os 33 estão classificados.** Por executante: **7 Pharma Operations Platform** (Instituto BioPharma, vestiários do CPI, pass-through, Laboratório Farmacêutico Estadual, LQC, Unidade Técnica Especial, LAFIQ), **4 consórcio** (Prédio 70 do CPI, LFE ABC-01916 com MPD-Enterprise Vendor Hub, CAR-1023 BioPharma, e Hospital da Ilha com a Pharma Operations Platform em 50%) e **22 Enterprise Vendor Hub**. O Laboratório Farmacêutico Estadual (CAT 1420180002485) é da Pharma Operations Platform e não constava assim no diário. Em 6 documentos o trecho citado como prova do executante ficou com `verificado: false` (validação em código não achou o trecho literal no texto).
 
 **Próximos passos:**
 1. ~~Classificação por IA~~ feita (acima);
@@ -62,82 +62,82 @@
 
 ---
 
-## 2026-10-07 — OCR de 7 atestados e indexação de 5; acervo vai a 29 documentos (Thiago + Claude)
+## 2026-10-07 — OCR de 7 atestados e indexação de 5; acervo vai a 29 documentos (o desenvolvedor + Claude)
 
 **O que foi feito:**
-- **Limite do OpenRouter:** o teto mensal de US$ 5 da chave tinha zerado na virada do mês; o Thiago subiu para US$ 50 em openrouter.ai/settings/keys. O que limita agora é o saldo da conta: **US$ 6,23** ao fim do dia (US$ 25 carregados);
-- **OCR de 7 documentos, 382 páginas via VLM, US$ 9,66** (`tools/extract_text.py`, `anthropic/claude-sonnet-5`): LAQFA/CEMFAR 522936 (1,01), SS WHITE 11686/2010 (0,02), Consórcio da Ilha 825976/2020 (0,65), Cristália 3ª fase 2620210005534 (1,50), Hangar Anápolis 1020240001098 (3,30), FIOTEC LAFIQ 96193/2022 (1,39), Butantan hemoderivados 0000000238897 (1,78). Os três últimos rodaram com trava de saldo (piso de US$ 2,50), que não foi acionada;
-- **5 indexados** (`chunk_document.py --titulo` → `indexar.py` → `generate_embeddings.py --documento-id`): LAQFA, Consórcio da Ilha, Hangar, LAFIQ e Butantan hemoderivados. **837 chunks e 4.043 linhas de planilha.** Banco: **29 documentos, 1.687 chunks (1.684 com embedding; 3 são ruído), 5.170 linhas em `itens_planilha`**;
+- **Limite do OpenRouter:** o teto mensal de US$ 5 da chave tinha zerado na virada do mês; o o desenvolvedor subiu para US$ 50 em openrouter.ai/settings/keys. O que limita agora é o saldo da conta: **US$ 6,23** ao fim do dia (US$ 25 carregados);
+- **OCR de 7 documentos, 382 páginas via VLM, US$ 9,66** (`tools/extract_text.py`, `anthropic/claude-sonnet-5`): LQC 522936 (1,01), Indústria Odontológica 11686/2010 (0,02), Consórcio Beta 825976/2020 (0,65), Complexo Farmacêutico Industrial 3ª fase 2620210005534 (1,50), Unidade Técnica Especial 1020240001098 (3,30), FAPS LAFIQ 96193/2022 (1,39), BioPharma hemoderivados 0000000100302 (1,78). Os três últimos rodaram com trava de saldo (piso de US$ 2,50), que não foi acionada;
+- **5 indexados** (`chunk_document.py --titulo` → `indexar.py` → `generate_embeddings.py --documento-id`): LQC, Consórcio Beta, Hangar, LAFIQ e BioPharma hemoderivados. **837 chunks e 4.043 linhas de planilha.** Banco: **29 documentos, 1.687 chunks (1.684 com embedding; 3 são ruído), 5.170 linhas em `itens_planilha`**;
 - **Migração `004_qualidade_itens.sql` aplicada no Supabase.** Estava no repositório desde 05/10 e não no banco; o `indexar.py` falhava com `column "status" of relation "itens_planilha" does not exist`. Só aditiva; as 1.127 linhas antigas ficaram com `status` nulo;
 - **Golden set depois do lote:** `tools/avaliar.py --provedor voyage` → **22/22, controles 4/4**;
 - Workflows atualizados: `indexacao.md` (migração pendente, chunk de ruído, lentidão do `itens_planilha`) e `ocr_escaneados.md` (teto de tokens, limite da chave, custo real).
 
 **Aprendizados / observações:**
-- **Quatro dos sete são da Solufarma:** LAQFA, Hangar Anápolis, LAFIQ (executante na CAT) e Consórcio da Ilha (Solufarma com 50%, Amorim Coutinho líder). A triagem por regex não tinha pego o LAFIQ (100% escaneado) nem o consórcio;
+- **Quatro dos sete são da Pharma Operations Platform:** LQC, Unidade Técnica Especial, LAFIQ (executante na CAT) e Consórcio Beta (Pharma Operations Platform com 50%, Amorim Coutinho líder). A triagem por regex não tinha pego o LAFIQ (100% escaneado) nem o consórcio;
 - **Custo real de OCR: US$ 0,022 a 0,034 por página**, contra US$ 0,016 da estimativa da triagem;
-- A leitura de página com carimbo foi conferida à mão em uma página (LAQFA, pág. 21): 11 valores legíveis corretos, e a linha tapada pelo carimbo ficou em branco em vez de inventada. É amostra de uma página, não auditoria;
-- O PDF "SS WHITE CAT 11686-2010" está em `data/brutos/` e o conteúdo confere (o diário de 29/09 dava o arquivo como faltando);
+- A leitura de página com carimbo foi conferida à mão em uma página (LQC, pág. 21): 11 valores legíveis corretos, e a linha tapada pelo carimbo ficou em branco em vez de inventada. É amostra de uma página, não auditoria;
+- O PDF "Indústria Odontológica CAT 10001-2024" está em `data/brutos/` e o conteúdo confere (o diário de 29/09 dava o arquivo como faltando);
 - Os nomes dos 9 PDFs pendentes batem com o conteúdo (`triar_documentos.py`: 7 batem, 2 inconclusivos, 0 trocados).
 
 **Problemas em aberto (pendências 30 a 34 do `PLANO_PROJETO.md`):**
-1. **Lacunas de carimbo do LAQFA gravadas como `vazio`**, não `ilegivel`: o `relatorio_lacunas.py` não as lista. Só o Butantan teve linhas sinalizadas (9);
-2. **Documento preso em `chunked`** quando tem chunk só de título. Contornado à mão com `repo.marcar_documento_indexado()` em LAQFA, Consórcio da Ilha e LAFIQ;
-3. **OCR antiga embutida tratada como texto nativo** (SS WHITE, 3 páginas com erros de grafia);
-4. **Pág. 35 do Cristália 3ª fase cortada** no teto de 8.000 tokens de saída; documento não indexado por isso;
-5. Butantan hemoderivados: valores **inferidos** pelo modelo na pág. 19 (item 18.6.35, "2,00") e pág. 31 (item 2.11, "13.019,28"); conferir no PDF;
+1. **Lacunas de carimbo do LQC gravadas como `vazio`**, não `ilegivel`: o `relatorio_lacunas.py` não as lista. Só o BioPharma teve linhas sinalizadas (9);
+2. **Documento preso em `chunked`** quando tem chunk só de título. Contornado à mão com `repo.marcar_documento_indexado()` em LQC, Consórcio Beta e LAFIQ;
+3. **OCR antiga embutida tratada como texto nativo** (Indústria Odontológica, 3 páginas com erros de grafia);
+4. **Pág. 35 do Complexo Farmacêutico Industrial 3ª fase cortada** no teto de 8.000 tokens de saída; documento não indexado por isso;
+5. BioPharma hemoderivados: valores **inferidos** pelo modelo na pág. 19 (item 18.6.35, "2,00") e pág. 31 (item 2.11, "13.019,28"); conferir no PDF;
 6. Os 5 novos estão **sem classificação por IA** e **sem perguntas no golden set**.
 
 **Próximos passos:**
 1. Classificar os 5 novos (`tools/classificar_documentos.py`, ~US$ 0,03) para o filtro de executante funcionar com eles;
 2. Corrigir o classificador de lacunas e o status `chunked` (itens 1 e 2), e reindexar os afetados;
-3. Refazer a pág. 35 do Cristália e as 3 páginas da SS WHITE; indexar os dois;
-4. Recarregar o OpenRouter para o HC USP (294 páginas, ~US$ 7);
+3. Refazer a pág. 35 do Complexo Farmacêutico Industrial e as 3 páginas da Indústria Odontológica; indexar os dois;
+4. Recarregar o OpenRouter para o HUC (294 páginas, ~US$ 7);
 5. Escrever perguntas de golden set para os 5 novos e recalibrar o piso de similaridade;
-6. Avisar o Roger da migração aplicada e do novo limite da chave.
+6. Avisar o o líder técnico da migração aplicada e do novo limite da chave.
 
-**Continuação na madrugada de 08/10 (Thiago + Claude):**
+**Continuação na madrugada de 08/10 (o desenvolvedor + Claude):**
 - Recarga de US$ 10 no OpenRouter (total carregado US$ 35). **Saldo ao pausar: ~US$ 12,91**;
-- **Cristália 3ª fase, SS WHITE e BUNKER indexados** (138 chunks, todos com embedding). Banco: **32 documentos, 1.825 chunks**;
-  - Cristália: a resposta cortada da pág. 35 estava no cache (`chamar_vlm` grava mesmo a resposta inválida). Removida a entrada e refeita: saiu completa (conf. 0,93). Custou US$ 0,45, porque as 14 páginas seguintes foram relidas (o contexto herdado muda a chave do cache);
-  - SS WHITE e BUNKER: OCR novo forçado em todas as páginas com `SOLUFARMA_MIN_DENSIDADE=1` (US$ 0,09 cada). O BUNKER ficou legível: CAT SJC-01555, TEP, Bunker Indústria Farmacêutica, 785 m², R$ 1.796.000,00;
-- **HC USP: OCR pausado a pedido, com ~109 das 294 páginas já no cache** (~US$ 2,60 gastos). **Para retomar:** `uv run python tools/extract_text.py "data/brutos/HC USP CAT 2620150013479 Construção do HC criança Rev00.pdf"`. As páginas prontas saem do cache sem custo; faltam ~185 páginas, cerca de US$ 4,50 e 1 hora. Depois: chunk com `--titulo`, `indexar.py` e `generate_embeddings.py --documento-id`;
+- **Complexo Farmacêutico Industrial 3ª fase, Indústria Odontológica e BUNKER indexados** (138 chunks, todos com embedding). Banco: **32 documentos, 1.825 chunks**;
+  - Complexo Farmacêutico Industrial: a resposta cortada da pág. 35 estava no cache (`chamar_vlm` grava mesmo a resposta inválida). Removida a entrada e refeita: saiu completa (conf. 0,93). Custou US$ 0,45, porque as 14 páginas seguintes foram relidas (o contexto herdado muda a chave do cache);
+  - Indústria Odontológica e BUNKER: OCR novo forçado em todas as páginas com `PHARMA_OPS_MIN_DENSIDADE=1` (US$ 0,09 cada). O BUNKER ficou legível: CAT SJC-01555, Enterprise Vendor Hub, Bunker Indústria Farmacêutica, 785 m², R$ 1.796.000,00;
+- **HUC: OCR pausado a pedido, com ~109 das 294 páginas já no cache** (~US$ 2,60 gastos). **Para retomar:** `uv run python tools/extract_text.py "data/brutos/HUC CAT 2620150013479 Construção do HC criança Rev00.pdf"`. As páginas prontas saem do cache sem custo; faltam ~185 páginas, cerca de US$ 4,50 e 1 hora. Depois: chunk com `--titulo`, `indexar.py` e `generate_embeddings.py --documento-id`;
 - Os 3 documentos indexados nesta madrugada também estão sem classificação por IA. O golden set não foi rodado de novo depois deles.
 
 ---
 
-## 2026-09-30 — Preparação do teste de ponta a ponta: reindexação, golden set, hospedagem (Roger + Claude)
+## 2026-09-30 — Preparação do teste de ponta a ponta: reindexação, golden set, hospedagem (o líder técnico + Claude)
 
-**Contexto:** a chave do OpenRouter tem **limite de US$ 5/mês** (`limit_remaining: 0`; uso do mês US$ 5,71). Deve zerar na virada para 01/10. A chave da OpenAI do `.env` expirou (29/09) e hoje nem é reconhecida; é preciso gerar outra se um dia for usada. **Decisão do Roger:** não trocar para a OpenAI para o teste; esperar o OpenRouter. O suporte à OpenAI chegou a ser implementado e foi revertido (commit de revert).
+**Contexto:** a chave do OpenRouter tem **limite de US$ 5/mês** (`limit_remaining: 0`; uso do mês US$ 5,71). Deve zerar na virada para 01/10. A chave da OpenAI do `.env` expirou (29/09) e hoje nem é reconhecida; é preciso gerar outra se um dia for usada. **Decisão do o líder técnico:** não trocar para a OpenAI para o teste; esperar o OpenRouter. O suporte à OpenAI chegou a ser implementado e foi revertido (commit de revert).
 
 **O que foi feito (tudo sem custo de LLM):**
-- **Reindexação dos 23 documentos com o chunker corrigido** (todos menos o SENAI, que tem o patch manual do I6). O banco foi de 862 para **850 chunks**, todos com embedding. Os 4 trechos-lixo do Cristália Obra II saíram, e os trechos passaram a citar a página certa;
-- **Bug corrigido nos embeddings:** a Voyage recusa lote acima de 120 mil tokens, e as tabelas de materiais do Cristália deram 120.348. O lote agora é limitado também por tokens estimados (`MAX_TOKENS_ESTIMADOS_POR_LOTE = 40_000`);
-- **Golden set:** as 11 perguntas do SENAI diziam "nesta CAT"/"deste atestado", o que é ambíguo com 24 documentos. Foram reescritas citando a obra. **Resultado com reranker: 22/22 já no top-5, controles 4/4, MRR 0,955** (sem reranker: 21/22, MRR 0,879);
+- **Reindexação dos 23 documentos com o chunker corrigido** (todos menos o Instituto BioPharma, que tem o patch manual do I6). O banco foi de 862 para **850 chunks**, todos com embedding. Os 4 trechos-lixo do Complexo Farmacêutico Industrial Obra II saíram, e os trechos passaram a citar a página certa;
+- **Bug corrigido nos embeddings:** a Voyage recusa lote acima de 120 mil tokens, e as tabelas de materiais do Complexo Farmacêutico Industrial deram 120.348. O lote agora é limitado também por tokens estimados (`MAX_TOKENS_ESTIMADOS_POR_LOTE = 40_000`);
+- **Golden set:** as 11 perguntas do Instituto BioPharma diziam "nesta CAT"/"deste atestado", o que é ambíguo com 24 documentos. Foram reescritas citando a obra. **Resultado com reranker: 22/22 já no top-5, controles 4/4, MRR 0,955** (sem reranker: 21/22, MRR 0,879);
 - **Achado:** reescrever o controle negativo da usina nuclear como "...em algum dos nossos atestados" fez a busca devolver trechos acima do piso. Uma pergunta genérica sobre "atestados" parece com todo o acervo, então nesses casos quem recusa é o agente, não o piso. Conferir isso no teste de amanhã;
 - **`docs/HOSPEDAGEM.md`:** roteiro com 3 opções. Recomendação: **PC da empresa na rede interna** (US$ 0, sem mudar código); se precisar de acesso externo, VM Lightsail em São Paulo com HTTPS + senha (~US$ 12/mês). Vercel + host de API não é recomendado agora.
 
-**Não feito:** subir a API em modo real para testar Acervo/Storage/upload sem LLM. A proteção automática do ambiente bloqueou (modo real pode gerar cobrança). Fica para o teste de amanhã, com o Roger presente.
+**Não feito:** subir a API em modo real para testar Acervo/Storage/upload sem LLM. A proteção automática do ambiente bloqueou (modo real pode gerar cobrança). Fica para o teste de amanhã, com o o líder técnico presente.
 
 **Roteiro para 01/10 (com o limite do OpenRouter zerado):**
 1. Subir a API com `MODO_DEMO=0` e o frontend;
-2. 8–10 perguntas pela interface: pronome ("e o valor disso?"), filtro ("só atestados da Solufarma"), comprovação técnica (nota da TEP), pergunta sem resposta no acervo, pergunta genérica sobre "atestados" (achado acima);
+2. 8–10 perguntas pela interface: pronome ("e o valor disso?"), filtro ("só atestados da Pharma Operations Platform"), comprovação técnica (nota da Enterprise Vendor Hub), pergunta sem resposta no acervo, pergunta genérica sobre "atestados" (achado acima);
 3. Exportar a conversa em .docx; abrir um PDF pelo "Ver a fonte";
 4. Enviar um PDF pequeno pela tela de envio;
 5. `tools/classificar_documentos.py` para os 24 documentos (a reindexação mudou o texto dos 23, e a classificação é por hash do texto), cerca de US$ 0,12.
 
 ---
 
-## 2026-09-29 (noite) — OCR pago do lote, classificação por IA, golden set novo, frontend v2 (Roger + Claude)
+## 2026-09-29 (noite) — OCR pago do lote, classificação por IA, golden set novo, frontend v2 (o líder técnico + Claude)
 
-**Decisões do Roger / gerente:** sem tela de login por ora; o acervo é só de atestados/CATs (ADR-009); gastar o crédito disponível.
+**Decisões do o líder técnico / gerente:** sem tela de login por ora; o acervo é só de atestados/CATs (ADR-009); gastar o crédito disponível.
 
-**OCR (OpenRouter, sessão paralela):** 13 documentos novos indexados, cerca de US$ 4,80. O banco foi para **24 documentos e 862 chunks** (858 com embedding). A sessão parou com `HTTP 403 Key limit exceeded (monthly limit)`: **a chave do OpenRouter tem um teto mensal configurado no painel**, e ele foi atingido (uso total US$ 8,84 de US$ 25 de crédito). Enquanto o Roger não subir esse limite, ficam bloqueados OCR, classificação, auditoria e o modo real do app.
-- Novos: Cristália Obra II (116 chunks), Prédio 70 CTM/Farmanguinhos (130), Butantan infectório 2620120006270 (8), CAR-1023 Câmaras Frias Consórcio MS (122), SJC-02542 envase/liofilização (16), CIPBR 52669/2020 (45), FURP ABC-01916 (50), FIOCRUZ 4305/2010 (6), 12 Pass Through (**Solufarma**, 4), Hipolabor 1420180002485 (14), Delta 216058 (24), Santa Casa 2620110010199 (7), SJC-003369 vacina contra raiva (48);
-- **Ficaram de fora pelo limite:** Butantan hemoderivados (76 pág. de OCR), FIOTEC LAFIQ (63), Cristália 3ª fase (48), **LAQFA/CEMFAR 522936 (37, Solufarma)**, **GACI/Anápolis (137, Solufarma)**, HC-FMUSP (294). Também: BUNKER (OCR antigo ilegível) e SS WHITE (arquivo faltando);
+**OCR (OpenRouter, sessão paralela):** 13 documentos novos indexados, cerca de US$ 4,80. O banco foi para **24 documentos e 862 chunks** (858 com embedding). A sessão parou com `HTTP 403 Key limit exceeded (monthly limit)`: **a chave do OpenRouter tem um teto mensal configurado no painel**, e ele foi atingido (uso total US$ 8,84 de US$ 25 de crédito). Enquanto o o líder técnico não subir esse limite, ficam bloqueados OCR, classificação, auditoria e o modo real do app.
+- Novos: Complexo Farmacêutico Industrial Obra II (116 chunks), Prédio 70 CPI/Complexo Farmacêutico (130), BioPharma infectório 2620120006270 (8), CAR-1023 Câmaras Frias Consórcio Alfa (122), SJC-02542 envase/liofilização (16), FNSP 10669/2024 (45), LFE ABC-01916 (50), FNSP 1305/2024 (6), 12 Pass Through (**Pharma Operations Platform**, 4), Laboratório Farmacêutico Estadual 1420180002485 (14), Delta 216058 (24), Hospital Universitário Central 2620110010199 (7), SJC-10004 vacina contra raiva (48);
+- **Ficaram de fora pelo limite:** BioPharma hemoderivados (76 pág. de OCR), FAPS LAFIQ (63), Complexo Farmacêutico Industrial 3ª fase (48), **LQC 522936 (37, Pharma Operations Platform)**, **Unidade Técnica Especial/Unidade Técnica Especial (137, Pharma Operations Platform)**, HUC (294). Também: BUNKER (OCR antigo ilegível) e Indústria Odontológica (arquivo faltando);
 - **O custo real por página variou muito** da estimativa de US$ 0,016: um documento de 19 páginas custou US$ 2,85. Não usar mais a estimativa fixa como teto;
-- 4 chunks-lixo de tabela no Cristália Obra II (ex. `42 / pç / 33.25`) não recebem embedding. A remoção foi bloqueada pela proteção de recursos compartilhados e aguarda o Roger. A causa no chunker está sendo investigada.
+- 4 chunks-lixo de tabela no Complexo Farmacêutico Industrial Obra II (ex. `42 / pç / 33.25`) não recebem embedding. A remoção foi bloqueada pela proteção de recursos compartilhados e aguarda o o líder técnico. A causa no chunker está sendo investigada.
 
-**Classificação e sumarização por IA (item 19):** `tools/classificar_documentos.py`, coluna `documentos.classificacao jsonb` (migração 004, só aditiva), modelo `google/gemini-3.1-flash-lite`, cerca de US$ 0,005 por documento, validação em código contra o texto. Os 11 documentos anteriores estão classificados (US$ 0,10); **os 13 do OCR ficam pendentes** até o limite do OpenRouter voltar. **Correção:** a CAT do SENAI também é da Solufarma.
+**Classificação e sumarização por IA (item 19):** `tools/classificar_documentos.py`, coluna `documentos.classificacao jsonb` (migração 004, só aditiva), modelo `google/gemini-3.1-flash-lite`, cerca de US$ 0,005 por documento, validação em código contra o texto. Os 11 documentos anteriores estão classificados (US$ 0,10); **os 13 do OCR ficam pendentes** até o limite do OpenRouter voltar. **Correção:** a CAT do Instituto BioPharma também é da Pharma Operations Platform.
 
 **Golden set, testes e reindexação:** 22 positivos + 4 controles, gabarito por documento+página; testes de 173 para 257; `indexar.py` deriva `metodo_extracao` por página e reindexa sem deixar órfãos; os 3 de 28/09 foram reindexados com o chunker novo. Com 24 documentos: piso recalibrado para **`SIMILARIDADE_MINIMA=0.433`** (folga de 0,042), recall **21/22 em top-8** (20/22 em top-5), controles **4/4**. Em 10/22 perguntas um trecho de outro documento fica à frente do certo, o que é problema de ordenação: reranker em andamento.
 
@@ -147,77 +147,77 @@
 
 ---
 
-## 2026-09-29 (tarde) — Hipótese dos nomes confirmada; 7 documentos nativos indexados sem OCR (Roger + Claude)
+## 2026-09-29 (tarde) — Hipótese dos nomes confirmada; 7 documentos nativos indexados sem OCR (o líder técnico + Claude)
 
-**Decisões do Roger:** indexar só o que tem texto nativo (sem gastar com OCR agora), testar a hipótese dos nomes, adicionar o passo 0 no workflow, fazer push.
+**Decisões do o líder técnico:** indexar só o que tem texto nativo (sem gastar com OCR agora), testar a hipótese dos nomes, adicionar o passo 0 no workflow, fazer push.
 
 **Hipótese dos nomes trocados: confirmada.** Com os 32 PDFs em ordem alfabética, o conteúdo de cada arquivo é o documento que tem o nome do arquivo **anterior**. Bateu por nº de CAT em 18 casos e por órgão/objeto em mais 6, com **0 contradições**. Consequências:
-- o documento "SS WHITE CAT 11686-2010 (injetáveis)" **não está em nenhum arquivo** do lote, e o conteúdo "Ariston" do primeiro arquivo (ordem alfabética) aponta para um arquivo que falta antes dele. Pedir à empresa o arquivo que falta;
+- o documento "Indústria Odontológica CAT 10001-2024 (injetáveis)" **não está em nenhum arquivo** do lote, e o conteúdo "Laboratório Químico Central" do primeiro arquivo (ordem alfabética) aponta para um arquivo que falta antes dele. Pedir à empresa o arquivo que falta;
 - dá para renomear o lote inteiro de forma determinística. Por segurança os arquivos em `data/` **não foram mexidos**: os indexados foram **copiados** para `data/brutos/` com o nome certo + sufixo `[conteudo real]`.
 
 **Indexados (7 documentos, 102 chunks, custo US$ 0 de OCR; embeddings Voyage ~59K tokens, dentro da cota gratuita):**
 
 | Documento (título pelo conteúdo) | Órgão | Executante | Chunks |
 |---|---|---|---:|
-| Vestiários de produção do prédio 10 do CTM - Farmanguinhos | FIOCRUZ | **Solufarma** | 47 |
-| Câmara Fria para Imunobiológicos (CAT SJC-01975) | Instituto Butantan | TEP | 3 |
-| Trocadores de Calor PW/WFI (CAT SJC-02085) | Instituto Butantan | TEP | 2 |
-| Controle e Instrumentação ISO 7 / Câmara Fria (CAT SJC-03608) | Instituto Butantan | TEP | 11 |
-| Prédio IMAS II - Instalações Elétricas (CAT 2620130007911) | CNPEM | TEP | 28 |
-| Manutenção Predial da Planta Industrial (CAT 2620130009521) | Instituto Terapêutico Delta | TEP | 6 |
-| Manutenção de Ar Condicionado e Água Purificada (CAT 2620140004961) | FURP | TEP | 5 |
+| Vestiários de produção do prédio 10 do CPI - Complexo Farmacêutico | FNSP | **Pharma Operations Platform** | 47 |
+| Câmara Fria para Imunobiológicos (CAT SJC-10001) | Instituto BioPharma | Enterprise Vendor Hub | 3 |
+| Trocadores de Calor PW/WFI (CAT SJC-10002) | Instituto BioPharma | Enterprise Vendor Hub | 2 |
+| Controle e Instrumentação ISO 7 / Câmara Fria (CAT SJC-10003) | Instituto BioPharma | Enterprise Vendor Hub | 11 |
+| Prédio Bloco B - Instalações Elétricas (CAT 2620240000101) | CNBIO | Enterprise Vendor Hub | 28 |
+| Manutenção Predial da Planta Industrial (CAT 2620240000102) | Centro de Tecnologia Industrial | Enterprise Vendor Hub | 6 |
+| Manutenção de Ar Condicionado e Água Purificada (CAT 2620240000103) | LFE | Enterprise Vendor Hub | 5 |
 
 - Extração com o VLM **bloqueado por código** (`chamar_vlm` substituído por uma função que levanta erro): 96 páginas, todas nativas, 0 via VLM;
-- **Ficou de fora** o 8º nativo (arquivo "BUTANTAN 0000000238897", conteúdo = "BUNKER SJC-01555"): OCR antigo ilegível, sem contratante identificável;
-- **Banco agora:** 11 documentos, 272 chunks, 0 pendentes de embedding. ~~É o primeiro atestado com a Solufarma como executante~~ **Correção (classificação por IA, 29/09):** a CAT do SENAI 576640, indexada desde agosto, também é da Solufarma ("Empresa contratada: SOLUFARMA DO BRASIL ENGENHARIA LTDA - ME", CNPJ 07.746.677/0001-12). Então são 2 da Solufarma no acervo (SENAI e vestiários) e 9 da TEP.
+- **Ficou de fora** o 8º nativo (arquivo "BIOPHARMA 0000000100302", conteúdo = "BUNKER SJC-01555"): OCR antigo ilegível, sem contratante identificável;
+- **Banco agora:** 11 documentos, 272 chunks, 0 pendentes de embedding. ~~É o primeiro atestado com a Pharma Operations Platform como executante~~ **Correção (classificação por IA, 29/09):** a CAT do Instituto BioPharma 100200, indexada desde agosto, também é da Pharma Operations Platform ("Empresa contratada: PHARMA OPERATIONS ENGENHARIA LTDA", CNPJ 11.222.333/0001-81). Então são 2 da Pharma Operations Platform no acervo (Instituto BioPharma e vestiários) e 9 da Enterprise Vendor Hub.
 
-**Golden set (só busca):** recall **11/11**; controles negativos **3/4**. O que "falha" ("este atestado cobre manutenção predial… sala limpa ISO 7?") foi escrito quando o acervo era só o SENAI. Hoje o acervo tem manutenção predial e ISO 7 de verdade, então o controle perdeu a validade. Não é regressão: rever o golden set junto com a recalibração do piso (item 12).
+**Golden set (só busca):** recall **11/11**; controles negativos **3/4**. O que "falha" ("este atestado cobre manutenção predial… sala limpa ISO 7?") foi escrito quando o acervo era só o Instituto BioPharma. Hoje o acervo tem manutenção predial e ISO 7 de verdade, então o controle perdeu a validade. Não é regressão: rever o golden set junto com a recalibração do piso (item 12).
 
-**Workflow:** `workflows/indexacao.md` ganhou o "Passo 0: triagem pelo conteúdo" (autorizado pelo Roger).
+**Workflow:** `workflows/indexacao.md` ganhou o "Passo 0: triagem pelo conteúdo" (autorizado pelo o líder técnico).
 
 **Observação:** `tools/indexar.py` grava `ocr_aplicado=True, metodo_extracao="vlm"` fixo, o que está errado para esses 7 documentos (foram nativos). Menor, mas vale corrigir quando mexer no CLI.
 
 **Próximos passos:**
-1. Pedir à Solufarma o arquivo que falta (SS WHITE 11686-2010) e confirmar a leitura dos nomes;
-2. OCR dos parciais quando houver orçamento: 8 documentos precisam de só 1 página de OCR cada (~US$ 0,02 cada), o resto está concentrado em HIPOLABOR/HC USP/Butantan 2620120006270;
+1. Pedir à Pharma Operations Platform o arquivo que falta (Indústria Odontológica 10001-2024) e confirmar a leitura dos nomes;
+2. OCR dos parciais quando houver orçamento: 8 documentos precisam de só 1 página de OCR cada (~US$ 0,02 cada), o resto está concentrado em Laboratório Farmacêutico Estadual/HUC/BioPharma 2620120006270;
 3. Rever os controles negativos do golden set e recalibrar o piso;
-4. Os 3 documentos de 28/09 foram chunkados com o chunker antigo; reindexá-los com a heurística nova é barato (só embeddings), exceto o SENAI (patch manual do I6).
+4. Os 3 documentos de 28/09 foram chunkados com o chunker antigo; reindexá-los com a heurística nova é barato (só embeddings), exceto o Instituto BioPharma (patch manual do I6).
 
 ---
 
-## 2026-09-29 — Folha de rosto generalizada em código; título pelo conteúdo; triagem dos 32 PDFs (Roger + Claude)
+## 2026-09-29 — Folha de rosto generalizada em código; título pelo conteúdo; triagem dos 32 PDFs (o líder técnico + Claude)
 
 **Como foi feito:** duas sessões paralelas em worktrees (branches `worktree-agent-a441020e4488a086a` e `worktree-agent-a61e0e7f71a529ec4`), mescladas em `main` pelo orquestrador. Nenhuma chamada paga, nada escrito no Supabase, nada reindexado. **173 testes passando** (eram 114).
 
 **O que entrou:**
-- **Item 28 — heurística I6/P6 em código** (`src/solufarma/chunking.py::_rotulo_secao_prosa`): linha de prosa vira seção se for o rótulo inteiro, em caixa alta, ≤ 60 caracteres e casar com uma **lista fechada** (DADOS DO…, ATIVIDADE TÉCNICA REALIZADA, ENDEREÇO DA OBRA/SERVIÇO, DESCRIÇÃO, OBSERVAÇÕES, OBJETO, ESCOPO DOS SERVIÇOS…). Lista fechada e não "qualquer caixa alta" porque, nas CATs, quase toda linha solta em caixa alta é nome, cargo ou cidade. CONTRATANTE/CONTRATADA/RESPONSÁVEL TÉCNICO ficaram de fora de propósito (são legenda de assinatura). Na CAT do SENAI dispara exatamente nos 7 rótulos do patch manual do I6 e em nenhuma outra das 2.591 linhas; nos 3 documentos novos, chunks sem seção ganharam seção e faixas de página mais precisas;
+- **Item 28 — heurística I6/P6 em código** (`src/pharma_ops/chunking.py::_rotulo_secao_prosa`): linha de prosa vira seção se for o rótulo inteiro, em caixa alta, ≤ 60 caracteres e casar com uma **lista fechada** (DADOS DO…, ATIVIDADE TÉCNICA REALIZADA, ENDEREÇO DA OBRA/SERVIÇO, DESCRIÇÃO, OBSERVAÇÕES, OBJETO, ESCOPO DOS SERVIÇOS…). Lista fechada e não "qualquer caixa alta" porque, nas CATs, quase toda linha solta em caixa alta é nome, cargo ou cidade. CONTRATANTE/CONTRATADA/RESPONSÁVEL TÉCNICO ficaram de fora de propósito (são legenda de assinatura). Na CAT do Instituto BioPharma dispara exatamente nos 7 rótulos do patch manual do I6 e em nenhuma outra das 2.591 linhas; nos 3 documentos novos, chunks sem seção ganharam seção e faixas de página mais precisas;
 - **Título do documento não vem mais do nome do arquivo:** `chunkar_documento(doc, titulo=None)`; `tools/chunk_document.py --titulo`; `tools/indexar.py` usa o título gravado nos chunks e **recusa** (saída 2) um `--titulo` divergente, mostrando o comando para refazer os chunks (grátis). Fecha o bug de 28/09;
-- **Triagem pelo conteúdo** — `tools/triar_documentos.py` (lógica em `src/solufarma/triagem.py`), só regex, sem LLM: tipo, nº CAT, contratante/CNPJ, **executante**, responsável técnico, objeto, nativo vs. precisa OCR, nome do arquivo bate ou não, duplicatas. Saída em `.tmp/triagem_documentos.{json,md}`.
+- **Triagem pelo conteúdo** — `tools/triar_documentos.py` (lógica em `src/pharma_ops/triagem.py`), só regex, sem LLM: tipo, nº CAT, contratante/CNPJ, **executante**, responsável técnico, objeto, nativo vs. precisa OCR, nome do arquivo bate ou não, duplicatas. Saída em `.tmp/triagem_documentos.{json,md}`.
 
 **Resultado da triagem (32 PDFs: 29 soltos em `data/` + 3 de `data/brutos/`):**
-- Texto: 11 nativos, 18 mistos, 3 totalmente escaneados (FURP 2620140004961, LAQFA 522936, SANTA CASA). Em 28 o "texto" é OCR antigo embutido, com bastante ruído;
+- Texto: 11 nativos, 18 mistos, 3 totalmente escaneados (LFE 2620240000103, LQC 522936, SANTA CASA). Em 28 o "texto" é OCR antigo embutido, com bastante ruído;
 - Nome do arquivo vs. conteúdo: **19 trocados**, 4 batem (fraco — só o órgão), 7 inconclusivos, 2 sem texto. Os 3 já conferidos em 28/09 foram confirmados pela ferramenta;
-- **A troca parece sistemática:** o conteúdo de um arquivo costuma ser o documento com o nome de *outro* arquivo do lote (ex. arquivo SS WHITE = CAT 576640 do SENAI; arquivo SENAI = CAT da Santa Casa). Hipótese não testada: dá para corrigir por mapeamento;
-- Executante: TEP 21, **Solufarma 5**, consórcio com TEP 2, outra 1, não encontrado 3;
-- **Revisar descarte de 28/09:** o arquivo "BUTANTAN SJC-02542" contém a CAT SJC-02085 (trocadores de calor) e o arquivo "SJC-02085" contém outra CAT (câmara fria) — aparentemente não era duplicata. O arquivo "SS WHITE" é muito provavelmente o SENAI já indexado (mesma chave de autenticação);
-- **OCR estimado:** 768 páginas, ~US$ 12 a 18 (estimativa, não medição). Concentrado em HIPOLABOR (294 p.), HC USP (137), Butantan 2620120006270 (76), FURP (63), SS WHITE (58), DELTA 216058 (48). O `.env` ainda está com o preço promocional que acabou em 31/08.
+- **A troca parece sistemática:** o conteúdo de um arquivo costuma ser o documento com o nome de *outro* arquivo do lote (ex. arquivo Indústria Odontológica = CAT 100200 do Instituto BioPharma; arquivo Instituto BioPharma = CAT da Hospital Universitário Central). Hipótese não testada: dá para corrigir por mapeamento;
+- Executante: Enterprise Vendor Hub 21, **Pharma Operations Platform 5**, consórcio com Enterprise Vendor Hub 2, outra 1, não encontrado 3;
+- **Revisar descarte de 28/09:** o arquivo "BIOPHARMA SJC-02542" contém a CAT SJC-10002 (trocadores de calor) e o arquivo "SJC-10002" contém outra CAT (câmara fria) — aparentemente não era duplicata. O arquivo "Indústria Odontológica" é muito provavelmente o Instituto BioPharma já indexado (mesma chave de autenticação);
+- **OCR estimado:** 768 páginas, ~US$ 12 a 18 (estimativa, não medição). Concentrado em Laboratório Farmacêutico Estadual (294 p.), HUC (137), BioPharma 2620120006270 (76), LFE (63), Indústria Odontológica (58), DELTA 216058 (48). O `.env` ainda está com o preço promocional que acabou em 31/08.
 
 **Limitações conhecidas:**
 - A lista de rótulos foi calibrada com 4 CATs; editais e atas nunca passaram por ela. Rótulos em caixa mista não disparam; "OBJETO"/"OBSERVAÇÕES" soltos no meio de edital podem abrir subseção indevida;
 - CATs antigas do CREA-SP: nº da CAT e às vezes o contratante saem ilegíveis (órgão inferido, marcado com "(?)");
-- **Não reindexar a CAT do SENAI** com o código novo sem cuidado: ela já tem o patch manual do I6.
+- **Não reindexar a CAT do Instituto BioPharma** com o código novo sem cuidado: ela já tem o patch manual do I6.
 - `ruff check .` acusa 10 erros em `api/` (vindos do commit do frontend, não de hoje). **Não usar `--fix` às cegas:** ele trocaria `import mock` (módulo local `api/mock.py`) por `unittest.mock`.
 
 **Próximos passos:**
 1. Decidir se indexa o lote e quanto gastar com OCR (quais documentos entram primeiro — os 11 nativos custam só embeddings);
 2. Testar a hipótese do mapeamento de nomes trocados e renomear pelo conteúdo;
 3. Rever o descarte do SJC-02542;
-4. Adicionar "passo 0 — triagem" em `workflows/indexacao.md` e `workflows/ingestao_documento.md` (aguardando ok do Roger para editar workflow);
+4. Adicionar "passo 0 — triagem" em `workflows/indexacao.md` e `workflows/ingestao_documento.md` (aguardando ok do o líder técnico para editar workflow);
 5. Recalibrar o piso e reauditar depois de indexar (itens 12 e 25).
 
 ---
 
-## 2026-09-28 — RESUMO DO DIA e ponto de partida para a próxima sessão (Roger + Claude)
+## 2026-09-28 — RESUMO DO DIA e ponto de partida para a próxima sessão (o líder técnico + Claude)
 
 > Entrada-índice: resume o dia inteiro em uma página. Os detalhes de cada etapa estão nas entradas de 28/09 logo abaixo (da mais recente para a mais antiga).
 
@@ -228,19 +228,19 @@
 2. **I1–I4** (filtros que zeravam a busca, refinamento sem filtro, linguagem "não está nos trechos recuperados", `top_k` 5→8) — aplicadas em sessão paralela e **verificadas ao vivo com chamada paga**: as duas recusas falsas mais graves de agosto (turnos 1.3 e 3.3) agora respondem certo;
 3. **Golden set criado** (`data/golden_set.json`, 15 casos, versionado como exceção no `.gitignore`);
 4. **I5, I7–I10** (multi-assunto, seção herdada em planilha, memória de conversa, consulta a `itens_planilha`, formato da resposta) — em outra sessão paralela; **I9 estava implementada mas não ligada ao CLI** — corrigido;
-5. **I6** aplicado como patch pontual de dados na folha de rosto da CAT do SENAI (`tools/i6_reindexar_folha_rosto_cat576640.py`, já executado — não rodar de novo): a área certificada de 5.655 m² passou da posição 7 para a posição 1 na busca;
+5. **I6** aplicado como patch pontual de dados na folha de rosto da CAT do Instituto BioPharma (`tools/i6_reindexar_folha_rosto_cat100200.py`, já executado — não rodar de novo): a área certificada de 5.655 m² passou da posição 7 para a posição 1 na busca;
 6. **Voyage em produção** (`voyage-4-large-1024`) após o cartão ser cadastrado; piso recalibrado para `SIMILARIDADE_MINIMA=0.4472`; golden set: **11/11 recall + 4/4 controles negativos**;
 7. **Merge e push** de tudo em `main` (commit `4d36a38` publicado no GitHub); 114 testes passando, ruff limpo;
-8. **PDF de documentação para a empresa**: `data/relatorios/Melhoria_RAG_Solufarma_2026-09-28.pdf` (fica fora do git, `data/` é ignorado);
-9. **3 documentos novos indexados** (de 31 enviados): Ariston (vapor puro), Instituto Butantan (biotério), FIOCRUZ/Bio-Manguinhos (cabine de criogenia). **4 de 4 arquivos conferidos tinham o nome trocado em relação ao conteúdo** — metadados corrigidos no banco pelo conteúdo real;
+8. **PDF de documentação para a empresa**: `data/relatorios/Melhoria_RAG_pharma-operations-engine026-09-28.pdf` (fica fora do git, `data/` é ignorado);
+9. **3 documentos novos indexados** (de 31 enviados): Laboratório Químico Central (vapor puro), Instituto BioPharma (biotério), FNSP/Instituto de Imunobiológicos (cabine de criogenia). **4 de 4 arquivos conferidos tinham o nome trocado em relação ao conteúdo** — metadados corrigidos no banco pelo conteúdo real;
 10. **Auditoria do lote 2** (agente interrogador cego + agente orquestrador): **4,5/5** — 6 sem problema, 1 leve, 0 médias/graves. Relatório em `docs/auditorias/2026-09-28_lote2_novos_documentos.md`. Memória de conversa (I8) confirmada ao vivo pela primeira vez;
-11. **Decisão TEP vs. Solufarma**: os 3 atestados novos são da TEP, não da Solufarma — tratado por ora como uso só de consulta (premissa, não confirmação).
+11. **Decisão Enterprise Vendor Hub vs. Pharma Operations Platform**: os 3 atestados novos são da Enterprise Vendor Hub, não da Pharma Operations Platform — tratado por ora como uso só de consulta (premissa, não confirmação).
 
 **Estado em que as coisas ficaram (importante para amanhã):**
-- **3 commits locais NÃO publicados** (`adaa38b`, `deaa652`, `154a6e2` + este registro) — Roger pediu para deixar local por enquanto. Publicar com `git push origin main` quando decidir;
+- **3 commits locais NÃO publicados** (`adaa38b`, `deaa652`, `154a6e2` + este registro) — o líder técnico pediu para deixar local por enquanto. Publicar com `git push origin main` quando decidir;
 - `.env`: `EMBEDDING_PROVIDER=voyage`, `SIMILARIDADE_MINIMA=0.4472`, `OPENAI_API_KEY` preenchida (fallback), `EMBEDDING_BASE_URL` vazio;
 - Banco: 4 documentos, 170 chunks, todos com embedding Voyage;
-- `data/brutos/`: os 3 PDFs já indexados (ainda com o nome de arquivo errado no disco — só o banco foi corrigido); `data/`: 29 PDFs soltos (27 nunca processados + o SENAI já indexado + `BUTANTAN CAT SJC-02542`, que é duplicata do SJC-02085 e foi descartado);
+- `data/brutos/`: os 3 PDFs já indexados (ainda com o nome de arquivo errado no disco — só o banco foi corrigido); `data/`: 29 PDFs soltos (27 nunca processados + o Instituto BioPharma já indexado + `BIOPHARMA CAT SJC-02542`, que é duplicata do SJC-10002 e foi descartado);
 - Duas worktrees de sessões paralelas continuam em `.claude/worktrees/` (branches `worktree-i5-i10` e `worktree-agent-adfdac112a4b14635`) — já mescladas, podem ser removidas;
 - Frontend: conceito e protótipo com vídeo demo sendo feitos em sessão paralela, em `frontend_demo/` (não commitado).
 
@@ -251,33 +251,33 @@
 4. **Recalibrar o piso** a cada lote relevante de documentos (item 12);
 5. **Reauditoria completa dos 20 turnos** de agosto para ter a nota comparável (item 25);
 6. **Generalizar o padrão "folha de rosto sem heading" (I6/P6) em código** (item 28);
-7. **TEP vs. Solufarma** — confirmar com a empresa se esses atestados podem ser usados como comprovação de capacidade técnica (item 26);
+7. **Enterprise Vendor Hub vs. Pharma Operations Platform** — confirmar com a empresa se esses atestados podem ser usados como comprovação de capacidade técnica (item 26);
 8. Débito técnico: port ADR-007 (item 14), testes dos CLIs novos (item 20);
-9. Fora do RAG, mas do contrato: **classificação e sumarização via IA** (item 19, não iniciado) e **critérios de decisão da Solufarma** (item 5, aguardando cliente desde agosto).
+9. Fora do RAG, mas do contrato: **classificação e sumarização via IA** (item 19, não iniciado) e **critérios de decisão da Pharma Operations Platform** (item 5, aguardando cliente desde agosto).
 
 ---
 
-## 2026-09-28 — 3 documentos novos indexados; nota 4,5/5 na auditoria; achado grave nos nomes de arquivo do Drive (Roger + Claude)
+## 2026-09-28 — 3 documentos novos indexados; nota 4,5/5 na auditoria; achado grave nos nomes de arquivo do Drive (o líder técnico + Claude)
 
 **O que foi feito:**
-- Indexados 3 dos 31 documentos novos enviados pelo Roger (amostra pequena, de propósito, pra não gastar tokens à toa): `ATESTADO CRISTÁLIA BIOTECNOLOGIA - OBRA II.pdf`, `CNPEM CAT 2620130007911...pdf`, `FIOTEC CIPBR CAT 52669-2020...pdf` (nomes de arquivo, ver achado abaixo). Extração 100% nativa, custo zero (documentos curtos, 2-3 páginas, texto nativo no PDF, sem OCR);
-- **Achado grave: os 4 arquivos conferidos até agora (esses 3 + o Butantan SJC-02542 que o Roger já suspeitava) têm o nome do arquivo trocado em relação ao conteúdo real** — confirmado direto no PDF bruto, não é boato nem bug do pipeline. Conteúdo real: Ariston Indústrias Químicas (não Cristália), Instituto Butantan (não CNPEM), CAT 758012010/cabine de criogenia FIOCRUZ-Bio-Manguinhos (não CIPBR planta industrial, apesar do nome do arquivo). Os 4 vieram assinados pela mesma empresa executante (TEP — Tecnologia em Projetos de Engenharia) e o mesmo responsável técnico (Márcio Flávio Coppio), sugerindo erro sistemático na exportação do lote do Drive, não caso isolado. **Os outros 27 documentos da pasta `data/` não foram tocados — não dá pra confiar no nome do arquivo sem conferir o conteúdo primeiro**;
+- Indexados 3 dos 31 documentos novos enviados pelo o líder técnico (amostra pequena, de propósito, pra não gastar tokens à toa): `ATESTADO COMPLEXO FARMACEUTICO INDUSTRIAL BIOTECNOLOGIA - OBRA II.pdf`, `CNBIO CAT 2620240000101...pdf`, `FAPS FNSP CAT 52669-2020...pdf` (nomes de arquivo, ver achado abaixo). Extração 100% nativa, custo zero (documentos curtos, 2-3 páginas, texto nativo no PDF, sem OCR);
+- **Achado grave: os 4 arquivos conferidos até agora (esses 3 + o BioPharma SJC-02542 que o o líder técnico já suspeitava) têm o nome do arquivo trocado em relação ao conteúdo real** — confirmado direto no PDF bruto, não é boato nem bug do pipeline. Conteúdo real: Laboratório Químico Central Indústrias Químicas (não Complexo Farmacêutico Industrial), Instituto BioPharma (não CNBIO), CAT 100012024/cabine de criogenia FNSP-Instituto de Imunobiológicos (não FNSP planta industrial, apesar do nome do arquivo). Os 4 vieram assinados pela mesma empresa executante (Enterprise Vendor Hub) e o mesmo responsável técnico (Carlos Eduardo Silva), sugerindo erro sistemático na exportação do lote do Drive, não caso isolado. **Os outros 27 documentos da pasta `data/` não foram tocados — não dá pra confiar no nome do arquivo sem conferir o conteúdo primeiro**;
 - Corrigido no banco: título/órgão dos 3 documentos indexados, usando o conteúdo real (não o nome do arquivo). Um segundo bug encontrado no processo: `--titulo` do `tools/indexar.py` só corrige a coluna `documentos.titulo`, não o cabeçalho contextual gravado dentro de cada chunk (o que aparece nas citações) — corrigido manualmente nos 9 chunks afetados, reembeddados;
 - **Auditoria de 2 agentes rodada nos 3 documentos novos** (mesmo método de 17/08, com um terceiro papel — "orquestrador" — medindo a nota): Agente 1 (analista cega, sem acesso a documentos/código) fez 7 perguntas reais em 2 sessões via `tools/perguntar.py`; Agente 3 (orquestrador, com acesso ao conteúdo real) conferiu cada resposta. **Nota: 4,5/5** (6 sem problema, 1 falha leve, 0 médias/graves) — bem acima do 3/5 de agosto. Relatório completo em `docs/auditorias/2026-09-28_lote2_novos_documentos.md`;
-- **Achado de negócio, não técnico**: ao pedir um parágrafo pronto pra proposta citando "nossa experiência", o sistema atribuiu a obra à Solufarma na primeira frase (sem citação — herdado do system prompt, não do acervo) e só depois se corrigiu numa ressalva dizendo que a executante real é a TEP. Não é alucinação (nenhum número inventado), mas é risco real: **não há vínculo comprovado no acervo entre a TEP (executante desses 3 atestados) e a Solufarma**. Confirmado pelo orquestrador: a palavra "Solufarma" não aparece em nenhum dos 9 chunks novos. **Pendência de confirmação com a Solufarma**: esses 3 atestados podem ser citados como experiência da empresa, ou são de outra pessoa jurídica/profissional? Nada foi mudado no cadastro até essa resposta chegar;
+- **Achado de negócio, não técnico**: ao pedir um parágrafo pronto pra proposta citando "nossa experiência", o sistema atribuiu a obra à Pharma Operations Platform na primeira frase (sem citação — herdado do system prompt, não do acervo) e só depois se corrigiu numa ressalva dizendo que a executante real é a Enterprise Vendor Hub. Não é alucinação (nenhum número inventado), mas é risco real: **não há vínculo comprovado no acervo entre a Enterprise Vendor Hub (executante desses 3 atestados) e a Pharma Operations Platform**. Confirmado pelo orquestrador: a palavra "Pharma Operations" não aparece em nenhum dos 9 chunks novos. **Pendência de confirmação com a Pharma Operations Platform**: esses 3 atestados podem ser citados como experiência da empresa, ou são de outra pessoa jurídica/profissional? Nada foi mudado no cadastro até essa resposta chegar;
 - Confirmado com chamada paga real, pela primeira vez: a memória de conversa (I8) funcionou nos dois pronomes soltos testados ("esse atestado", "essa obra"), sem vazar entre sessões diferentes;
 - Confirmado: a lacuna de numeração nas fontes (ex. [1][2][4] sem [3]) é comportamento intencional, não bug — só entra na lista quem foi citado de fato no texto, mesmo que mais trechos tenham sido recuperados;
-- O padrão "folha de rosto sem heading" (que motivou o I6) se repetiu nos 3 documentos novos — agora são 4 documentos com o mesmo padrão, não mais 1. Vale reconsiderar generalizar a heurística em `src/solufarma/chunking.py` em vez de seguir corrigindo caso a caso.
+- O padrão "folha de rosto sem heading" (que motivou o I6) se repetiu nos 3 documentos novos — agora são 4 documentos com o mesmo padrão, não mais 1. Vale reconsiderar generalizar a heurística em `src/pharma_ops/chunking.py` em vez de seguir corrigindo caso a caso.
 
 **Pendências:**
-- **TEP vs. Solufarma — decisão do Roger (28/09): tratar por ora como uso apenas de consulta interna**, não como base para comprovação formal de capacidade técnica em proposta. Premissa assumida, não confirmação definitiva — se o time decidir usar esses atestados (ou os que vierem depois com o mesmo padrão) numa submissão real, a decisão muda e o cadastro/system prompt precisam de um campo explícito de vínculo empresarial antes disso acontecer. Nenhum dado foi alterado com base nessa premissa;
+- **Enterprise Vendor Hub vs. Pharma Operations Platform — decisão do o líder técnico (28/09): tratar por ora como uso apenas de consulta interna**, não como base para comprovação formal de capacidade técnica em proposta. Premissa assumida, não confirmação definitiva — se o time decidir usar esses atestados (ou os que vierem depois com o mesmo padrão) numa submissão real, a decisão muda e o cadastro/system prompt precisam de um campo explícito de vínculo empresarial antes disso acontecer. Nenhum dado foi alterado com base nessa premissa;
 - Verificar os nomes de arquivo dos outros 27 documentos da pasta `data/` antes de indexar qualquer um — não é seguro assumir que o nome bate com o conteúdo;
 - Generalizar I6/P6 (folha de rosto sem heading) em código, agora com evidência de 4 documentos;
 - Captura de log da reescrita do I8 (hoje só foi possível inferir pelo resultado final, não pela pergunta reescrita literal) — melhoria pra próxima auditoria.
 
 ---
 
-## 2026-09-28 — Voyage destravada; acervo migrado; piso recalibrado (Roger + Claude)
+## 2026-09-28 — Voyage destravada; acervo migrado; piso recalibrado (o líder técnico + Claude)
 
 **O que foi feito:**
 - Terceira tentativa de reembeddar com Voyage, alguns minutos depois do cartão cadastrado — **funcionou**. 162 chunks reembeddados (`voyage-4-large-1024`, ~37K tokens);
@@ -290,18 +290,18 @@
 
 ---
 
-## 2026-09-28 — I6 aplicado (folha de rosto da CAT); I9 ligado ao CLI; documentação em PDF (Roger + Claude)
+## 2026-09-28 — I6 aplicado (folha de rosto da CAT); I9 ligado ao CLI; documentação em PDF (o líder técnico + Claude)
 
 **O que foi feito:**
 - **I9 estava implementada mas não conectada** — `tools/perguntar.py` construía o `AgenteLicitacoes` sem passar `repo_itens`. Corrigido (uma linha). Verificado contra o Supabase real: pergunta sobre pontos de gases especiais agora cita os números exatos da planilha (144+167+28 conjuntos, p.45) em vez de recusar;
-- **I6 aplicado como correção pontual de dados**, não como heurística de código: os 3 chunks que cobrem a folha de rosto da CAT (p.1-2) foram reescritos manualmente — a seção "ATIVIDADE TÉCNICA REALIZADA" (onde está a área certificada de 5.655,00 m²) virou chunk próprio, com heading sintético no cabeçalho contextual; os outros dois chunks da folha de rosto ganharam headings equivalentes ("DADOS DO CONTRATO", "ENDEREÇO DA OBRA/SERVIÇO"). Não houve reprocessamento de OCR — o texto extraído já estava correto, só a divisão em chunks escondia a seção. Script em `tools/i6_reindexar_folha_rosto_cat576640.py` (já executado, não deve rodar de novo — ver aviso no arquivo);
+- **I6 aplicado como correção pontual de dados**, não como heurística de código: os 3 chunks que cobrem a folha de rosto da CAT (p.1-2) foram reescritos manualmente — a seção "ATIVIDADE TÉCNICA REALIZADA" (onde está a área certificada de 5.655,00 m²) virou chunk próprio, com heading sintético no cabeçalho contextual; os outros dois chunks da folha de rosto ganharam headings equivalentes ("DADOS DO CONTRATO", "ENDEREÇO DA OBRA/SERVIÇO"). Não houve reprocessamento de OCR — o texto extraído já estava correto, só a divisão em chunks escondia a seção. Script em `tools/i6_reindexar_folha_rosto_cat100200.py` (já executado, não deve rodar de novo — ver aviso no arquivo);
 - Renumeração de `chunk_index` feita com deslocamento em duas fases (offset temporário de 100000) para não violar a constraint `unique(documento_id, chunk_index)` durante a operação — 159 linhas deslocadas, 0 colisões, conferido por asserção antes do commit da transação;
 - Reembeddados só os 3 chunks afetados (882 tokens, OpenAI, ~US$ 0,0001) — o resto do acervo não foi tocado;
 - **Verificação ao vivo, chamada paga real**: o turno 1.3 (3.000 m² de área) voltou a ser testado — agora a resposta lidera com "Sim", cita o número certificado (5.655,00 m²) da nova seção *e* a soma por pavimento (5.187,56 m²), tratando a diferença como ressalva plausível (áreas adicionais não capturadas) em vez de escolher um número às cegas. É a melhor resposta desse turno em toda a sessão;
 - Confirmado por busca crua (`--so-busca`, sem custo): a pergunta "atividade técnica realizada área total construída da obra" agora recupera o novo chunk na **posição 1** — antes da correção só aparecia na posição 7, mesmo com `top_k=8`;
-- **Gerado `data/relatorios/Melhoria_RAG_Solufarma_2026-09-28.pdf`** — documentação da sessão para a empresa (resumo executivo, diagnóstico da auditoria de 17/08, as 9+1 correções aplicadas, evidência antes/depois, situação atual).
+- **Gerado `data/relatorios/Melhoria_RAG_pharma-operations-engine026-09-28.pdf`** — documentação da sessão para a empresa (resumo executivo, diagnóstico da auditoria de 17/08, as 9+1 correções aplicadas, evidência antes/depois, situação atual).
 
-**Decisão registrada:** I6 foi tratado como patch de dados específico deste documento (não uma heurística genérica em `src/solufarma/chunking.py`), seguindo a própria recomendação do PRECISÃO.md de não generalizar sem um segundo documento para validar contra. Quando o acervo ganhar mais atestados/editais, vale avaliar se o padrão de "folha de rosto com blocos em caixa alta sem heading" se repete — só aí compensa investir na heurística de código.
+**Decisão registrada:** I6 foi tratado como patch de dados específico deste documento (não uma heurística genérica em `src/pharma_ops/chunking.py`), seguindo a própria recomendação do PRECISÃO.md de não generalizar sem um segundo documento para validar contra. Quando o acervo ganhar mais atestados/editais, vale avaliar se o padrão de "folha de rosto com blocos em caixa alta sem heading" se repete — só aí compensa investir na heurística de código.
 
 **Pendências:**
 - Merge das branches paralelas (`worktree-agent-adfdac112a4b14635` com I1-I4, e esta com I5-I10) em `main` — bloqueado pela permissão de merge automático do ambiente, aguardando o usuário rodar manualmente ou ajustar a permissão;
@@ -314,7 +314,7 @@
 **O que foi feito** (branch `worktree-i5-i10`, a partir de `worktree-agent-adfdac112a4b14635`, que já tinha I1-I4):
 
 - **I5** — `PROMPT_INTERPRETAR` (`prompts.py`) pede `"consultas": [...]` (1 a 3 itens) em vez de `"consulta"` singular, com a regra "uma consulta por assunto, nunca junte assuntos diferentes". `Interpretacao.consultas: list[str]` substitui o campo singular; `_extrair_consultas` (`agent.py`) lê a lista com fallback para o formato antigo (`"consulta"`) e para a pergunta crua, sempre cortando em `MAX_CONSULTAS = 3` no código — não confia só na instrução do prompt. `AgenteLicitacoes._buscar` busca cada consulta separadamente com o próprio `top_k` e une os resultados deduplicando por `chunk.chave`, preservando a ordem de RRF dentro de cada busca;
-- **I7** — `_pseudo_heading_tabela` (`src/solufarma/chunking.py`) reconhece linha de tabela em que só a primeira célula tem conteúdo, em caixa alta e com até 40 caracteres (`MAX_CHARS_PSEUDO_SECAO`), e a trata como divisão de seção/subseção: empilha no `caminho_secao` com um nível sentinela (`NIVEL_PSEUDO_SECAO = 900`, acima de qualquer heading markdown real) em vez de deixar o bloco herdar o heading anterior. Duas pseudo-seções consecutivas são irmãs (a nova substitui a anterior na pilha), e um heading real de verdade sempre estoura as pseudo-seções acumuladas;
+- **I7** — `_pseudo_heading_tabela` (`src/pharma_ops/chunking.py`) reconhece linha de tabela em que só a primeira célula tem conteúdo, em caixa alta e com até 40 caracteres (`MAX_CHARS_PSEUDO_SECAO`), e a trata como divisão de seção/subseção: empilha no `caminho_secao` com um nível sentinela (`NIVEL_PSEUDO_SECAO = 900`, acima de qualquer heading markdown real) em vez de deixar o bloco herdar o heading anterior. Duas pseudo-seções consecutivas são irmãs (a nova substitui a anterior na pilha), e um heading real de verdade sempre estoura as pseudo-seções acumuladas;
 - **I8** — `AgenteLicitacoes.responder` (`agent.py`) aceita `historico: list[dict] | None`; quando presente, `_resolver_referencia` roda `PROMPT_RESOLVER_REFERENCIA` (novo em `prompts.py`, texto colado do PRECISÃO.md) antes de `_interpretar`, reescrevendo a pergunta como autossuficiente e sempre logando original + reescrita em `INFO`. `tools/perguntar.py` acumula pares `{"pergunta", "resposta"}` no modo interativo e passa adiante a cada turno;
 - **I9** — novo método `buscar_itens_planilha(termo, documento_id=None, limite=20)` no protocolo `ChunkRepository` (`db/repository.py`), implementado em `InMemoryChunkRepository` (substring normalizada, com `adicionar_item_planilha` auxiliar de teste) e em `SupabaseChunkRepository` (SQL com `ilike` sobre `array_to_string(celulas, ' ')`, JOIN com `documentos`/`licitacoes` para trazer `orgao`/`tipo_documento` — **não executado contra o banco real**). `AgenteLicitacoes` ganhou `repo_itens: ChunkRepository | None = None` opcional; quando presente e a pergunta bate em `_pede_quantitativo` (marcadores "quant", "total de", "m2", "unidade"), `_buscar` complementa a busca híbrida com um SELECT estruturado, convertendo cada linha (`ItemPlanilha`, novo modelo em `db/models.py`) num `ChunkComScore` sintético — entra no contexto como trecho numerado normal, citável por [n] pelo mesmo mecanismo de sempre. Não agrega/soma, só lista linhas casadas, como o próprio PRECISÃO.md manda;
 - **I10** — bloco `ESTILO` do `SYSTEM_AGENTE` (`prompts.py`) trocado pelo texto do PRECISÃO.md: primeira linha responde com o número + [n] quando pediram número, sem título em negrito para resposta de um parágrafo. `RespostaAgente` ganhou `trechos_recuperados: int` (total de trechos no contexto, antes do filtro de citação). Em `tools/perguntar.py`, `_mostrar_resposta` acrescenta um discriminador (início do `trecho`) nas fontes que compartilham órgão+seção+página, e uma linha final "Fontes: N citadas de M trechos recuperados". Aplicado depois de confirmar que I3 já estava no `prompts.py` da branch base, como o PRECISÃO.md manda;
@@ -341,16 +341,16 @@
 
 ---
 
-## 2026-09-28 — I1-I4 verificadas contra o Supabase real, ao vivo (Roger + Claude)
+## 2026-09-28 — I1-I4 verificadas contra o Supabase real, ao vivo (o líder técnico + Claude)
 
 **O que foi feito:**
 - Supabase estava pausado por inatividade (mais de um mês sem uso) — reativado. Diagnóstico completo (`tools/setup_supabase.py --check`) voltou limpo;
 - Descobertos e corrigidos dois bugs de configuração que travavam qualquer embedding: `EMBEDDING_MODEL` tinha o slug no formato do OpenRouter (`openai/text-embedding-3-large`, inválido pra chamada direta na API da OpenAI) e `EMBEDDING_BASE_URL` apontava pro OpenRouter, que não aceita a chamada de embeddings da forma configurada. Corrigidos os dois no `.env`;
 - Reembeddados os 161 chunks com OpenAI (`text-embedding-3-large`, ~37K tokens, ~US$ 0,005) — o piso de similaridade (0,474) já estava calibrado pra esse modelo, não precisou recalibrar;
-- Decisão do Roger: usar Voyage como padrão (já era o padrão no código) ficou **bloqueada** pelo tier gratuito sem cartão da Voyage (3 RPM / 10K TPM) — toda tentativa de reembeddar falhou, mesmo em lotes pequenos e pausados. Registrado como pendência separada, não bloqueante hoje;
+- Decisão do o líder técnico: usar Voyage como padrão (já era o padrão no código) ficou **bloqueada** pelo tier gratuito sem cartão da Voyage (3 RPM / 10K TPM) — toda tentativa de reembeddar falhou, mesmo em lotes pequenos e pausados. Registrado como pendência separada, não bloqueante hoje;
 - **Rodadas as verificações que a sessão anterior não conseguiu** — as prescritas no PRECISÃO.md para I1 e I4, mais duas checagens de I3, todas com chamada paga real (não `--so-busca`):
   - Turno 1.3 (3.000 m²): recusa falsa → **agora responde**, soma as áreas por pavimento (5.187,56 m²), cita as 5 fontes certas e sinaliza sozinho uma anomalia nos dados (valores repetidos) em vez de afirmar com falsa confiança;
-  - Turno 3.3 (contratante/CNPJ/vigência): recusa falsa → **agora responde** exatamente os dados certos (SENAI CETIQT, CNPJ 03.851.105/0001-42, vigência 07/02/2019–06/02/2020), distinguindo vigência de prazo de execução;
+  - Turno 3.3 (contratante/CNPJ/vigência): recusa falsa → **agora responde** exatamente os dados certos (INSTITUTO BIOPHARMA, CNPJ 33.444.555/0001-03, vigência 07/02/2019–06/02/2020), distinguindo vigência de prazo de execução;
   - Turno 4.1 (obra hospitalar) e um novo controle (obra de 2021 pro governo do estado): **continuam recusando corretamente**, agora na linguagem do I3 ("não encontrei isso nos trechos recuperados", não "não está no acervo");
 - Rodado `tools/avaliar.py` contra o `data/golden_set.json` novo (15 casos, ver abaixo): **recall 11/11 (100%)** nos casos positivos com `top_k=8`.
 
@@ -371,10 +371,10 @@
 ## 2026-09-28 — Aplicadas as 4 instruções de baixo esforço do PRECISÃO.md (I1-I4) (Claude)
 
 **O que foi feito:**
-- **I1** — `PROMPT_INTERPRETAR` (`src/solufarma_rag/agent/prompts.py`) parou de pedir filtros estruturados de verdade: os quatro campos de `filtros` agora saem sempre `null` no JSON pedido ao LLM, com regra explícita "Não invente filtros". Adicionadas também as regras de "consulta" que já estavam no texto do PRECISÃO.md (termos do documento, não do processo licitatório do usuário);
-- **I2** — `AgenteLicitacoes.responder` (`src/solufarma_rag/agent/agent.py`), dentro do `while not resultados`: a segunda tentativa de busca agora chama `self.searcher.buscar(nova_consulta, FiltrosBusca(), self.top_k)` — filtros zerados, não os da interpretação original — para que um filtro que zerou a primeira busca não condene a segunda também;
+- **I1** — `PROMPT_INTERPRETAR` (`src/pharma_rag/agent/prompts.py`) parou de pedir filtros estruturados de verdade: os quatro campos de `filtros` agora saem sempre `null` no JSON pedido ao LLM, com regra explícita "Não invente filtros". Adicionadas também as regras de "consulta" que já estavam no texto do PRECISÃO.md (termos do documento, não do processo licitatório do usuário);
+- **I2** — `AgenteLicitacoes.responder` (`src/pharma_rag/agent/agent.py`), dentro do `while not resultados`: a segunda tentativa de busca agora chama `self.searcher.buscar(nova_consulta, FiltrosBusca(), self.top_k)` — filtros zerados, não os da interpretação original — para que um filtro que zerou a primeira busca não condene a segunda também;
 - **I3** — regra 3 do `SYSTEM_AGENTE` e última linha do `PROMPT_RESPONDER` trocaram a linguagem de "não está no acervo" / "documento não menciona" por "não está nos trechos recuperados", com a ressalva de que o agente vê 5-8 trechos de um documento de dezenas de páginas — texto colado exatamente como está no PRECISÃO.md;
-- **I4** — `TOP_K_PADRAO` (`src/solufarma_rag/retrieval/hybrid_search.py`) subiu de 5 para 8; `--top-k` default em `tools/perguntar.py` idem. `CANDIDATOS_PADRAO` não foi tocado, como instruído.
+- **I4** — `TOP_K_PADRAO` (`src/pharma_rag/retrieval/hybrid_search.py`) subiu de 5 para 8; `--top-k` default em `tools/perguntar.py` idem. `CANDIDATOS_PADRAO` não foi tocado, como instruído.
 
 **Verificação:**
 - `uv run ruff check src tools tests` limpo;
@@ -393,13 +393,13 @@
 
 ---
 
-## 2026-08-17 — RAG validado ponta a ponta e auditado por workflow de dois agentes (Roger + Claude)
+## 2026-08-17 — RAG validado ponta a ponta e auditado por workflow de dois agentes (o líder técnico + Claude)
 
 **O que foi feito:**
-- **RAG rodou de verdade pela primeira vez**, contra o banco real: 1 documento (CAT 576640 do SENAI CETIQT, 60 páginas), 161 chunks, todos embeddados. Resposta com 5 citações apontando para páginas reais; controle negativo ("autoclaves para o Hospital das Clínicas") recusado corretamente;
+- **RAG rodou de verdade pela primeira vez**, contra o banco real: 1 documento (CAT 100200 do INSTITUTO BIOPHARMA, 60 páginas), 161 chunks, todos embeddados. Resposta com 5 citações apontando para páginas reais; controle negativo ("autoclaves para o Hospital das Clínicas") recusado corretamente;
 - Dois problemas de configuração corrigidos no caminho: `EMBEDDING_PROVIDER=voyage` com `VOYAGE_API_KEY` vazia contra 161 chunks embeddados com `openai/text-embedding-3-large-1024` (busca devolveria lixo sem erro), e `UnicodeEncodeError` no console cp1252 do Windows — resolvido forçando UTF-8 na saída dos 9 CLIs;
 - Criado `tools/dump_acervo.py`: despeja o acervo indexado por inteiro (página, seção, texto). Sem ele, auditar o RAG é circular — a única janela para o conteúdo era a própria busca;
-- **Workflow de dois agentes com contextos deliberadamente separados**, a pedido do Roger. Agente 1 (cego: sem acervo, sem código) interpretou uma analista de licitações em 4 sessões encadeadas / 20 turnos, com pronome solto, desconfiança, reformulação e pedido de formato — registro verbatim em `docs/auditorias/2026-08-17_conversas_rag.md`. Agente 2 (com o acervo integral + o código, sem o raciocínio do agente 1) conferiu turno a turno e escreveu `PRECISÃO.md`;
+- **Workflow de dois agentes com contextos deliberadamente separados**, a pedido do o líder técnico. Agente 1 (cego: sem acervo, sem código) interpretou uma analista de licitações em 4 sessões encadeadas / 20 turnos, com pronome solto, desconfiança, reformulação e pedido de formato — registro verbatim em `docs/auditorias/2026-08-17_conversas_rag.md`. Agente 2 (com o acervo integral + o código, sem o raciocínio do agente 1) conferiu turno a turno e escreveu `PRECISÃO.md`;
 - `PRECISÃO.md` criado na raiz: veredito turno a turno, 10 padrões por causa raiz, 10 instruções acionáveis ordenadas por impacto/esforço, seção "o que NÃO mudar" e limites da avaliação.
 
 **Aprendizados / observações:**
@@ -421,9 +421,9 @@
 
 ---
 
-## 2026-08-09 — Supabase configurado e validado; merge com o pipeline da Diva (Roger + Claude)
+## 2026-08-09 — Supabase configurado e validado; merge com o pipeline da a gerente do projeto (o líder técnico + Claude)
 
-**Merge das duas frentes.** `origin/main` tinha o pipeline de OCR/chunking da Diva (`bcc00e3`),
+**Merge das duas frentes.** `origin/main` tinha o pipeline de OCR/chunking da a gerente do projeto (`bcc00e3`),
 paralelo ao nosso. 8 arquivos conflitavam. As decisões dela venceram todos; nossa ADR-005
 (orquestração do agente) foi renumerada para **ADR-008**, porque a 005 dela (OCR via OpenRouter)
 já estava na main. Uma auditoria adversarial por agente pegou 5 problemas de contrato que teste
@@ -438,7 +438,7 @@ Dois problemas reais apareceram na aplicação:
    gerada. A migração inteira abortava. Contornado com o wrapper `public.f_unaccent()`, que fixa
    o dicionário explicitamente. Toda busca textual precisa usar ele — usar `unaccent` direto faz
    a consulta normalizar diferente do índice e simplesmente não casar;
-2. **Faltava a tabela `itens_planilha`**, exigida pelo ADR-006 da Diva. Criada com duas colunas de
+2. **Faltava a tabela `itens_planilha`**, exigida pelo ADR-006 da a gerente do projeto. Criada com duas colunas de
    documento de propósito: `documento_hash` (o que o chunking produz hoje) e `documento_id` (a FK
    de verdade, nula até o cadastro existir) — para a ingestão não travar esperando cadastro.
 
@@ -447,12 +447,12 @@ real. Agora roda o caminho completo — upsert → embeddings → busca híbrida
 com dados sintéticos que ele mesmo apaga. **9 verificações, todas passando.** Foi a primeira prova
 de que a camada de banco funciona, e não só de que o schema existe.
 
-**Decisões do Roger (09/08):**
+**Decisões do o líder técnico (09/08):**
 - Modelo de embeddings (Voyage × OpenAI) **fica em aberto** — mas precisa fechar antes da primeira
   carga real, porque trocar depois obriga a recriar a coluna `vector(N)` e reprocessar tudo;
 - Acesso ao banco é por `DATABASE_URL` (psycopg direto). A API REST do Supabase não faz operador
   de vetor nem full-text com filtro. `DATABASE_URL` entrou em `VARIAVEIS_POR_ESTAGIO["indexacao"]`;
-- O acervo é escaneado, então **o chunker da Diva é o único** — o nosso, feito para edital digital
+- O acervo é escaneado, então **o chunker da a gerente do projeto é o único** — o nosso, feito para edital digital
   nativo, não tem fonte de entrada neste fluxo.
 
 **O que falta, especificado e não implementado:** a ponte entre o chunking e o Supabase. Os dois
@@ -464,19 +464,19 @@ campo a campo, o passo de cadastro do documento e as armadilhas conhecidas estã
 
 ---
 
-## 2026-08-07 — Pipeline de extração e chunking implementado (M0 + M1) (Roger + Claude)
+## 2026-08-07 — Pipeline de extração e chunking implementado (M0 + M1) (o líder técnico + Claude)
 
 
 **O que foi feito:**
 
 *Decisões de arquitetura tomadas antes de codar:*
 - **OCR por VLM via OpenRouter** com `anthropic/claude-sonnet-5`, em cascata com extração nativa (ADR-005) — fecha a pendência P3;
-- **Código em `src/solufarma/` com `tools/*.py` como CLIs finos**, conciliando o BRIEFING com o framework WAT (ADR-007);
+- **Código em `src/pharma_ops/` com `tools/*.py` como CLIs finos**, conciliando o BRIEFING com o framework WAT (ADR-007);
 - **Chunking por regime de conteúdo**, sem LangChain nesta fase (ADR-006).
 
 *Estrutura criada (M0):*
 - `pyproject.toml` com todas as dependências (pymupdf, pillow, requests, voyageai, supabase, pytest, ruff) e entry points;
-- `src/solufarma/config.py` — validação de ambiente **por estágio** (`exigir("extracao")` / `exigir("indexacao")`), falhando com mensagem que nomeia a variável faltante;
+- `src/pharma_ops/config.py` — validação de ambiente **por estágio** (`exigir("extracao")` / `exigir("indexacao")`), falhando com mensagem que nomeia a variável faltante;
 - `.gitignore` corrigido: `data/` inteiro e `.cache_ocr/` — antes só cobria `data/raw/` e `data/processed/`, e um documento de cliente colocado em `data/brutos/` teria ido para o GitHub;
 - `.env.example` reescrito por estágio (extração agora, indexação no M3);
 - `Makefile` com os equivalentes `uv run` documentados (o `make` não está instalado no Windows).
@@ -500,11 +500,11 @@ campo a campo, o passo de cadastro do documento e as armadilhas conhecidas estã
 - **Bug secundário:** a leitura do ZIP usava `Path(n).with_suffix(".txt").name`, que descarta o diretório. Se o container tivesse subpastas, o texto nativo irmão nunca seria encontrado. Corrigido preservando o caminho.
 - **Ordenação numérica no ZIP é carga crítica:** ordenação alfabética colocaria `pagina_10` antes de `pagina_2`, embaralhando o documento sem erro — e o carry-over passaria contexto da página errada.
 - **Conflito de documentação a resolver:** `docs/ARQUITETURA.md` §2.2 fecha em OpenAI `text-embedding-3-large`; o `CLAUDE.md` do BRIEFING fecha em Voyage `voyage-3`. Ainda não resolvido (P2 continua aberta) — só afeta o M3.
-- O `make` não existe no ambiente Windows do Roger; os alvos foram duplicados como `uv run` no Makefile e no workflow.
+- O `make` não existe no ambiente Windows do o líder técnico; os alvos foram duplicados como `uv run` no Makefile e no workflow.
 
 **O que NÃO foi verificado (e por quê):**
 
-Os critérios de aceite do M1 que dependem do documento real **não foram validados** — o `SENAI_CETIQT_CAT_576640.pdf` não está no repositório:
+Os critérios de aceite do M1 que dependem do documento real **não foram validados** — o `INSTITUTO BIOPHARMA_CAT_100200.pdf` não está no repositório:
 - "2 páginas nativas, 58 via VLM" — não verificável;
 - "nenhum carimbo do CAU no markdown final" — não verificável;
 - "custo US$ 0,00 na segunda execução" — exige chave da API;
@@ -513,9 +513,9 @@ Os critérios de aceite do M1 que dependem do documento real **não foram valida
 As fixtures reproduzem numericamente as condições do CLAUDE.md (347 caracteres em área A4 dão 0,000218 char/px², abaixo do limiar de 0,00035, e portanto roteiam para VLM), mas **nenhuma prova que o documento real se comporta assim**.
 
 **Próximos passos:**
-1. Roger: criar conta no OpenRouter, carregar crédito (~US$ 25–30 cobre M1 + M2) e preencher `OPENROUTER_API_KEY` no `.env`;
-2. Roger: confirmar o slug do modelo em openrouter.ai/models e ajustar `OPENROUTER_MODELO` + os preços se divergir;
-3. Roger: colocar `SENAI_CETIQT_CAT_576640.pdf` em `data/brutos/`;
+1. o líder técnico: criar conta no OpenRouter, carregar crédito (~US$ 25–30 cobre M1 + M2) e preencher `OPENROUTER_API_KEY` no `.env`;
+2. o líder técnico: confirmar o slug do modelo em openrouter.ai/models e ajustar `OPENROUTER_MODELO` + os preços se divergir;
+3. o líder técnico: colocar `INSTITUTO BIOPHARMA_CAT_100200.pdf` em `data/brutos/`;
 4. Rodar `uv run python tools/extract_text.py` e fechar os critérios de aceite do M1;
 5. Trocar as fixtures sintéticas por extratos do documento real;
 6. Reunir os 20 documentos variados do Drive para o **M2 (calibração)** — que é portão: não indexar nada antes de os limiares serem confirmados;
@@ -523,7 +523,7 @@ As fixtures reproduzem numericamente as condições do CLAUDE.md (347 caracteres
 
 ---
 
-## 2026-08-06 — Supabase: schema, repositório real e Retriever LangChain (Roger + Claude)
+## 2026-08-06 — Supabase: schema, repositório real e Retriever LangChain (o líder técnico + Claude)
 
 
 **O que foi feito:**
@@ -532,7 +532,7 @@ As fixtures reproduzem numericamente as condições do CLAUDE.md (347 caracteres
   `orgao`/`data` continuam só em `licitacoes`, acessados por JOIN, sem duplicar escrita;
 - `SupabaseChunkRepository` implementado com psycopg + pgvector (era esqueleto que levantava
   `NotImplementedError`), mais `criar_conexao()`;
-- `SolufarmaRetriever` — a busca híbrida exposta como `BaseRetriever` do LangChain, com 8 testes;
+- `PharmaOperationsRetriever` — a busca híbrida exposta como `BaseRetriever` do LangChain, com 8 testes;
 - `tools/setup_supabase.py --apply --check` aplica a migração e diagnostica o banco;
 - `.env.example` e `config.py` atualizados para as chaves novas do Supabase
   (`sb_publishable_` / `sb_secret_`), com fallback para os nomes antigos;
@@ -553,15 +553,15 @@ frontend — leria e escreveria o acervo inteiro. A migração agora liga RLS na
 nenhuma policy (nega tudo via API); o backend segue funcionando por conexão direta. O `--check`
 verifica isso.
 
-**Bloqueio:** `DATABASE_URL` depende da senha do banco, que a Diva vai passar. Enquanto isso o
+**Bloqueio:** `DATABASE_URL` depende da senha do banco, que a a gerente do projeto vai passar. Enquanto isso o
 schema pode ser aplicado pelo SQL Editor do painel, que não exige a senha.
 
 ---
 
-## 2026-08-06 — ADR-008 decidida: LangChain no pipeline, Python puro no agente (Roger + Claude)
+## 2026-08-06 — ADR-008 decidida: LangChain no pipeline, Python puro no agente (o líder técnico + Claude)
 
 
-**A decisão** (branch `feature/rag-agente`): Roger escolheu a **opção B** da [ADR-008](DECISOES.md),
+**A decisão** (branch `feature/rag-agente`): o líder técnico escolheu a **opção B** da [ADR-008](DECISOES.md),
 que destravou o merge. A regra que sai disso, em uma linha: **LangChain é o encanamento do
 pipeline de RAG; o grafo do agente e o cliente Anthropic ficam em Python puro.**
 
@@ -571,7 +571,7 @@ wrapper custaria esse controle sem ganho contratual (o entregável nomeia o *pip
 
 **O que foi implementado:**
 - `OpenAIEmbeddingProvider` deu lugar a `LangChainEmbeddingProvider` + `criar_provedor_openai()`
-  em [embeddings.py](../src/solufarma_rag/ingestion/embeddings.py). O adaptador aceita **qualquer**
+  em [embeddings.py](../src/pharma_rag/ingestion/embeddings.py). O adaptador aceita **qualquer**
   `Embeddings` do LangChain — trocar de fornecedor não toca no pipeline. A fábrica lê modelo e
   dimensão do `.env` via `get_settings()` (o provedor antigo hardcodava os valores, divergindo do
   `AnthropicLLM`, que já lia as settings);
@@ -594,17 +594,17 @@ wrapper custaria esse controle sem ganho contratual (o entregável nomeia o *pip
   schema. **Verificar antes de escrever o `SupabaseChunkRepository`, não depois.**
 
 **Próximos passos:**
-- Roger comunica a decisão à Diva — não bloqueia mais o merge, mas a gerência precisa saber que a
+- o líder técnico comunica a decisão à a gerente do projeto — não bloqueia mais o merge, mas a gerência precisa saber que a
   forma do entregável 3 mudou;
 - Fechar a integração do vector store quando o Supabase estiver de pé (ver ressalva acima).
 
 ---
 
-## 2026-08-05 — Frente RAG & Agente: primeira fatia implementada (Roger + Claude)
+## 2026-08-05 — Frente RAG & Agente: primeira fatia implementada (o líder técnico + Claude)
 
 
 **O que foi feito** (branch `feature/rag-agente`, ainda não mergeada):
-- Pacote `src/solufarma_rag/` com chunking estrutural, pipeline incremental de embeddings, busca híbrida (vetorial + léxica + RRF) e agente com contrato de citação obrigatória;
+- Pacote `src/pharma_rag/` com chunking estrutural, pipeline incremental de embeddings, busca híbrida (vetorial + léxica + RRF) e agente com contrato de citação obrigatória;
 - Toda dependência externa é injetável (Protocols): `FakeEmbeddingProvider`, `InMemoryChunkRepository` e `FakeLLM` permitem rodar tudo offline, sem Supabase e sem chaves de API;
 - CLIs em `tools/chunk_document.py` e `tools/generate_embeddings.py`;
 - Rascunho da RPC `busca_hibrida` em SQL — **entrega para a frente de Dados & Infra**, não aplicar daqui;
@@ -627,44 +627,44 @@ wrapper custaria esse controle sem ganho contratual (o entregável nomeia o *pip
 - Questão do LangChain, com opções e recomendação: [ADR-008 em DECISOES.md](DECISOES.md).
 
 **Pendências abertas por esta sessão** (ver PLANO_PROJETO.md, itens 8–12):
-- 🔴 **LangChain**: o código não usa a biblioteca, mas ela é item explícito dos entregáveis contratados. **Decisão da equipe/Diva antes do merge** — não é escolha técnica isolada;
+- 🔴 **LangChain**: o código não usa a biblioteca, mas ela é item explícito dos entregáveis contratados. **Decisão da equipe/a gerente do projeto antes do merge** — não é escolha técnica isolada;
 - 🔴 Duas lacunas no DDL bloqueiam o `SupabaseChunkRepository` (frente de Dados & Infra);
 - Piso de similaridade precisa de recalibração com embeddings reais;
-- Golden set de avaliação ainda não existe (depende de casos reais da Solufarma).
+- Golden set de avaliação ainda não existe (depende de casos reais da Pharma Operations Platform).
 
 ---
 
-## 2026-08-05 — Respostas do kickoff e primeiros workflows (Roger + Claude)
+## 2026-08-05 — Respostas do kickoff e primeiros workflows (o líder técnico + Claude)
 
 
 **O que foi feito:**
-- Roger respondeu as pendências do kickoff: editais entrarão **via upload no frontend Streamlit** e ficarão no Supabase (ADR-003); conta Supabase já existe (chaves LLM virão depois); cronograma sem datas absolutas (ADR-004); nomes da equipe registrados em `EQUIPE.md` (Diva — gerente; Sparrow, Bia, Mosquitão);
+- o líder técnico respondeu as pendências do kickoff: editais entrarão **via upload no frontend Streamlit** e ficarão no Supabase (ADR-003); conta Supabase já existe (chaves LLM virão depois); cronograma sem datas absolutas (ADR-004); nomes da equipe registrados em `EQUIPE.md` (a gerente do projeto — gerente; Dev A, Dev B, Dev C);
 - Criados os dois primeiros workflows WAT: `workflows/ingestao_documento.md` e `workflows/geracao_embeddings.md` (com tabelas de tools a implementar);
 - Tabela de pendências do `PLANO_PROJETO.md` atualizada.
 
 **Aprendizados / observações:**
 - A ingestão via Streamlit antecipa parte da interface: uma versão mínima de upload precisa existir já na fase de dados (consequência registrada no ADR-003);
-- Falta confirmar o GitHub dos integrantes e se algum apelido corresponde ao próprio Roger.
+- Falta confirmar o GitHub dos integrantes e se algum apelido corresponde ao próprio o líder técnico.
 
 **Próximos passos:**
 - Obter credenciais do Supabase existente e preencher `.env`;
 - Habilitar pgvector e aplicar o DDL inicial (docs/ARQUITETURA.md §3);
 - Implementar `tools/ingest_document.py` e `tools/extract_text.py` (podem começar antes das chaves LLM: upload, hash, triagem e extração nativa não dependem de LLM);
-- Push do commit inicial (aguardando confirmação do Roger).
+- Push do commit inicial (aguardando confirmação do o líder técnico).
 
 ---
 
-## 2026-08-04 — Setup inicial do projeto (Roger + Claude)
+## 2026-08-04 — Setup inicial do projeto (o líder técnico + Claude)
 
 
 **O que foi feito:**
-- Leitura e análise da proposta/timeline da ITA Júnior (PDF em `acesso/`);
+- Leitura e análise da proposta/timeline da Enterprise Vendor Hub (PDF em `acesso/`);
 - Criação da estrutura completa do repositório (docs, tools, workflows, Skills, .tmp);
 - Documentos de registro criados: `PLANO_PROJETO.md`, `ARQUITETURA.md`, `DECISOES.md`, `EQUIPE.md` e este diário;
 - `README.md`, `.gitignore`, `.env.example` e `requirements.txt` iniciais;
 - Agente `ai-engineer` registrado em `.claude/agents/` e usado para redigir a arquitetura técnica;
 - Skills de apoio criadas em `Skills/`;
-- Repositório git inicializado e conectado a `https://github.com/RgNN988/Solufarma_Mod_2`.
+- Repositório git inicializado e conectado a `https://github.com/@your-github-user/pharma-operations-engine`.
 
 **Aprendizados / observações:**
 - O repositório remoto estava vazio — este commit é o marco zero do projeto;

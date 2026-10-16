@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 import logging
 
-from solufarma_rag.agent.agent import MSG_SEM_RESULTADOS, AgenteLicitacoes
-from solufarma_rag.agent.citations import extrair_citacoes, montar_contexto
-from solufarma_rag.agent.llm import FakeLLM
-from solufarma_rag.db.models import ChunkComScore
-from solufarma_rag.db.repository import InMemoryChunkRepository, ItemPlanilha
-from solufarma_rag.retrieval.hybrid_search import HybridSearcher
+from pharma_rag.agent.agent import MSG_SEM_RESULTADOS, AgenteLicitacoes
+from pharma_rag.agent.citations import extrair_citacoes, montar_contexto
+from pharma_rag.agent.llm import FakeLLM
+from pharma_rag.db.models import ChunkComScore
+from pharma_rag.db.repository import InMemoryChunkRepository, ItemPlanilha
+from pharma_rag.retrieval.hybrid_search import HybridSearcher
 
 
 def _interpretacao(
@@ -393,7 +393,7 @@ def test_com_historico_reescreve_a_pergunta_antes_de_interpretar(fazer_chunk):
     searcher = SearcherStub([[ChunkComScore(chunk=fazer_chunk(0), score=1.0)]])
     llm = FakeLLM(
         respostas=[
-            "qual a área construída da obra do SENAI CETIQT, somando os pavimentos?",
+            "qual a área construída da obra do INSTITUTO BIOPHARMA, somando os pavimentos?",
             _interpretacao(consulta="área construída total da obra por pavimento"),
             "A área somada é X [1].",
         ]
@@ -402,7 +402,7 @@ def test_com_historico_reescreve_a_pergunta_antes_de_interpretar(fazer_chunk):
     historico = [
         {
             "pergunta": "temos atestado de implantação de laboratório?",
-            "resposta": "Sim, o SENAI CETIQT [1].",
+            "resposta": "Sim, o INSTITUTO BIOPHARMA [1].",
         }
     ]
 
@@ -414,7 +414,7 @@ def test_com_historico_reescreve_a_pergunta_antes_de_interpretar(fazer_chunk):
     assert "temos atestado de implantação de laboratório" in prompt_reescrita
     # A pergunta reescrita (não a original) é o que chega à interpretação.
     prompt_interpretar = llm.chamadas[1]["mensagens"][0]["content"]
-    assert "SENAI CETIQT" in prompt_interpretar
+    assert "INSTITUTO BIOPHARMA" in prompt_interpretar
 
 
 def test_sem_historico_nao_chama_reescrita(repo_indexado, provider):
@@ -461,7 +461,7 @@ def test_pergunta_quantitativa_complementa_com_itens_planilha(fazer_chunk):
         ItemPlanilha(
             documento_id="doc-001",
             tipo_documento="atestado",
-            orgao="SENAI CETIQT",
+            orgao="INSTITUTO BIOPHARMA",
             pagina=45,
             secao="GASES",
             # `buscar_itens_planilha` casa por ilike sobre as CÉLULAS (não a

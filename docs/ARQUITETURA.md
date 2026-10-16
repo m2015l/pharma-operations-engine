@@ -1,6 +1,6 @@
-# Arquitetura — Assistente de IA para Validação de Licitações (Solufarma, Módulo 2)
+# Arquitetura — Assistente de IA para Validação de Licitações (Pharma Operations Platform · Enterprise Vendor Hub)
 
-> **Documento técnico de referência** — ITA Júnior / Solufarma
+> **Documento técnico de referência** — Pharma Operations Platform / Enterprise Vendor Hub
 > Autor: AI Engineer (persona sênior RAG/LLM/MLOps) · Data: 2026-08-04 · Versão: 0.1 (rascunho para validação da equipe)
 >
 > Escopo: assistente de IA que interpreta solicitações sobre licitações farmacêuticas/engenharia clínica, busca projetos e equipamentos semelhantes no acervo histórico (editais, atas, resultados) e analisa novos editais contra o histórico validado, com rastreabilidade total das fontes.
@@ -164,7 +164,7 @@ create table licitacao_itens (
     licitacao_id    uuid not null references licitacoes(id) on delete cascade,
     numero_item     text,
     descricao       text not null,                 -- "Bomba de infusão volumétrica..."
-    categoria       text,                          -- taxonomia interna Solufarma
+    categoria       text,                          -- taxonomia interna Pharma Operations Platform
     quantidade      numeric,
     unidade         text,
     valor_unitario_estimado numeric(15,2),
@@ -314,7 +314,7 @@ Cada etapa é um script determinístico em `tools/` (framework WAT), idempotente
 4. **Extração de metadados estruturados via LLM** (`tools/extract_metadata.py`)
    - Prompt com JSON Schema estrito (structured outputs) para popular `licitacoes` e `licitacao_itens`: órgão, número do edital, modalidade, datas, objeto, lista de itens/equipamentos com quantidades e valores, vencedores e resultado por item (quando o doc for ata/resultado).
    - Regra de reconciliação: documentos diferentes da mesma licitação (edital + ata) fazem *upsert* na mesma linha de `licitacoes` (chave candidata: órgão + número do edital + ano).
-   - **Resultado ganho/perdido** frequentemente não está no documento — prever importação de planilha interna da Solufarma como fonte complementar (`tools/import_resultados_planilha.py`).
+    - **Resultado ganho/perdido** frequentemente não está no documento — prever importação de planilha interna da Pharma Operations Platform como fonte complementar (`tools/import_resultados_planilha.py`).
 
 5. **Sumarização** (`tools/summarize_document.py`)
    - Resumo de 150–300 palavras por documento (Haiku; Sonnet p/ editais grandes), salvo em `documentos.resumo`. Usado nos cards da UI e como "chunk sintético" indexado (ajuda em perguntas amplas do tipo "já participamos de licitação de tomógrafo?").
@@ -387,7 +387,7 @@ Grafo (estados): `interpretar_pergunta → decidir_fluxo → [buscar/analisar �
 Compatível com o framework WAT já adotado no repositório (`workflows/`, `tools/`):
 
 ```
-Solufarma_2/
+pharma-operations-engine/
 ├── CLAUDE.md
 ├── docs/
 │   └── ARQUITETURA.md            # este documento
@@ -406,7 +406,7 @@ Solufarma_2/
 │   ├── run_ingestion_pipeline.py
 │   └── import_resultados_planilha.py
 ├── src/
-│   └── solufarma_rag/             # pacote Python do backend
+│   └── pharma_rag/                # pacote Python do backend
 │       ├── __init__.py
 │       ├── config.py              # carrega .env (pydantic-settings)
 │       ├── db/
@@ -448,7 +448,7 @@ Solufarma_2/
 └── README.md
 ```
 
-Princípio: `tools/*.py` são CLIs finos que importam a lógica de `src/solufarma_rag/` — o agente Claude Code executa tools, humanos e a UI importam o pacote.
+Princípio: `tools/*.py` são CLIs finos que importam a lógica de `src/pharma_rag/` — o agente Claude Code executa tools, humanos e a UI importam o pacote.
 
 ---
 
@@ -459,12 +459,12 @@ Princípio: `tools/*.py` são CLIs finos que importam a lógica de `src/solufarm
 | 1 | **OCR ruim em escaneados antigos** (atas dos anos 2010, carimbos, baixa resolução) | Metadados errados → respostas erradas | Cascata PyMuPDF → Claude Vision; score de qualidade por documento (densidade de texto, confiança da extração); fila de revisão humana p/ docs abaixo do corte; nunca marcar como `indexado` sem passar na validação de schema |
 | 2 | **Alucinação / falta de rastreabilidade** | Perda de confiança do cliente — risco existencial p/ o produto | Contrato de citação obrigatória no prompt; instrução explícita de "não encontrei no acervo"; Citations nativas da API no fluxo B; golden set de ~30 perguntas com resposta conhecida rodado a cada mudança de prompt (semanas 10–12); botão de feedback logado |
 | 3 | **Limites do Supabase free tier** (500 MB banco, 1 GB storage, projeto pausa após 7 dias inativo) | Acervo não cabe; demo "morta" na apresentação | Orçar o **plano Pro (US$ 25/mês)** desde já — PDFs sozinhos estouram 1 GB rápido; alternativa: manter PDFs em storage externo barato e só metadados/vetores no Supabase; monitorar tamanho da tabela `doc_chunks` (1024 dims ≈ 4 KB/chunk) |
-| 4 | **Custo de API estourar** | Orçamento da consultoria | Batch API (−50%) na ingestão; Haiku p/ tarefas bulk; prompt caching no agente; `agent_query_log.custo_estimado_usd` + painel simples de custo; alertas de billing nos consoles Anthropic/OpenAI |
+| 4 | **Custo de API estourar** | Orçamento de operação | Batch API (−50%) na ingestão; Haiku p/ tarefas bulk; prompt caching no agente; `agent_query_log.custo_estimado_usd` + painel simples de custo; alertas de billing nos consoles Anthropic/OpenAI |
 | 5 | **Extração de metadados inconsistente** (formatos de edital variam por órgão/portal) | Filtros estruturados falham | Structured outputs com JSON Schema estrito; campo `confianca` por extração; amostragem manual de 10% na semana 3–4; `metadata jsonb` absorve o que não couber no schema |
-| 6 | **Resultado ganho/perdido ausente nos documentos** | O maior valor do produto (histórico de vitórias) fica incompleto | Levantar com a Solufarma a planilha/ERP interno de resultados já na semana 1; `tools/import_resultados_planilha.py` como fonte primária desse campo |
+| 6 | **Resultado ganho/perdido ausente nos documentos** | O maior valor do produto (histórico de vitórias) fica incompleto | Levantar na Pharma Operations Platform a planilha/ERP interno de resultados já na semana 1; `tools/import_resultados_planilha.py` como fonte primária desse campo |
 | 7 | **Latência da consulta** (busca + rerank + geração) | UX ruim no chat | Streaming de resposta no Streamlit; rerank com Haiku (rápido); HNSW bem indexado; meta: primeiro token < 5 s |
 | 8 | **Lock-in / mudança de modelo de embedding** | Reindexação total ao trocar modelo | Coluna `embedding_model` por chunk; texto dos chunks preservado no banco → reembeddar é um script, não uma re-ingestão |
-| 9 | **Handoff (semanas 13–14)** | Cliente não consegue operar sozinho | Workflows WAT documentados desde o início; `docs/` com runbook de ingestão; painel de acervo no Streamlit mostrando documentos com erro |
+| 9 | **Handoff (semanas 13–14)** | Operação autônoma | Workflows WAT documentados desde o início; `docs/` com runbook de ingestão; painel de acervo mostrando documentos com erro |
 
 ---
 
@@ -494,7 +494,7 @@ Premissas: acervo inicial de **~1.000 documentos / ~50.000 páginas** (ajustar q
 | Embeddings de queries | desprezível | — | < US$ 1 |
 | **Total mensal** | | | **~US$ 40–70/mês** (~R$ 220–400) |
 
-### Resumo de orçamento a comunicar ao cliente
+### Resumo de orçamento
 
 - **Setup (one-off):** US$ 150–300 de API + Supabase Pro US$ 25/mês.
 - **Operação:** ~US$ 65–100/mês tudo incluído (APIs + Supabase Pro), com folga.
@@ -505,7 +505,7 @@ Premissas: acervo inicial de **~1.000 documentos / ~50.000 páginas** (ajustar q
 ## Próximos passos imediatos (Semana 1–2)
 
 1. Medir o acervo real (nº de docs, % escaneados, tamanho médio) e recalibrar a seção 8.
-2. Confirmar com a Solufarma a fonte do campo `resultado` (planilha/ERP) — risco nº 6.
+2. Confirmar na Pharma Operations Platform a fonte do campo `resultado` (planilha/ERP) — risco nº 6.
 3. Provisionar Supabase (avaliar Pro), aplicar `migrations/001_init.sql` (DDL da seção 3).
 4. Implementar `tools/ingest_document.py` + `extract_text.py` e validar a cascata de extração com 20 documentos reais (incluindo os piores escaneados).
-5. Definir o golden set inicial de 15–30 perguntas com o cliente (base da validação das semanas 10–12).
+5. Definir o golden set inicial de 15–30 perguntas (base da validação das semanas 10–12).

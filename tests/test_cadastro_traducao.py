@@ -6,17 +6,17 @@ from datetime import date
 
 import pytest
 
-from solufarma_rag.db.models import Chunk
-from solufarma_rag.ingestion.cadastro import cadastrar_documento, gravar_itens_planilha
-from solufarma_rag.ingestion.traducao import traduzir_chunk, traduzir_chunks
+from pharma_rag.db.models import Chunk
+from pharma_rag.ingestion.cadastro import cadastrar_documento, gravar_itens_planilha
+from pharma_rag.ingestion.traducao import traduzir_chunk, traduzir_chunks
 from tests.falsos import ConexaoFalsa
 
 ARGS_CADASTRO = {
     "storage_path": "abc/doc.pdf",
     "hash_sha256": "f" * 64,
-    "titulo": "Câmara Fria (CAT SJC-01975)",
+    "titulo": "Câmara Fria (CAT SJC-10001)",
     "tipo": "atestado",
-    "orgao": "INSTITUTO BUTANTAN",
+    "orgao": "INSTITUTO BIOPHARMA",
     "num_paginas": 3,
     "ocr_aplicado": False,
     "metodo_extracao": "nativo",
@@ -34,7 +34,7 @@ def test_cadastro_novo_cria_licitacao_e_documento():
     assert (documento_id, ja_existia) == ("doc-1", False)
     ((_, params),) = conn.sql("insert into documentos")
     assert params == (
-        "lic-1", "atestado", "Câmara Fria (CAT SJC-01975)", "abc/doc.pdf", "f" * 64,
+        "lic-1", "atestado", "Câmara Fria (CAT SJC-10001)", "abc/doc.pdf", "f" * 64,
         3, False, "nativo",
     )
     assert conn.commits == 1
@@ -55,7 +55,7 @@ def test_cadastro_existente_atualiza_titulo_e_metodo_sem_mexer_no_orgao():
 
     assert (documento_id, ja_existia) == ("doc-velho", True)
     (sql, params), = conn.sql("update documentos")
-    assert params == ("Câmara Fria (CAT SJC-01975)", False, "nativo", "doc-velho")
+    assert params == ("Câmara Fria (CAT SJC-10001)", False, "nativo", "doc-velho")
     assert "licitacao" not in sql and "orgao" not in sql
     assert not conn.sql("insert")
     assert conn.commits == 1
@@ -119,7 +119,7 @@ BRUTO = {
 META = {
     "documento_id": "doc-1",
     "tipo_documento": "atestado",
-    "orgao": "SENAI",
+    "orgao": "Instituto BioPharma",
     "data": date(2020, 1, 2),
 }
 
@@ -132,7 +132,7 @@ def test_traduz_campo_a_campo():
     assert c.conteudo == BRUTO["texto"]  # COM cabeçalho: é o que vai ao embedding
     assert c.content_hash == Chunk.calcular_hash(BRUTO["texto"])
     assert c.token_count == 100
-    assert (c.documento_id, c.orgao, c.data) == ("doc-1", "SENAI", date(2020, 1, 2))
+    assert (c.documento_id, c.orgao, c.data) == ("doc-1", "Instituto BioPharma", date(2020, 1, 2))
 
 
 def test_sem_id_usa_posicao_e_pagina_zero_vira_um():
